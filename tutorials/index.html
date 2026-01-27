@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 Game Dev Tutorials | 100 Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #4ecdc4;
+        }
+        .subtitle { color: #a0a0a0; font-size: 1.1rem; }
+        .back-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #4ecdc4;
+            text-decoration: none;
+        }
+        .back-link:hover { text-decoration: underline; }
+        
+        .tutorials {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .tutorial-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        .tutorial-card:hover {
+            border-color: #4ecdc4;
+            background: rgba(78, 205, 196, 0.1);
+        }
+        .tutorial-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .tutorial-emoji { font-size: 3rem; }
+        .tutorial-title { font-size: 1.5rem; }
+        .tutorial-desc { color: #a0a0a0; margin-top: 5px; }
+        
+        .steps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .step {
+            background: rgba(78, 205, 196, 0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .step:hover {
+            background: #4ecdc4;
+            color: #1a1a2e;
+        }
+        .step-num {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        
+        .concepts {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .concept {
+            background: rgba(255,255,255,0.1);
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Game Dev Tutorials</h1>
+        <p class="subtitle">Learn by building — step-by-step, concept-by-concept</p>
+        <a href="../" class="back-link">← Back to Arcade</a>
+    </header>
+    
+    <div class="tutorials">
+        <div class="tutorial-card">
+            <div class="tutorial-header">
+                <span class="tutorial-emoji">🐍</span>
+                <div>
+                    <h2 class="tutorial-title">Snake</h2>
+                    <p class="tutorial-desc">The classic game, built in 8 progressive steps</p>
+                </div>
+            </div>
+            <div class="concepts">
+                <span class="concept">Game Loop</span>
+                <span class="concept">Grid Movement</span>
+                <span class="concept">Collision Detection</span>
+                <span class="concept">Growing Arrays</span>
+                <span class="concept">Self-Collision</span>
+            </div>
+            <div class="steps">
+                <a href="snake-tutorial/step1.html" class="step"><span class="step-num">1</span> Canvas Setup</a>
+                <a href="snake-tutorial/step2.html" class="step"><span class="step-num">2</span> Draw Snake</a>
+                <a href="snake-tutorial/step3.html" class="step"><span class="step-num">3</span> Movement</a>
+                <a href="snake-tutorial/step4.html" class="step"><span class="step-num">4</span> Keyboard Input</a>
+                <a href="snake-tutorial/step5.html" class="step"><span class="step-num">5</span> Food & Eating</a>
+                <a href="snake-tutorial/step6.html" class="step"><span class="step-num">6</span> Growing</a>
+                <a href="snake-tutorial/step7.html" class="step"><span class="step-num">7</span> Collision</a>
+                <a href="snake-tutorial/step8.html" class="step"><span class="step-num">8</span> Polish</a>
+            </div>
+        </div>
+        
+        <div class="tutorial-card">
+            <div class="tutorial-header">
+                <span class="tutorial-emoji">🧱</span>
+                <div>
+                    <h2 class="tutorial-title">Breakout</h2>
+                    <p class="tutorial-desc">Paddle, ball, and bricks — classic arcade physics</p>
+                </div>
+            </div>
+            <div class="concepts">
+                <span class="concept">Ball Physics</span>
+                <span class="concept">Paddle Control</span>
+                <span class="concept">Brick Grid</span>
+                <span class="concept">Angle Reflection</span>
+                <span class="concept">Scoring</span>
+            </div>
+            <div class="steps">
+                <a href="breakout-tutorial/step1.html" class="step"><span class="step-num">1</span> Paddle</a>
+                <a href="breakout-tutorial/step2.html" class="step"><span class="step-num">2</span> Ball Movement</a>
+                <a href="breakout-tutorial/step3.html" class="step"><span class="step-num">3</span> Wall Bounce</a>
+                <a href="breakout-tutorial/step4.html" class="step"><span class="step-num">4</span> Paddle Collision</a>
+                <a href="breakout-tutorial/step5.html" class="step"><span class="step-num">5</span> Bricks</a>
+                <a href="breakout-tutorial/step6.html" class="step"><span class="step-num">6</span> Complete Game</a>
+            </div>
+        </div>
+        
+        <div class="tutorial-card">
+            <div class="tutorial-header">
+                <span class="tutorial-emoji">🏓</span>
+                <div>
+                    <h2 class="tutorial-title">Pong</h2>
+                    <p class="tutorial-desc">Two-player classic with AI opponent</p>
+                </div>
+            </div>
+            <div class="concepts">
+                <span class="concept">Two-Player Input</span>
+                <span class="concept">AI Paddle</span>
+                <span class="concept">Score Tracking</span>
+                <span class="concept">Serve System</span>
+            </div>
+            <div class="steps">
+                <a href="pong-tutorial/TUTORIAL.md" class="step">📖 Read Tutorial</a>
+            </div>
+        </div>
+        
+        <div class="tutorial-card">
+            <div class="tutorial-header">
+                <span class="tutorial-emoji">👾</span>
+                <div>
+                    <h2 class="tutorial-title">Space Invaders</h2>
+                    <p class="tutorial-desc">Alien formations, shooting, and waves</p>
+                </div>
+            </div>
+            <div class="concepts">
+                <span class="concept">Grid Formations</span>
+                <span class="concept">Projectiles</span>
+                <span class="concept">Wave System</span>
+                <span class="concept">Enemy AI</span>
+            </div>
+            <div class="steps">
+                <a href="space-invaders-tutorial/TUTORIAL.md" class="step">📖 Read Tutorial</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
