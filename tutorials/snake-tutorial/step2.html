@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - Step 2: Drawing the Snake</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <script>
+        // ============================================================
+        // STEP 2: DRAWING THE SNAKE PROPERLY
+        // ============================================================
+        // In Step 1, we just hardcoded rectangles. That's not flexible!
+        // Now we'll represent the snake as DATA (an array), then DRAW
+        // that data. This separation of data and rendering is crucial.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // GAME CONSTANTS
+        // ============================================================
+        // Constants are values that don't change during the game.
+        // Using named constants makes code readable and easy to modify.
+        
+        const GRID_SIZE = 20;    // Each grid cell is 20x20 pixels
+        // Why a grid? Snake moves in steps, not smoothly. This makes
+        // collision detection simple - we compare grid positions, not pixels.
+        
+        // Calculate how many cells fit in our canvas
+        const GRID_WIDTH = canvas.width / GRID_SIZE;     // 400/20 = 20 cells
+        const GRID_HEIGHT = canvas.height / GRID_SIZE;   // 400/20 = 20 cells
+        
+        console.log(`Grid is ${GRID_WIDTH} x ${GRID_HEIGHT} cells`);
+        
+        // ============================================================
+        // THE SNAKE DATA STRUCTURE
+        // ============================================================
+        // The snake is an ARRAY of segments. Each segment is an object
+        // with x and y properties (grid positions, not pixels).
+        //
+        // The HEAD is at index 0 (the front of the array).
+        // The TAIL is at the last index (the back of the array).
+        //
+        // Why an array? It's easy to:
+        // - Add a new head (when moving)
+        // - Remove the tail (when moving)
+        // - Add segments (when eating food)
+        
+        const snake = [
+            { x: 10, y: 10 },    // Head - in the middle of the grid
+            { x: 9, y: 10 },     // Body segment 1 (to the left of head)
+            { x: 8, y: 10 },     // Body segment 2
+            { x: 7, y: 10 },     // Tail
+        ];
+        
+        // Let's log the snake to see its structure
+        console.log('Snake data:', snake);
+        console.log('Head position:', snake[0]);
+        console.log('Snake length:', snake.length);
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        // Good practice: separate drawing logic into functions.
+        // This makes code reusable and easier to understand.
+        
+        /**
+         * Clears the entire canvas.
+         * We need to do this before each frame to avoid "smearing".
+         */
+        function clearCanvas() {
+            // clearRect(x, y, width, height) erases a rectangular area
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        /**
+         * Draws a single grid cell at the given grid position.
+         * @param {number} gridX - X position in grid coordinates (not pixels)
+         * @param {number} gridY - Y position in grid coordinates (not pixels)
+         * @param {string} color - Fill color for the cell
+         */
+        function drawCell(gridX, gridY, color) {
+            // Convert grid position to pixel position
+            const pixelX = gridX * GRID_SIZE;
+            const pixelY = gridY * GRID_SIZE;
+            
+            // Draw the filled rectangle
+            ctx.fillStyle = color;
+            ctx.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+            
+            // Add a border to make cells visible
+            // This creates the "segmented" look of classic snake
+            ctx.strokeStyle = '#16213e';    // Same as background
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+        }
+        
+        /**
+         * Draws the entire snake by iterating through its segments.
+         */
+        function drawSnake() {
+            // Loop through each segment of the snake
+            snake.forEach((segment, index) => {
+                // Make the head a different color so it stands out
+                if (index === 0) {
+                    // This is the head (index 0)
+                    drawCell(segment.x, segment.y, '#4ecca3');  // Bright teal
+                } else {
+                    // This is a body segment
+                    drawCell(segment.x, segment.y, '#3aa389');  // Darker teal
+                }
+            });
+        }
+        
+        /**
+         * Main draw function - clears and redraws everything.
+         * Even though we're not animating yet, this structure prepares
+         * us for the game loop in the next step.
+         */
+        function draw() {
+            clearCanvas();
+            drawSnake();
+        }
+        
+        // ============================================================
+        // INITIAL DRAW
+        // ============================================================
+        // Call draw() once to show the snake on screen
+        draw();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. The snake is an ARRAY of {x, y} objects
+        // 2. Grid coordinates are different from pixel coordinates
+        // 3. We separate DATA (the snake array) from RENDERING (drawSnake)
+        // 4. The head is at index 0, tail at the end
+        // 5. Using a grid makes the game logic much simpler
+        //
+        // NEXT STEP: We'll make the snake MOVE using a game loop!
+        // ============================================================
+        
+        console.log('Step 2 Complete! The snake is now data-driven.');
+    </script>
+</body>
+</html>

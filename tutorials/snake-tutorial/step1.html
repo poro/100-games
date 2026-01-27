@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - Step 1: Canvas Setup</title>
+    <style>
+        /* 
+         * STEP 1: CANVAS SETUP
+         * ====================
+         * Before we can draw anything, we need a "canvas" - think of it
+         * like a painter's canvas, but digital. The HTML5 <canvas> element
+         * gives us a surface we can draw on with JavaScript.
+         */
+
+        /* Center everything on the page */
+        body {
+            display: flex;                    /* Flexbox makes centering easy */
+            justify-content: center;          /* Center horizontally */
+            align-items: center;              /* Center vertically */
+            min-height: 100vh;                /* Full viewport height */
+            margin: 0;                        /* Remove default margin */
+            background-color: #1a1a2e;        /* Dark background */
+            font-family: Arial, sans-serif;
+        }
+
+        /* Style the canvas itself */
+        canvas {
+            background-color: #16213e;        /* Slightly different dark blue */
+            border: 4px solid #e94560;        /* Red border to see canvas edges */
+            border-radius: 8px;               /* Rounded corners */
+        }
+    </style>
+</head>
+<body>
+    <!-- 
+        THE CANVAS ELEMENT
+        ==================
+        This is where our game will be drawn. The width and height 
+        attributes set the INTERNAL resolution (how many pixels we can draw).
+        This is different from CSS width/height which sets display size.
+        
+        We use id="gameCanvas" so JavaScript can find this element.
+    -->
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <script>
+        // ============================================================
+        // STEP 1: GETTING THE CANVAS CONTEXT
+        // ============================================================
+        // The canvas itself is just a container. To draw on it, we need
+        // a "context" - this is the toolbox that gives us drawing methods.
+        
+        // First, we find the canvas element in our HTML using its ID
+        const canvas = document.getElementById('gameCanvas');
+        
+        // Now we get the 2D drawing context
+        // "2d" gives us methods like fillRect(), strokeRect(), etc.
+        // (There's also "webgl" for 3D, but we don't need that)
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // LET'S PROVE IT WORKS - DRAW SOMETHING!
+        // ============================================================
+        // We'll draw a simple rectangle where our snake will eventually be
+        
+        // Set the fill color (this is like dipping a brush in paint)
+        ctx.fillStyle = '#4ecca3';    // A nice teal/green color
+        
+        // Draw a filled rectangle: fillRect(x, y, width, height)
+        // x, y is the top-left corner position
+        // In canvas, (0,0) is the TOP-LEFT, not bottom-left!
+        ctx.fillRect(100, 100, 20, 20);
+        
+        // Let's draw a few more to show a "snake" shape
+        ctx.fillRect(120, 100, 20, 20);    // One to the right
+        ctx.fillRect(140, 100, 20, 20);    // Another to the right
+        ctx.fillRect(160, 100, 20, 20);    // Snake body continues
+        
+        // ============================================================
+        // UNDERSTANDING THE COORDINATE SYSTEM
+        // ============================================================
+        // Canvas coordinates work like this:
+        //
+        //   (0,0) ────────────────────► X increases (width)
+        //     │
+        //     │
+        //     │
+        //     │
+        //     ▼
+        //   Y increases (height)
+        //
+        // So (100, 100) means: 100 pixels from left, 100 pixels from top
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. The <canvas> element is our drawing surface
+        // 2. We need getContext('2d') to get drawing tools
+        // 3. fillStyle sets the color
+        // 4. fillRect(x, y, width, height) draws a filled rectangle
+        // 5. Coordinates start at top-left (0,0)
+        //
+        // NEXT STEP: We'll organize this into a proper snake structure
+        // ============================================================
+        
+        console.log('Step 1 Complete! Canvas is set up and we can draw on it.');
+        console.log('Canvas size:', canvas.width, 'x', canvas.height, 'pixels');
+    </script>
+</body>
+</html>

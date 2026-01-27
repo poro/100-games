@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - Step 4: Keyboard Controls</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <div class="instructions">
+        Use Arrow Keys or WASD to control the snake
+    </div>
+
+    <script>
+        // ============================================================
+        // STEP 4: KEYBOARD CONTROLS
+        // ============================================================
+        // Now we'll let the player control the snake's direction!
+        // We use "event listeners" to detect when keys are pressed.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // GAME CONSTANTS
+        // ============================================================
+        const GRID_SIZE = 20;
+        const GRID_WIDTH = canvas.width / GRID_SIZE;
+        const GRID_HEIGHT = canvas.height / GRID_SIZE;
+        const GAME_SPEED = 150;
+        
+        // ============================================================
+        // GAME STATE
+        // ============================================================
+        let snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 },
+            { x: 7, y: 10 },
+        ];
+        
+        let direction = { x: 1, y: 0 };
+        
+        // NEW: We need to track the NEXT direction separately
+        // Why? Because if the player presses keys faster than the game
+        // updates, they could accidentally reverse into themselves.
+        // We queue the next direction and apply it on the next update.
+        let nextDirection = { x: 1, y: 0 };
+        
+        // ============================================================
+        // NEW: KEYBOARD INPUT HANDLING
+        // ============================================================
+        // We listen for 'keydown' events on the document.
+        // When any key is pressed, our function is called with an event
+        // object that tells us which key was pressed.
+        
+        /**
+         * Handle keyboard input.
+         * @param {KeyboardEvent} event - The keyboard event
+         */
+        function handleKeyPress(event) {
+            // event.key tells us which key was pressed as a string
+            // Arrow keys: 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'
+            // WASD: 'w', 'a', 's', 'd'
+            
+            // Log the key for debugging (you can see this in browser console)
+            console.log('Key pressed:', event.key);
+            
+            // Determine the new direction based on the key pressed
+            switch (event.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    // Move UP: y decreases (remember, y=0 is at the top!)
+                    // IMPORTANT: We can't reverse! If moving down, can't go up.
+                    // We check the CURRENT direction, not nextDirection.
+                    if (direction.y !== 1) {  // Not currently moving DOWN
+                        nextDirection = { x: 0, y: -1 };
+                    }
+                    break;
+                    
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    // Move DOWN: y increases
+                    if (direction.y !== -1) {  // Not currently moving UP
+                        nextDirection = { x: 0, y: 1 };
+                    }
+                    break;
+                    
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    // Move LEFT: x decreases
+                    if (direction.x !== 1) {  // Not currently moving RIGHT
+                        nextDirection = { x: -1, y: 0 };
+                    }
+                    break;
+                    
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    // Move RIGHT: x increases
+                    if (direction.x !== -1) {  // Not currently moving LEFT
+                        nextDirection = { x: 1, y: 0 };
+                    }
+                    break;
+            }
+            
+            // Prevent arrow keys from scrolling the page
+            // This is important for playability!
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                event.preventDefault();
+            }
+        }
+        
+        // Register the event listener
+        // 'keydown' fires when a key is pressed down
+        // The second argument is the function to call
+        document.addEventListener('keydown', handleKeyPress);
+        
+        // ============================================================
+        // DRAWING FUNCTIONS (Same as before)
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawCell(gridX, gridY, color) {
+            const pixelX = gridX * GRID_SIZE;
+            const pixelY = gridY * GRID_SIZE;
+            ctx.fillStyle = color;
+            ctx.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+            ctx.strokeStyle = '#16213e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+        }
+        
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                const color = index === 0 ? '#4ecca3' : '#3aa389';
+                drawCell(segment.x, segment.y, color);
+            });
+        }
+        
+        // ============================================================
+        // UPDATE FUNCTIONS
+        // ============================================================
+        
+        function moveSnake() {
+            const head = snake[0];
+            const newHead = {
+                x: head.x + direction.x,
+                y: head.y + direction.y
+            };
+            snake.unshift(newHead);
+            snake.pop();
+        }
+        
+        function update() {
+            // Apply the queued direction change
+            // This is where nextDirection becomes the actual direction
+            direction = nextDirection;
+            
+            moveSnake();
+        }
+        
+        function draw() {
+            clearCanvas();
+            drawSnake();
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        
+        function gameLoop() {
+            update();
+            draw();
+        }
+        
+        // ============================================================
+        // START THE GAME
+        // ============================================================
+        draw();
+        const gameInterval = setInterval(gameLoop, GAME_SPEED);
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. document.addEventListener('keydown', func) listens for keys
+        // 2. event.key tells us which key was pressed
+        // 3. switch/case is great for handling multiple key options
+        // 4. We prevent reversing by checking current direction
+        // 5. We use nextDirection to queue input between game ticks
+        // 6. event.preventDefault() stops default browser behavior
+        //
+        // NEXT STEP: Add food that makes the snake grow!
+        // ============================================================
+        
+        console.log('Step 4 Complete! Use arrow keys or WASD to control the snake.');
+        console.log('The snake still goes through walls - we\'ll fix that soon!');
+    </script>
+</body>
+</html>

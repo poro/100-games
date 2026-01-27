@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>028 - Flappy Bird Clone</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(to bottom, #4dc9e6, #87ceeb);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            touch-action: manipulation;
+        }
+        canvas {
+            display: block;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            font-size: 48px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+        #message h2 { font-size: 32px; margin-bottom: 10px; }
+        #message p { font-size: 18px; opacity: 0.9; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="game" width="400" height="600"></canvas>
+        <div id="ui">0</div>
+        <div id="message">
+            <h2>Flappy Bird</h2>
+            <p>Tap or press Space to fly</p>
+        </div>
+    </div>
+
+    <script>
+        // ===========================================
+        // GAME CONFIGURATION
+        // These numbers define the "feel" of the game
+        // Tweak these to change difficulty/responsiveness
+        // ===========================================
+        const CONFIG = {
+            // Bird physics
+            GRAVITY: 0.4,           // Downward acceleration per frame
+            FLAP_FORCE: -7.5,       // Upward velocity on tap (negative = up)
+            MAX_FALL_SPEED: 10,     // Terminal velocity (prevents infinite acceleration)
+            
+            // Pipe settings  
+            PIPE_WIDTH: 60,
+            GAP_HEIGHT: 140,        // Space between top and bottom pipe
+            PIPE_SPEED: 2.5,        // Horizontal movement speed
+            PIPE_SPAWN_INTERVAL: 100, // Frames between pipe spawns
+            
+            // Difficulty scaling
+            SPEED_INCREASE: 0.001,  // Speed multiplier increase per frame
+            MIN_GAP: 120,           // Minimum gap height at max difficulty
+            
+            // Visual
+            BIRD_RADIUS: 15,        // Visual size
+            HITBOX_RADIUS: 12,      // Collision size (smaller = more forgiving)
+        };
+
+        // ===========================================
+        // GAME STATE
+        // All mutable game data lives here
+        // ===========================================
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const ui = document.getElementById('ui');
+        const messageEl = document.getElementById('message');
+
+        let gameState = 'waiting'; // 'waiting' | 'playing' | 'dead'
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('flappyHigh')) || 0;
+        let speedMultiplier = 1;
+        let frameCount = 0;
+
+        // Bird object - position, velocity, rotation
+        const bird = {
+            x: 100,
+            y: canvas.height / 2,
+            vy: 0,          // Vertical velocity
+            rotation: 0     // Visual rotation (radians)
+        };
+
+        // Array of pipe obstacles
+        let pipes = [];
+
+        // Particle system for death effect
+        let particles = [];
+
+        // ===========================================
+        // INPUT HANDLING
+        // Multiple input methods for accessibility
+        // ===========================================
+        function flap() {
+            if (gameState === 'waiting') {
+                // Start game on first tap
+                gameState = 'playing';
+                messageEl.classList.add('hidden');
+            }
+            
+            if (gameState === 'playing') {
+                // Apply upward velocity
+                bird.vy = CONFIG.FLAP_FORCE;
+            }
+            
+            if (gameState === 'dead') {
+                // Restart after death
+                resetGame();
+            }
+        }
+
+        // Touch/click input
+        canvas.addEventListener('click', flap);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            flap();
+        });
+
+        // Keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                flap();
+            }
+        });
+
+        // ===========================================
+        // PIPE MANAGEMENT
+        // Procedural obstacle generation
+        // ===========================================
+        function spawnPipe() {
+            // Calculate gap position
+            // Keep gap away from edges (50px padding)
+            const minY = 50;
+            const maxY = canvas.height - CONFIG.GAP_HEIGHT - 50;
+            const gapY = Math.random() * (maxY - minY) + minY;
+            
+            pipes.push({
+                x: canvas.width,
+                gapY: gapY,
+                scored: false  // Flag to prevent double-counting
+            });
+        }
+
+        function updatePipes() {
+            // Move pipes left
+            const speed = CONFIG.PIPE_SPEED * speedMultiplier;
+            
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
+                pipe.x -= speed;
+                
+                // Check for scoring (bird passed pipe center)
+                if (!pipe.scored && bird.x > pipe.x + CONFIG.PIPE_WIDTH / 2) {
+                    pipe.scored = true;
+                    score++;
+                    ui.textContent = score;
+                }
+                
+                // Remove off-screen pipes
+                if (pipe.x + CONFIG.PIPE_WIDTH < 0) {
+                    pipes.splice(i, 1);
+                }
+            }
+            
+            // Spawn new pipes at interval
+            if (frameCount % CONFIG.PIPE_SPAWN_INTERVAL === 0) {
+                spawnPipe();
+            }
+        }
+
+        // ===========================================
+        // COLLISION DETECTION
+        // Circle (bird) vs Rectangle (pipes)
+        // ===========================================
+        function checkCollisions() {
+            // Ground and ceiling collision
+            if (bird.y + CONFIG.HITBOX_RADIUS > canvas.height - 50 || 
+                bird.y - CONFIG.HITBOX_RADIUS < 0) {
+                return true;
+            }
+            
+            // Pipe collision
+            for (const pipe of pipes) {
+                // Is bird horizontally overlapping pipe?
+                if (bird.x + CONFIG.HITBOX_RADIUS > pipe.x && 
+                    bird.x - CONFIG.HITBOX_RADIUS < pipe.x + CONFIG.PIPE_WIDTH) {
+                    
+                    // Is bird outside the gap?
+                    if (bird.y - CONFIG.HITBOX_RADIUS < pipe.gapY || 
+                        bird.y + CONFIG.HITBOX_RADIUS > pipe.gapY + CONFIG.GAP_HEIGHT) {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+
+        // ===========================================
+        // PARTICLE SYSTEM
+        // Simple explosion effect on death
+        // ===========================================
+        function createDeathParticles() {
+            for (let i = 0; i < 20; i++) {
+                const angle = (Math.PI * 2 / 20) * i;
+                const speed = 2 + Math.random() * 3;
+                particles.push({
+                    x: bird.x,
+                    y: bird.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1,
+                    color: `hsl(${45 + Math.random() * 20}, 100%, 50%)`
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.1; // Gravity on particles
+                p.life -= 0.02;
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // ===========================================
+        // GAME LOOP
+        // Update physics, check collisions, render
+        // ===========================================
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            frameCount++;
+            
+            // Increase difficulty over time
+            speedMultiplier += CONFIG.SPEED_INCREASE;
+            
+            // Bird physics
+            bird.vy += CONFIG.GRAVITY;
+            bird.vy = Math.min(bird.vy, CONFIG.MAX_FALL_SPEED);
+            bird.y += bird.vy;
+            
+            // Rotate bird based on velocity (visual feedback)
+            // Falling = nose down, rising = nose up
+            bird.rotation = Math.max(-0.5, Math.min(Math.PI / 4, bird.vy * 0.1));
+            
+            // Update pipes
+            updatePipes();
+            
+            // Check for death
+            if (checkCollisions()) {
+                gameState = 'dead';
+                createDeathParticles();
+                
+                // Update high score
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('flappyHigh', highScore);
+                }
+                
+                // Show death message
+                messageEl.innerHTML = `
+                    <h2>Game Over!</h2>
+                    <p>Score: ${score} | Best: ${highScore}</p>
+                    <p style="margin-top: 10px; font-size: 14px;">Tap to restart</p>
+                `;
+                messageEl.classList.remove('hidden');
+            }
+        }
+
+        // ===========================================
+        // RENDERING
+        // Draw all game elements
+        // ===========================================
+        function render() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw sky gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw ground
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+            ctx.fillStyle = '#228B22';
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 10);
+            
+            // Draw pipes
+            for (const pipe of pipes) {
+                // Pipe gradient for 3D effect
+                const pipeGradient = ctx.createLinearGradient(
+                    pipe.x, 0, pipe.x + CONFIG.PIPE_WIDTH, 0
+                );
+                pipeGradient.addColorStop(0, '#2ECC71');
+                pipeGradient.addColorStop(0.5, '#27AE60');
+                pipeGradient.addColorStop(1, '#1E8449');
+                
+                ctx.fillStyle = pipeGradient;
+                
+                // Top pipe
+                ctx.fillRect(pipe.x, 0, CONFIG.PIPE_WIDTH, pipe.gapY);
+                // Pipe cap (top)
+                ctx.fillRect(pipe.x - 5, pipe.gapY - 20, CONFIG.PIPE_WIDTH + 10, 20);
+                
+                // Bottom pipe
+                const bottomY = pipe.gapY + CONFIG.GAP_HEIGHT;
+                ctx.fillRect(pipe.x, bottomY, CONFIG.PIPE_WIDTH, canvas.height - bottomY - 50);
+                // Pipe cap (bottom)
+                ctx.fillRect(pipe.x - 5, bottomY, CONFIG.PIPE_WIDTH + 10, 20);
+            }
+            
+            // Draw bird
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            ctx.rotate(bird.rotation);
+            
+            // Bird body (yellow circle)
+            ctx.fillStyle = '#F1C40F';
+            ctx.beginPath();
+            ctx.arc(0, 0, CONFIG.BIRD_RADIUS, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird eye
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(5, -3, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(7, -3, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Bird beak
+            ctx.fillStyle = '#E74C3C';
+            ctx.beginPath();
+            ctx.moveTo(CONFIG.BIRD_RADIUS, 0);
+            ctx.lineTo(CONFIG.BIRD_RADIUS + 10, 3);
+            ctx.lineTo(CONFIG.BIRD_RADIUS, 6);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Bird wing
+            ctx.fillStyle = '#F39C12';
+            ctx.beginPath();
+            ctx.ellipse(-5, 5, 8, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // Draw particles
+            for (const p of particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // ===========================================
+        // GAME RESET
+        // Return to initial state
+        // ===========================================
+        function resetGame() {
+            bird.x = 100;
+            bird.y = canvas.height / 2;
+            bird.vy = 0;
+            bird.rotation = 0;
+            pipes = [];
+            particles = [];
+            score = 0;
+            speedMultiplier = 1;
+            frameCount = 0;
+            ui.textContent = '0';
+            gameState = 'waiting';
+            messageEl.innerHTML = `
+                <h2>Flappy Bird</h2>
+                <p>Tap or press Space to fly</p>
+            `;
+        }
+
+        // ===========================================
+        // MAIN LOOP
+        // 60fps game loop using requestAnimationFrame
+        // ===========================================
+        function gameLoop() {
+            update();
+            updateParticles();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game
+        gameLoop();
+    </script>
+</body>
+</html>

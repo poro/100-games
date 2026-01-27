@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 100 Games Arcade</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 3px solid #e94560;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #e94560, 0 0 40px #e94560;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #e94560, 0 0 40px #e94560; }
+            to { text-shadow: 0 0 30px #ff6b6b, 0 0 60px #ff6b6b, 0 0 80px #ff6b6b; }
+        }
+        
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.2rem;
+        }
+        
+        .progress-bar {
+            max-width: 400px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            height: 30px;
+            position: relative;
+        }
+        
+        .progress-fill {
+            width: 31%;
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: width 0.5s ease;
+        }
+        
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .game-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: #e94560;
+            background: rgba(233, 69, 96, 0.1);
+            box-shadow: 0 10px 40px rgba(233, 69, 96, 0.3);
+        }
+        
+        .game-number {
+            font-size: 0.8rem;
+            color: #e94560;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .game-title {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+        }
+        
+        .game-emoji {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        .game-category {
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #a0a0a0;
+        }
+        
+        .category-filter {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 20px;
+        }
+        
+        .filter-btn {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: #e94560;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .games-grid { padding: 20px; gap: 15px; }
+            .game-card { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎮 100 Games Arcade</h1>
+        <p class="subtitle">Browser games, pure JavaScript, zero dependencies</p>
+        <div class="progress-bar">
+            <div class="progress-fill">31 / 100</div>
+        </div>
+    </header>
+    
+    <div class="category-filter">
+        <button class="filter-btn active" data-category="all">All Games</button>
+        <button class="filter-btn" data-category="clicker">🖱️ Clicker</button>
+        <button class="filter-btn" data-category="reflex">⚡ Reflex</button>
+        <button class="filter-btn" data-category="puzzle">🧩 Puzzle</button>
+        <button class="filter-btn" data-category="arcade">👾 Arcade</button>
+        <button class="filter-btn" data-category="physics">🎱 Physics</button>
+        <button class="filter-btn" data-category="shooter">🔫 Shooter</button>
+    </div>
+    
+    <div class="games-grid" id="gamesGrid">
+        <!-- Games populated by JS -->
+    </div>
+    
+    <footer>
+        Made with ❤️ and Claude • <span id="gameCount">27</span> games and counting!
+    </footer>
+
+    <script>
+        const games = [
+            { num: "001", name: "Click Counter", emoji: "👆", category: "clicker", folder: "001-click-counter" },
+            { num: "002", name: "Whack-a-Mole", emoji: "🐹", category: "reflex", folder: "002-whack-a-mole" },
+            { num: "003", name: "Balloon Pop", emoji: "🎈", category: "clicker", folder: "003-balloon-pop" },
+            { num: "004", name: "Color Match", emoji: "🎨", category: "puzzle", folder: "004-color-match" },
+            { num: "005", name: "Speed Clicker", emoji: "⏱️", category: "clicker", folder: "005-speed-clicker" },
+            { num: "006", name: "Target Practice", emoji: "🎯", category: "shooter", folder: "006-target-practice" },
+            { num: "007", name: "Simon Says", emoji: "🔴", category: "puzzle", folder: "007-simon-says" },
+            { num: "008", name: "Maze Walker", emoji: "🌀", category: "puzzle", folder: "008-maze-walker" },
+            { num: "009", name: "Coin Collector", emoji: "🪙", category: "arcade", folder: "009-coin-collector" },
+            { num: "010", name: "Dodge the Blocks", emoji: "🟥", category: "arcade", folder: "010-dodge-the-blocks" },
+            { num: "011", name: "Snake Classic", emoji: "🐍", category: "arcade", folder: "011-snake-classic" },
+            { num: "012", name: "Pac-Man Lite", emoji: "😮", category: "arcade", folder: "012-pacman-lite" },
+            { num: "013", name: "Ice Sliding Puzzle", emoji: "🧊", category: "puzzle", folder: "013-ice-sliding-puzzle" },
+            { num: "014", name: "Tank Patrol", emoji: "🪖", category: "shooter", folder: "014-tank-patrol" },
+            { num: "015", name: "Pong", emoji: "🏓", category: "arcade", folder: "015-pong" },
+            { num: "016", name: "Breakout", emoji: "🧱", category: "arcade", folder: "016-breakout" },
+            { num: "017", name: "Bouncing Balls", emoji: "⚽", category: "physics", folder: "017-bouncing-balls" },
+            { num: "018", name: "Air Hockey", emoji: "🏒", category: "physics", folder: "018-air-hockey" },
+            { num: "019", name: "Pinball Simple", emoji: "🎰", category: "physics", folder: "019-pinball-simple" },
+            { num: "020", name: "Pool Billiards", emoji: "🎱", category: "physics", folder: "020-pool-billiards" },
+            { num: "021", name: "Gravity Golf", emoji: "⛳", category: "physics", folder: "021-gravity-golf" },
+            { num: "022", name: "Space Invaders", emoji: "👾", category: "shooter", folder: "022-space-invaders" },
+            { num: "023", name: "Galaga Clone", emoji: "🚀", category: "shooter", folder: "023-galaga-clone" },
+            { num: "024", name: "Asteroid Shooter", emoji: "☄️", category: "shooter", folder: "024-asteroid-shooter" },
+            { num: "025", name: "Tower Defense Lite", emoji: "🏰", category: "shooter", folder: "025-tower-defense-lite" },
+            { num: "026", name: "Duck Hunt", emoji: "🦆", category: "shooter", folder: "026-duck-hunt" },
+            { num: "027", name: "Zombie Wave", emoji: "🧟", category: "shooter", folder: "027-zombie-wave" },
+            { num: "028", name: "Flappy Bird", emoji: "🐦", category: "arcade", folder: "028-flappy-bird" },
+            { num: "029", name: "Tetris", emoji: "🧱", category: "puzzle", folder: "029-tetris" },
+            { num: "030", name: "Memory Match", emoji: "🧠", category: "puzzle", folder: "030-memory-match" },
+            { num: "031", name: "2048", emoji: "🔢", category: "puzzle", folder: "031-2048" },
+        ];
+
+        function renderGames(filter = 'all') {
+            const grid = document.getElementById('gamesGrid');
+            const filtered = filter === 'all' ? games : games.filter(g => g.category === filter);
+            
+            grid.innerHTML = filtered.map(game => `
+                <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}">
+                    <span class="game-number">GAME ${game.num}</span>
+                    <span class="game-emoji">${game.emoji}</span>
+                    <h3 class="game-title">${game.name}</h3>
+                    <span class="game-category">${game.category}</span>
+                </a>
+            `).join('');
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderGames(btn.dataset.category);
+            });
+        });
+
+        renderGames();
+    </script>
+</body>
+</html>

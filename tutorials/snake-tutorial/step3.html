@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - Step 3: Movement (Game Loop)</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <script>
+        // ============================================================
+        // STEP 3: MAKING THE SNAKE MOVE (THE GAME LOOP)
+        // ============================================================
+        // A game isn't just a static image - it needs to UPDATE over time.
+        // We achieve this with a "game loop" - a function that runs
+        // repeatedly, updating and redrawing the game state.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // GAME CONSTANTS
+        // ============================================================
+        const GRID_SIZE = 20;
+        const GRID_WIDTH = canvas.width / GRID_SIZE;
+        const GRID_HEIGHT = canvas.height / GRID_SIZE;
+        
+        // NEW: Game speed - how often the game updates (in milliseconds)
+        // 150ms = about 6.67 updates per second (a good snake speed)
+        const GAME_SPEED = 150;
+        
+        // ============================================================
+        // GAME STATE (Variables that change during gameplay)
+        // ============================================================
+        
+        // The snake - starts in the middle, pointing right
+        let snake = [
+            { x: 10, y: 10 },
+            { x: 9, y: 10 },
+            { x: 8, y: 10 },
+            { x: 7, y: 10 },
+        ];
+        
+        // NEW: Direction the snake is moving
+        // We store this as a velocity: how much x and y change each step
+        // { x: 1, y: 0 } means moving RIGHT (x increases by 1 each step)
+        // { x: -1, y: 0 } means moving LEFT
+        // { x: 0, y: 1 } means moving DOWN (remember, y increases downward!)
+        // { x: 0, y: -1 } means moving UP
+        let direction = { x: 1, y: 0 };  // Start moving right
+        
+        // ============================================================
+        // DRAWING FUNCTIONS (Same as Step 2)
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawCell(gridX, gridY, color) {
+            const pixelX = gridX * GRID_SIZE;
+            const pixelY = gridY * GRID_SIZE;
+            ctx.fillStyle = color;
+            ctx.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+            ctx.strokeStyle = '#16213e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+        }
+        
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                const color = index === 0 ? '#4ecca3' : '#3aa389';
+                drawCell(segment.x, segment.y, color);
+            });
+        }
+        
+        // ============================================================
+        // NEW: UPDATE FUNCTION
+        // ============================================================
+        // This is the "brain" of the game. It updates the game state
+        // BEFORE we draw. The pattern is: Update → Draw → Repeat
+        
+        /**
+         * Moves the snake one step in the current direction.
+         * 
+         * HOW SNAKE MOVEMENT WORKS:
+         * ========================
+         * We DON'T move every segment individually. That would be complex!
+         * Instead, we:
+         * 1. Calculate where the new head should be
+         * 2. Add the new head to the FRONT of the array
+         * 3. Remove the TAIL from the END of the array
+         * 
+         * This creates the illusion of movement! The body "follows" the head
+         * because each segment takes the position of the one in front of it.
+         */
+        function moveSnake() {
+            // Step 1: Calculate the new head position
+            // We take the current head and add the direction to it
+            const head = snake[0];  // Current head position
+            const newHead = {
+                x: head.x + direction.x,  // Move in x direction
+                y: head.y + direction.y   // Move in y direction
+            };
+            
+            // Step 2: Add new head to the FRONT of the array
+            // unshift() adds an element to the beginning of an array
+            snake.unshift(newHead);
+            
+            // Step 3: Remove the TAIL from the END
+            // pop() removes and returns the last element
+            snake.pop();
+            
+            // That's it! The snake has "moved" one step.
+            // When we eat food later, we'll skip the pop() to grow.
+        }
+        
+        /**
+         * The update function - called every game tick.
+         * For now, it just moves the snake.
+         * Later we'll add collision detection, food eating, etc.
+         */
+        function update() {
+            moveSnake();
+        }
+        
+        // ============================================================
+        // THE GAME LOOP
+        // ============================================================
+        // This is the heart of any game. It runs repeatedly, creating
+        // the illusion of animation through rapid updates.
+        
+        /**
+         * The main game loop function.
+         * Called repeatedly by setInterval().
+         */
+        function gameLoop() {
+            update();    // First, update the game state
+            draw();      // Then, draw the new state
+        }
+        
+        /**
+         * Main draw function - clears and redraws everything.
+         */
+        function draw() {
+            clearCanvas();
+            drawSnake();
+        }
+        
+        // ============================================================
+        // START THE GAME
+        // ============================================================
+        // setInterval(function, milliseconds) calls a function repeatedly
+        // at the specified interval. This creates our game loop!
+        
+        // Initial draw so we see the snake immediately
+        draw();
+        
+        // Start the game loop
+        // The game will update every GAME_SPEED milliseconds (150ms)
+        const gameInterval = setInterval(gameLoop, GAME_SPEED);
+        
+        // NOTE: The snake will move off screen and disappear!
+        // That's expected - we haven't added boundary checking yet.
+        // It will keep moving right, off the edge of the canvas.
+        // We'll fix this in Step 6 when we add collision detection.
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. The game loop: Update → Draw → Repeat
+        // 2. setInterval() runs a function repeatedly
+        // 3. Direction is stored as velocity {x, y}
+        // 4. Snake moves by adding new head, removing old tail
+        // 5. unshift() adds to array start, pop() removes from end
+        //
+        // NEXT STEP: Keyboard controls so the player can steer!
+        // ============================================================
+        
+        console.log('Step 3 Complete! The snake is now moving.');
+        console.log('Watch it go off the right edge (we\'ll fix that later)');
+    </script>
+</body>
+</html>

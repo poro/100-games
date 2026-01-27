@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake - Step 7: Game Over & Restart</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        .game-container {
+            position: relative;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+            display: block;
+        }
+        .score {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .instructions {
+            margin-top: 20px;
+            text-align: center;
+            opacity: 0.7;
+        }
+        /* NEW: Overlay for game over screen */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .overlay h2 {
+            color: #e94560;
+            font-size: 36px;
+            margin: 0 0 10px 0;
+        }
+        .overlay p {
+            font-size: 20px;
+            margin: 5px 0;
+        }
+        .overlay button {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #4ecca3;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .overlay button:hover {
+            background-color: #5fd9b0;
+            transform: scale(1.05);
+        }
+        /* NEW: High score styling */
+        .high-score {
+            color: #f0a500;
+        }
+    </style>
+</head>
+<body>
+    <div class="score">
+        Score: <span id="scoreDisplay">0</span> | 
+        <span class="high-score">Best: <span id="highScoreDisplay">0</span></span>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        
+        <!-- NEW: Game Over Overlay (HTML instead of canvas drawing) -->
+        <div class="overlay" id="gameOverlay">
+            <h2>GAME OVER</h2>
+            <p>Score: <span id="finalScore">0</span></p>
+            <p id="newHighScore" style="color: #f0a500; display: none;">🏆 New High Score! 🏆</p>
+            <button id="restartBtn">Play Again</button>
+            <p style="font-size: 14px; opacity: 0.6; margin-top: 10px;">or press SPACE</p>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        Use Arrow Keys or WASD to control | SPACE to restart
+    </div>
+
+    <script>
+        // ============================================================
+        // STEP 7: GAME OVER & RESTART
+        // ============================================================
+        // A proper game needs:
+        // 1. A nice game over screen (we'll use HTML overlay instead of canvas)
+        // 2. Ability to restart the game
+        // 3. High score tracking (persisted in localStorage!)
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const gameOverlay = document.getElementById('gameOverlay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const newHighScoreEl = document.getElementById('newHighScore');
+        const restartBtn = document.getElementById('restartBtn');
+        
+        // ============================================================
+        // GAME CONSTANTS
+        // ============================================================
+        const GRID_SIZE = 20;
+        const GRID_WIDTH = canvas.width / GRID_SIZE;
+        const GRID_HEIGHT = canvas.height / GRID_SIZE;
+        const GAME_SPEED = 150;
+        
+        // ============================================================
+        // GAME STATE
+        // ============================================================
+        // We'll need to RESET these when restarting, so let's make
+        // a function that sets up initial state.
+        
+        let snake;
+        let direction;
+        let nextDirection;
+        let food;
+        let score;
+        let gameRunning;
+        let gameInterval;    // NEW: Store the interval so we can clear it
+        
+        // NEW: High score - loaded from localStorage
+        let highScore = loadHighScore();
+        
+        // ============================================================
+        // NEW: LOCAL STORAGE FOR HIGH SCORE
+        // ============================================================
+        // localStorage persists data even after the browser closes.
+        // It stores strings, so we need to parse numbers.
+        
+        /**
+         * Loads the high score from localStorage.
+         * Returns 0 if no high score exists yet.
+         */
+        function loadHighScore() {
+            const saved = localStorage.getItem('snakeHighScore');
+            // parseInt converts string to number, || 0 handles null/NaN
+            return parseInt(saved) || 0;
+        }
+        
+        /**
+         * Saves a new high score to localStorage.
+         */
+        function saveHighScore(newScore) {
+            localStorage.setItem('snakeHighScore', newScore.toString());
+            highScore = newScore;
+            highScoreDisplay.textContent = highScore;
+        }
+        
+        // Display the loaded high score
+        highScoreDisplay.textContent = highScore;
+        
+        // ============================================================
+        // NEW: GAME INITIALIZATION / RESET
+        // ============================================================
+        
+        /**
+         * Initializes or resets all game state.
+         * Called at the start and when restarting after game over.
+         */
+        function initGame() {
+            // Reset snake to starting position
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 },
+                { x: 7, y: 10 },
+            ];
+            
+            // Reset direction
+            direction = { x: 1, y: 0 };
+            nextDirection = { x: 1, y: 0 };
+            
+            // Reset score
+            score = 0;
+            scoreDisplay.textContent = score;
+            
+            // Game is now running
+            gameRunning = true;
+            
+            // Hide the game over overlay
+            gameOverlay.classList.remove('visible');
+            newHighScoreEl.style.display = 'none';
+            
+            // Spawn initial food
+            spawnFood();
+            
+            // Clear any existing interval and start a new one
+            if (gameInterval) {
+                clearInterval(gameInterval);
+            }
+            gameInterval = setInterval(gameLoop, GAME_SPEED);
+            
+            // Draw the initial frame
+            draw();
+            
+            console.log('Game initialized!');
+        }
+        
+        /**
+         * Called when the game ends.
+         * Shows the overlay and checks for high score.
+         */
+        function gameOver() {
+            gameRunning = false;
+            
+            // Stop the game loop
+            clearInterval(gameInterval);
+            
+            // Check for new high score
+            if (score > highScore) {
+                saveHighScore(score);
+                newHighScoreEl.style.display = 'block';
+                console.log('NEW HIGH SCORE:', score);
+            }
+            
+            // Update and show the overlay
+            finalScoreEl.textContent = score;
+            gameOverlay.classList.add('visible');
+            
+            console.log('Game Over! Score:', score);
+        }
+        
+        // ============================================================
+        // FOOD FUNCTIONS
+        // ============================================================
+        
+        function spawnFood() {
+            let newFood;
+            let isOnSnake;
+            
+            do {
+                newFood = {
+                    x: Math.floor(Math.random() * GRID_WIDTH),
+                    y: Math.floor(Math.random() * GRID_HEIGHT)
+                };
+                isOnSnake = snake.some(segment => 
+                    segment.x === newFood.x && segment.y === newFood.y
+                );
+            } while (isOnSnake);
+            
+            food = newFood;
+        }
+        
+        function isEatingFood() {
+            const head = snake[0];
+            return head.x === food.x && head.y === food.y;
+        }
+        
+        function drawFood() {
+            const pixelX = food.x * GRID_SIZE;
+            const pixelY = food.y * GRID_SIZE;
+            
+            ctx.fillStyle = '#e94560';
+            ctx.beginPath();
+            ctx.arc(pixelX + GRID_SIZE / 2, pixelY + GRID_SIZE / 2, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#ff6b6b';
+            ctx.beginPath();
+            ctx.arc(pixelX + GRID_SIZE / 2 - 3, pixelY + GRID_SIZE / 2 - 3, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // ============================================================
+        // COLLISION DETECTION
+        // ============================================================
+        
+        function checkWallCollision() {
+            const head = snake[0];
+            return head.x < 0 || head.x >= GRID_WIDTH || 
+                   head.y < 0 || head.y >= GRID_HEIGHT;
+        }
+        
+        function checkSelfCollision() {
+            const head = snake[0];
+            return snake.slice(1).some(segment => 
+                segment.x === head.x && segment.y === head.y
+            );
+        }
+        
+        function checkCollisions() {
+            return checkWallCollision() || checkSelfCollision();
+        }
+        
+        // ============================================================
+        // KEYBOARD INPUT (Updated for restart)
+        // ============================================================
+        
+        function handleKeyPress(event) {
+            // NEW: Space or Enter to restart when game is over
+            if (!gameRunning && (event.key === ' ' || event.key === 'Enter')) {
+                initGame();
+                return;
+            }
+            
+            // Movement controls (only when game is running)
+            if (gameRunning) {
+                switch (event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        if (direction.y !== 1) nextDirection = { x: 0, y: -1 };
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        if (direction.y !== -1) nextDirection = { x: 0, y: 1 };
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        if (direction.x !== 1) nextDirection = { x: -1, y: 0 };
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        if (direction.x !== -1) nextDirection = { x: 1, y: 0 };
+                        break;
+                }
+            }
+            
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(event.key)) {
+                event.preventDefault();
+            }
+        }
+        
+        document.addEventListener('keydown', handleKeyPress);
+        
+        // NEW: Restart button click handler
+        restartBtn.addEventListener('click', () => {
+            initGame();
+        });
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawCell(gridX, gridY, color) {
+            const pixelX = gridX * GRID_SIZE;
+            const pixelY = gridY * GRID_SIZE;
+            ctx.fillStyle = color;
+            ctx.fillRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+            ctx.strokeStyle = '#16213e';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(pixelX, pixelY, GRID_SIZE, GRID_SIZE);
+        }
+        
+        function drawSnake() {
+            snake.forEach((segment, index) => {
+                const color = index === 0 ? '#4ecca3' : '#3aa389';
+                drawCell(segment.x, segment.y, color);
+            });
+        }
+        
+        // ============================================================
+        // UPDATE FUNCTIONS
+        // ============================================================
+        
+        function moveSnake() {
+            const head = snake[0];
+            const newHead = {
+                x: head.x + direction.x,
+                y: head.y + direction.y
+            };
+            
+            snake.unshift(newHead);
+            
+            if (isEatingFood()) {
+                score += 10;
+                scoreDisplay.textContent = score;
+                spawnFood();
+            } else {
+                snake.pop();
+            }
+        }
+        
+        function update() {
+            if (!gameRunning) return;
+            
+            direction = nextDirection;
+            moveSnake();
+            
+            if (checkCollisions()) {
+                gameOver();
+            }
+        }
+        
+        function draw() {
+            if (!gameRunning) return;
+            
+            clearCanvas();
+            drawFood();
+            drawSnake();
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        
+        function gameLoop() {
+            update();
+            draw();
+        }
+        
+        // ============================================================
+        // START THE GAME
+        // ============================================================
+        initGame();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Using HTML overlays for game UI (cleaner than canvas text)
+        // 2. localStorage.getItem/setItem for persisting data
+        // 3. Separating initialization into a reusable function
+        // 4. clearInterval() to stop the game loop
+        // 5. CSS transitions for smooth overlay appearance
+        // 6. Multiple event listeners (keyboard + button click)
+        // 7. The pointer-events CSS property for click-through
+        //
+        // NEXT STEP: Polish - speed increase, visual effects, and more!
+        // ============================================================
+        
+        console.log('Step 7 Complete! Full game loop with restart and high scores.');
+    </script>
+</body>
+</html>
