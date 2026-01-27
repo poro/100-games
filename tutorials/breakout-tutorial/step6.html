@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout - Step 6: Bricks</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        h1 { margin-bottom: 10px; color: #4ecca3; }
+        .instructions {
+            margin-top: 15px;
+            opacity: 0.7;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Breakout - Step 6: Bricks</h1>
+    <canvas id="gameCanvas" width="480" height="320"></canvas>
+    <div class="instructions">
+        Bricks are drawn! (Ball doesn't break them yet - next step)
+    </div>
+
+    <script>
+        // ============================================================
+        // STEP 6: ADDING BRICKS
+        // ============================================================
+        // Bricks are stored in a 2D array. Each brick has:
+        // - Position (x, y) - calculated from row/column
+        // - Status (1 = visible, 0 = broken)
+        // - Color (based on row)
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // BRICK CONFIGURATION
+        // ============================================================
+        // We define brick properties as constants for easy tweaking.
+        
+        const brickConfig = {
+            rows: 5,              // Number of rows
+            cols: 8,              // Number of columns
+            width: 50,            // Width of each brick
+            height: 15,           // Height of each brick
+            padding: 5,           // Space between bricks
+            offsetTop: 40,        // Distance from top of canvas
+            offsetLeft: 0,        // Will be calculated to center bricks
+            
+            // Colors for each row (from top to bottom)
+            colors: [
+                '#e94560',  // Red
+                '#ff6b35',  // Orange
+                '#f0a500',  // Yellow
+                '#4ecca3',  // Teal
+                '#00b8a9'   // Cyan
+            ]
+        };
+        
+        // Calculate left offset to center bricks horizontally
+        const totalBrickWidth = brickConfig.cols * (brickConfig.width + brickConfig.padding) - brickConfig.padding;
+        brickConfig.offsetLeft = (canvas.width - totalBrickWidth) / 2;
+        
+        // ============================================================
+        // BRICK DATA STRUCTURE
+        // ============================================================
+        // We use a 2D array: bricks[column][row]
+        // Each brick is an object with x, y, and status.
+        
+        /**
+         * Creates the brick array.
+         * This is a function so we can call it to reset the game.
+         */
+        function createBricks() {
+            const bricks = [];
+            
+            // Loop through columns
+            for (let col = 0; col < brickConfig.cols; col++) {
+                bricks[col] = [];  // Create array for this column
+                
+                // Loop through rows
+                for (let row = 0; row < brickConfig.rows; row++) {
+                    // Calculate brick position
+                    const x = brickConfig.offsetLeft + col * (brickConfig.width + brickConfig.padding);
+                    const y = brickConfig.offsetTop + row * (brickConfig.height + brickConfig.padding);
+                    
+                    // Create the brick object
+                    bricks[col][row] = {
+                        x: x,
+                        y: y,
+                        status: 1,  // 1 = visible, 0 = broken
+                        color: brickConfig.colors[row % brickConfig.colors.length]
+                    };
+                }
+            }
+            
+            return bricks;
+        }
+        
+        // Create the bricks
+        let bricks = createBricks();
+        
+        // ============================================================
+        // GAME OBJECTS (same as before)
+        // ============================================================
+        
+        const paddle = {
+            width: 80,
+            height: 12,
+            x: 0,
+            y: 0,
+            color: '#4ecca3',
+            speed: 8,
+            dx: 0
+        };
+        
+        paddle.x = (canvas.width - paddle.width) / 2;
+        paddle.y = canvas.height - paddle.height - 20;
+        
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            radius: 8,
+            dx: 3,
+            dy: -4,
+            speed: 5,
+            color: '#eee'
+        };
+        
+        // ============================================================
+        // GAME STATE
+        // ============================================================
+        let lives = 3;
+        let score = 0;
+        let gameRunning = true;
+        
+        // ============================================================
+        // INPUT HANDLING
+        // ============================================================
+        const keys = { left: false, right: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (['ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            paddle.x = e.clientX - rect.left - paddle.width / 2;
+            constrainPaddle();
+        });
+        
+        // ============================================================
+        // PADDLE FUNCTIONS
+        // ============================================================
+        
+        function constrainPaddle() {
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) {
+                paddle.x = canvas.width - paddle.width;
+            }
+        }
+        
+        function updatePaddle() {
+            if (keys.left) paddle.dx = -paddle.speed;
+            else if (keys.right) paddle.dx = paddle.speed;
+            else paddle.dx = 0;
+            
+            paddle.x += paddle.dx;
+            constrainPaddle();
+        }
+        
+        // ============================================================
+        // BALL FUNCTIONS
+        // ============================================================
+        
+        function checkPaddleCollision() {
+            const ballBottom = ball.y + ball.radius;
+            const paddleTop = paddle.y;
+            
+            if (ballBottom >= paddleTop && 
+                ballBottom <= paddleTop + paddle.height &&
+                ball.dy > 0) {
+                
+                if (ball.x >= paddle.x - ball.radius && 
+                    ball.x <= paddle.x + paddle.width + ball.radius) {
+                    
+                    ball.y = paddle.y - ball.radius;
+                    
+                    const hitPosition = (ball.x - paddle.x) / paddle.width;
+                    const hitOffset = (hitPosition - 0.5) * 2;
+                    
+                    ball.dx = hitOffset * 5;
+                    ball.dy = -Math.abs(ball.dy);
+                    
+                    const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                    const speedRatio = ball.speed / currentSpeed;
+                    ball.dx *= speedRatio;
+                    ball.dy *= speedRatio;
+                }
+            }
+        }
+        
+        function updateBall() {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // Wall collisions
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.dx = -ball.dx;
+            }
+            if (ball.x + ball.radius > canvas.width) {
+                ball.x = canvas.width - ball.radius;
+                ball.dx = -ball.dx;
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;
+            }
+            
+            checkPaddleCollision();
+            
+            if (ball.y + ball.radius > canvas.height) {
+                lives--;
+                if (lives > 0) {
+                    resetBall();
+                } else {
+                    gameRunning = false;
+                }
+            }
+        }
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height - 100;
+            ball.dx = (Math.random() > 0.5 ? 1 : -1) * 3;
+            ball.dy = -4;
+        }
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawPaddle() {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            
+            const radius = paddle.height / 2;
+            ctx.beginPath();
+            ctx.arc(paddle.x + radius, paddle.y + radius, radius, 0.5 * Math.PI, 1.5 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(paddle.x + paddle.width - radius, paddle.y + radius, radius, 1.5 * Math.PI, 0.5 * Math.PI);
+            ctx.fill();
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = ball.color;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        /**
+         * Draws all visible bricks.
+         * We loop through the 2D array and only draw bricks with status = 1.
+         */
+        function drawBricks() {
+            for (let col = 0; col < brickConfig.cols; col++) {
+                for (let row = 0; row < brickConfig.rows; row++) {
+                    const brick = bricks[col][row];
+                    
+                    // Only draw if brick is visible (not broken)
+                    if (brick.status === 1) {
+                        // Main brick body
+                        ctx.fillStyle = brick.color;
+                        ctx.fillRect(brick.x, brick.y, brickConfig.width, brickConfig.height);
+                        
+                        // Add a highlight (top edge)
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                        ctx.fillRect(brick.x, brick.y, brickConfig.width, 3);
+                        
+                        // Add a shadow (bottom edge)
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                        ctx.fillRect(brick.x, brick.y + brickConfig.height - 3, brickConfig.width, 3);
+                    }
+                }
+            }
+        }
+        
+        function drawUI() {
+            ctx.fillStyle = '#eee';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Lives: ${'❤️'.repeat(lives)}`, 10, 20);
+            ctx.fillText(`Score: ${score}`, canvas.width - 80, 20);
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        
+        function update() {
+            if (!gameRunning) return;
+            updatePaddle();
+            updateBall();
+        }
+        
+        function draw() {
+            clearCanvas();
+            drawBricks();   // Draw bricks first (behind everything)
+            drawPaddle();
+            drawBall();
+            drawUI();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+        }
+        
+        function animate() {
+            gameLoop();
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Bricks are stored in a 2D array: bricks[col][row]
+        // 2. Each brick has x, y, status, and color
+        // 3. status = 1 means visible, status = 0 means broken
+        // 4. We calculate brick positions from row/col indices
+        // 5. Centering bricks requires calculating total width first
+        // 6. Visual polish: highlights and shadows make bricks look 3D
+        //
+        // NEXT STEP: Make the ball break the bricks!
+        // ============================================================
+        
+        console.log('Step 6 Complete! Bricks are displayed.');
+        console.log(`Total bricks: ${brickConfig.rows * brickConfig.cols}`);
+    </script>
+</body>
+</html>
