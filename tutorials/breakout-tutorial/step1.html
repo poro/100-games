@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout - Step 1: Canvas Setup</title>
+    <style>
+        /* 
+         * STEP 1: CANVAS SETUP
+         * ====================
+         * Same as Snake - we need a canvas to draw on.
+         * Breakout uses a wider canvas since we need room for bricks.
+         */
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #4ecca3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Breakout - Step 1</h1>
+    
+    <!-- 
+        THE CANVAS
+        ==========
+        Breakout needs a taller canvas to fit:
+        - Bricks at the top
+        - Playing area in the middle
+        - Paddle at the bottom
+    -->
+    <canvas id="gameCanvas" width="480" height="320"></canvas>
+
+    <script>
+        // ============================================================
+        // STEP 1: CANVAS SETUP AND BASIC DRAWING
+        // ============================================================
+        // Before we build anything, let's set up our canvas and prove
+        // we can draw the basic shapes we'll need.
+        
+        // Get the canvas and its 2D drawing context
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // LET'S DRAW SOME PLACEHOLDER SHAPES
+        // ============================================================
+        // We'll draw rough versions of what our game will have:
+        // - A paddle at the bottom
+        // - A ball
+        // - Some bricks at the top
+        
+        // Draw a paddle (rectangle at the bottom)
+        ctx.fillStyle = '#4ecca3';  // Teal color
+        ctx.fillRect(
+            canvas.width / 2 - 40,  // X: centered (half width minus half paddle)
+            canvas.height - 30,     // Y: near bottom
+            80,                     // Width
+            10                      // Height
+        );
+        
+        // Draw a ball (circle)
+        ctx.fillStyle = '#eee';     // White
+        ctx.beginPath();
+        ctx.arc(
+            canvas.width / 2,       // X: centered
+            canvas.height - 50,     // Y: above the paddle
+            8,                      // Radius
+            0,                      // Start angle
+            Math.PI * 2             // End angle (full circle)
+        );
+        ctx.fill();
+        
+        // Draw some placeholder bricks (rectangles at the top)
+        const brickColors = ['#e94560', '#f0a500', '#4ecca3', '#00b8a9'];
+        const brickWidth = 60;
+        const brickHeight = 15;
+        const brickPadding = 5;
+        const bricksPerRow = 7;
+        const rows = 4;
+        
+        // Calculate starting X to center the bricks
+        const totalBrickWidth = bricksPerRow * (brickWidth + brickPadding) - brickPadding;
+        const startX = (canvas.width - totalBrickWidth) / 2;
+        
+        for (let row = 0; row < rows; row++) {
+            ctx.fillStyle = brickColors[row % brickColors.length];
+            
+            for (let col = 0; col < bricksPerRow; col++) {
+                const x = startX + col * (brickWidth + brickPadding);
+                const y = 30 + row * (brickHeight + brickPadding);
+                ctx.fillRect(x, y, brickWidth, brickHeight);
+            }
+        }
+        
+        // ============================================================
+        // UNDERSTANDING THE LAYOUT
+        // ============================================================
+        // 
+        // Canvas layout for Breakout:
+        //
+        //  ┌──────────────────────────────────────┐
+        //  │          BRICKS (top area)           │
+        //  │  [===] [===] [===] [===] [===] [===] │
+        //  │  [===] [===] [===] [===] [===] [===] │
+        //  │  [===] [===] [===] [===] [===] [===] │
+        //  │                                      │
+        //  │         PLAY AREA (middle)           │
+        //  │                ●                     │  ← Ball
+        //  │                                      │
+        //  │            [========]                │  ← Paddle
+        //  └──────────────────────────────────────┘
+        //
+        // ============================================================
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Canvas setup is the same for any game
+        // 2. Breakout needs: paddle (rect), ball (circle), bricks (rects)
+        // 3. We use arc() for circles and fillRect() for rectangles
+        // 4. Layout planning is important before coding!
+        //
+        // NEXT STEP: Make the paddle a proper object and draw it better
+        // ============================================================
+        
+        console.log('Step 1 Complete! Basic shapes drawn.');
+        console.log('Canvas size:', canvas.width, 'x', canvas.height);
+    </script>
+</body>
+</html>

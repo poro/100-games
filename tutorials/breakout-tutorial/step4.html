@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout - Step 4: The Ball</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        h1 { margin-bottom: 10px; color: #4ecca3; }
+        .instructions {
+            margin-top: 15px;
+            opacity: 0.7;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Breakout - Step 4: The Ball</h1>
+    <canvas id="gameCanvas" width="480" height="320"></canvas>
+    <div class="instructions">
+        The ball moves and bounces off walls!<br>
+        (It goes through the paddle for now - we'll fix that next)
+    </div>
+
+    <script>
+        // ============================================================
+        // STEP 4: THE BALL
+        // ============================================================
+        // Now we add the ball! It's a circle that moves each frame.
+        // The ball has:
+        // - Position (x, y) - the CENTER of the ball
+        // - Velocity (dx, dy) - how much it moves each frame
+        // - Radius - how big it is
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // PADDLE OBJECT (same as before)
+        // ============================================================
+        const paddle = {
+            width: 80,
+            height: 12,
+            x: 0,
+            y: 0,
+            color: '#4ecca3',
+            speed: 8,
+            dx: 0
+        };
+        
+        paddle.x = (canvas.width - paddle.width) / 2;
+        paddle.y = canvas.height - paddle.height - 20;
+        
+        // ============================================================
+        // THE BALL OBJECT
+        // ============================================================
+        // Unlike the paddle (rectangle), the ball position is its CENTER.
+        // This makes bouncing calculations easier.
+        
+        const ball = {
+            // Position (center of the ball)
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            
+            // Radius (size of the ball)
+            radius: 8,
+            
+            // Velocity (speed and direction)
+            // dx = change in x each frame
+            // dy = change in y each frame
+            // Positive dx = moving right, negative = left
+            // Positive dy = moving down, negative = up
+            dx: 4,      // Horizontal speed
+            dy: -4,     // Vertical speed (negative = going UP initially)
+            
+            // Visual
+            color: '#eee'
+        };
+        
+        // ============================================================
+        // UNDERSTANDING BALL VELOCITY
+        // ============================================================
+        // The ball's speed comes from its velocity vector (dx, dy).
+        // 
+        // Example: dx=4, dy=-4 means:
+        //   - Each frame, x increases by 4 (moving right)
+        //   - Each frame, y decreases by 4 (moving up)
+        //   - The ball moves diagonally up-right
+        //
+        // Speed = sqrt(dx² + dy²) = sqrt(16 + 16) ≈ 5.66 pixels per frame
+        //
+        // To bounce:
+        //   - Hit left/right wall: reverse dx (dx = -dx)
+        //   - Hit top/bottom: reverse dy (dy = -dy)
+        
+        // ============================================================
+        // INPUT HANDLING (same as before)
+        // ============================================================
+        const keys = { left: false, right: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (['ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            paddle.x = e.clientX - rect.left - paddle.width / 2;
+            constrainPaddle();
+        });
+        
+        // ============================================================
+        // PADDLE FUNCTIONS
+        // ============================================================
+        
+        function constrainPaddle() {
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) {
+                paddle.x = canvas.width - paddle.width;
+            }
+        }
+        
+        function updatePaddle() {
+            if (keys.left) paddle.dx = -paddle.speed;
+            else if (keys.right) paddle.dx = paddle.speed;
+            else paddle.dx = 0;
+            
+            paddle.x += paddle.dx;
+            constrainPaddle();
+        }
+        
+        // ============================================================
+        // BALL UPDATE FUNCTION
+        // ============================================================
+        
+        /**
+         * Updates the ball position and handles wall bouncing.
+         */
+        function updateBall() {
+            // Move the ball by its velocity
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // ============================================================
+            // WALL COLLISION DETECTION
+            // ============================================================
+            // We check if the ball has gone past any wall.
+            // Remember: ball.x and ball.y are the CENTER of the ball,
+            // so we need to account for the radius.
+            
+            // Left wall collision
+            // Ball's left edge = ball.x - ball.radius
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;  // Move back to valid position
+                ball.dx = -ball.dx;    // Reverse horizontal direction
+                console.log('Bounced off left wall');
+            }
+            
+            // Right wall collision
+            // Ball's right edge = ball.x + ball.radius
+            if (ball.x + ball.radius > canvas.width) {
+                ball.x = canvas.width - ball.radius;
+                ball.dx = -ball.dx;
+                console.log('Bounced off right wall');
+            }
+            
+            // Top wall collision
+            // Ball's top edge = ball.y - ball.radius
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;    // Reverse vertical direction
+                console.log('Bounced off top wall');
+            }
+            
+            // Bottom "wall" - for now, just bounce
+            // Later, this will be "game over" (ball fell past paddle)
+            if (ball.y + ball.radius > canvas.height) {
+                ball.y = canvas.height - ball.radius;
+                ball.dy = -ball.dy;
+                console.log('Bounced off bottom (will be game over later)');
+            }
+        }
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawPaddle() {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            
+            const radius = paddle.height / 2;
+            ctx.beginPath();
+            ctx.arc(paddle.x + radius, paddle.y + radius, radius, 0.5 * Math.PI, 1.5 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(paddle.x + paddle.width - radius, paddle.y + radius, radius, 1.5 * Math.PI, 0.5 * Math.PI);
+            ctx.fill();
+        }
+        
+        /**
+         * Draws the ball as a filled circle.
+         */
+        function drawBall() {
+            ctx.fillStyle = ball.color;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Add a subtle gradient for 3D effect
+            const gradient = ctx.createRadialGradient(
+                ball.x - 2, ball.y - 2, 0,  // Inner circle (highlight)
+                ball.x, ball.y, ball.radius  // Outer circle
+            );
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+            gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.2)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        
+        function update() {
+            updatePaddle();
+            updateBall();
+        }
+        
+        function draw() {
+            clearCanvas();
+            drawPaddle();
+            drawBall();
+            
+            // Debug info
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = '12px Arial';
+            ctx.fillText(`Ball: (${ball.x.toFixed(0)}, ${ball.y.toFixed(0)})`, 10, 20);
+            ctx.fillText(`Velocity: (${ball.dx}, ${ball.dy})`, 10, 35);
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+        }
+        
+        function animate() {
+            gameLoop();
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Ball position is its CENTER (unlike paddle's top-left)
+        // 2. Velocity (dx, dy) determines speed AND direction
+        // 3. To bounce off a wall, reverse the appropriate velocity
+        // 4. We need to account for radius in collision checks
+        // 5. Gradients can add nice 3D effects to circles
+        //
+        // NEXT STEP: Make the ball bounce off the paddle!
+        // ============================================================
+        
+        console.log('Step 4 Complete! The ball bounces off walls.');
+        console.log('Notice it goes through the paddle - we fix that next!');
+    </script>
+</body>
+</html>

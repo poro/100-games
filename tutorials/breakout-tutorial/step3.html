@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout - Step 3: Paddle Controls</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        h1 { margin-bottom: 10px; color: #4ecca3; }
+        .instructions {
+            margin-top: 15px;
+            opacity: 0.7;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Breakout - Step 3: Paddle Controls</h1>
+    <canvas id="gameCanvas" width="480" height="320"></canvas>
+    <div class="instructions">
+        Move: Arrow Keys / A-D / Mouse<br>
+        The paddle stays within the canvas bounds!
+    </div>
+
+    <script>
+        // ============================================================
+        // STEP 3: PADDLE CONTROLS
+        // ============================================================
+        // Now we make the paddle interactive! We'll support:
+        // - Keyboard (Arrow keys and A/D)
+        // - Mouse movement
+        // This gives players options for how they want to play.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // PADDLE OBJECT
+        // ============================================================
+        const paddle = {
+            width: 80,
+            height: 12,
+            x: 0,
+            y: 0,
+            color: '#4ecca3',
+            speed: 8,      // Pixels per frame for keyboard movement
+            dx: 0          // Current horizontal velocity
+        };
+        
+        paddle.x = (canvas.width - paddle.width) / 2;
+        paddle.y = canvas.height - paddle.height - 20;
+        
+        // ============================================================
+        // INPUT STATE
+        // ============================================================
+        // We track which keys are currently pressed.
+        // This allows for smooth, continuous movement.
+        
+        const keys = {
+            left: false,
+            right: false
+        };
+        
+        // ============================================================
+        // KEYBOARD INPUT HANDLERS
+        // ============================================================
+        // We use 'keydown' and 'keyup' events to track held keys.
+        // This is better than just 'keydown' because:
+        // - We know when the key is RELEASED
+        // - Movement is smooth (no key repeat delay)
+        
+        /**
+         * Handle key press - set the key state to true.
+         */
+        function handleKeyDown(event) {
+            switch (event.key) {
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    keys.left = true;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    keys.right = true;
+                    break;
+            }
+            
+            // Prevent arrow keys from scrolling the page
+            if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+                event.preventDefault();
+            }
+        }
+        
+        /**
+         * Handle key release - set the key state to false.
+         */
+        function handleKeyUp(event) {
+            switch (event.key) {
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    keys.left = false;
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    keys.right = false;
+                    break;
+            }
+        }
+        
+        // Register keyboard event listeners
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        
+        // ============================================================
+        // MOUSE INPUT HANDLER
+        // ============================================================
+        // The mouse provides instant, precise paddle positioning.
+        // We center the paddle on the mouse's X position.
+        
+        /**
+         * Handle mouse movement over the canvas.
+         * The paddle follows the mouse X position.
+         */
+        function handleMouseMove(event) {
+            // Get the mouse position relative to the canvas
+            // event.clientX is the mouse position in the browser window
+            // canvas.getBoundingClientRect() gives us the canvas position
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            
+            // Center the paddle on the mouse X
+            // Subtract half the paddle width so it's centered, not left-aligned
+            paddle.x = mouseX - paddle.width / 2;
+            
+            // Keep paddle within bounds (we'll handle this in update too)
+            constrainPaddle();
+        }
+        
+        // Register mouse event listener on the canvas
+        canvas.addEventListener('mousemove', handleMouseMove);
+        
+        // ============================================================
+        // TOUCH INPUT HANDLER (for mobile)
+        // ============================================================
+        
+        function handleTouchMove(event) {
+            // Prevent scrolling while touching the canvas
+            event.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const touch = event.touches[0];
+            const touchX = touch.clientX - rect.left;
+            
+            paddle.x = touchX - paddle.width / 2;
+            constrainPaddle();
+        }
+        
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        
+        // ============================================================
+        // PADDLE MOVEMENT AND CONSTRAINTS
+        // ============================================================
+        
+        /**
+         * Keeps the paddle within the canvas bounds.
+         * Called after any position change.
+         */
+        function constrainPaddle() {
+            // Left boundary: paddle.x can't be less than 0
+            if (paddle.x < 0) {
+                paddle.x = 0;
+            }
+            
+            // Right boundary: paddle's right edge can't exceed canvas width
+            // Right edge = paddle.x + paddle.width
+            if (paddle.x + paddle.width > canvas.width) {
+                paddle.x = canvas.width - paddle.width;
+            }
+        }
+        
+        /**
+         * Updates paddle position based on keyboard input.
+         * This is called every frame in the game loop.
+         */
+        function updatePaddle() {
+            // Determine velocity based on which keys are pressed
+            if (keys.left && !keys.right) {
+                paddle.dx = -paddle.speed;  // Move left
+            } else if (keys.right && !keys.left) {
+                paddle.dx = paddle.speed;   // Move right
+            } else {
+                paddle.dx = 0;              // No movement
+            }
+            
+            // Apply velocity to position
+            paddle.x += paddle.dx;
+            
+            // Keep within bounds
+            constrainPaddle();
+        }
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawPaddle() {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            
+            // Rounded ends
+            const radius = paddle.height / 2;
+            ctx.beginPath();
+            ctx.arc(paddle.x + radius, paddle.y + radius, radius, 0.5 * Math.PI, 1.5 * Math.PI);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(paddle.x + paddle.width - radius, paddle.y + radius, radius, 1.5 * Math.PI, 0.5 * Math.PI);
+            ctx.fill();
+            
+            // Highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(paddle.x + 5, paddle.y + 2, paddle.width - 10, 3);
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        // Even without a ball, we need a game loop to update
+        // the paddle position based on keyboard input.
+        
+        function update() {
+            updatePaddle();
+        }
+        
+        function draw() {
+            clearCanvas();
+            drawPaddle();
+            
+            // Draw position info for debugging
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.font = '12px Arial';
+            ctx.fillText(`Paddle X: ${paddle.x.toFixed(0)}`, 10, 20);
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+        }
+        
+        // Use requestAnimationFrame for smooth 60fps animation
+        // This is better than setInterval for visual updates
+        function animate() {
+            gameLoop();
+            requestAnimationFrame(animate);
+        }
+        
+        // Start the animation loop
+        animate();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Track key states with keydown/keyup for smooth movement
+        // 2. getBoundingClientRect() gets canvas position for mouse coords
+        // 3. Touch events work similarly to mouse for mobile support
+        // 4. Constraint functions keep objects within bounds
+        // 5. requestAnimationFrame is better than setInterval for visuals
+        // 6. Velocity (dx) makes movement code cleaner
+        //
+        // NEXT STEP: Add the ball!
+        // ============================================================
+        
+        console.log('Step 3 Complete! Move the paddle with keys or mouse.');
+    </script>
+</body>
+</html>

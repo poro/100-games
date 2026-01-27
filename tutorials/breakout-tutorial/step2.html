@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breakout - Step 2: The Paddle</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: Arial, sans-serif;
+            color: #eee;
+        }
+        canvas {
+            background-color: #16213e;
+            border: 4px solid #e94560;
+            border-radius: 8px;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #4ecca3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Breakout - Step 2: The Paddle</h1>
+    <canvas id="gameCanvas" width="480" height="320"></canvas>
+
+    <script>
+        // ============================================================
+        // STEP 2: THE PADDLE AS AN OBJECT
+        // ============================================================
+        // Instead of hardcoding values, we'll create a paddle OBJECT
+        // that stores all its properties. This makes it easy to:
+        // - Move the paddle
+        // - Check collisions
+        // - Change paddle properties (size, color, etc.)
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // THE PADDLE OBJECT
+        // ============================================================
+        // Objects group related data together. The paddle needs:
+        // - Position (x, y)
+        // - Size (width, height)
+        // - Color
+        // - Speed (for when we add movement)
+        
+        const paddle = {
+            // Width and height
+            width: 80,
+            height: 12,
+            
+            // Position - we'll calculate x to center it
+            // Note: x is the LEFT edge of the paddle
+            x: 0,  // Will be set below
+            y: 0,  // Will be set below
+            
+            // Visual properties
+            color: '#4ecca3',
+            
+            // Movement speed (pixels per frame)
+            speed: 7,
+            
+            // Velocity (for smooth movement)
+            dx: 0
+        };
+        
+        // Calculate starting position (centered horizontally, near bottom)
+        // We set these after creating the object because we need canvas dimensions
+        paddle.x = (canvas.width - paddle.width) / 2;
+        paddle.y = canvas.height - paddle.height - 20;  // 20px from bottom
+        
+        // ============================================================
+        // DRAWING THE PADDLE
+        // ============================================================
+        // We create a dedicated function to draw the paddle.
+        // This keeps our code organized and reusable.
+        
+        /**
+         * Draws the paddle on the canvas.
+         * Uses the paddle object's properties for position and appearance.
+         */
+        function drawPaddle() {
+            // Set the fill color
+            ctx.fillStyle = paddle.color;
+            
+            // Draw the main paddle body
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            
+            // Add some visual polish - rounded ends
+            // We'll draw circles at each end
+            const radius = paddle.height / 2;
+            
+            // Left rounded end
+            ctx.beginPath();
+            ctx.arc(
+                paddle.x + radius,              // X: left side + radius
+                paddle.y + radius,              // Y: vertically centered
+                radius,                         // Radius
+                0.5 * Math.PI,                  // Start: bottom
+                1.5 * Math.PI                   // End: top (left half circle)
+            );
+            ctx.fill();
+            
+            // Right rounded end
+            ctx.beginPath();
+            ctx.arc(
+                paddle.x + paddle.width - radius,  // X: right side - radius
+                paddle.y + radius,                 // Y: vertically centered
+                radius,                            // Radius
+                1.5 * Math.PI,                     // Start: top
+                0.5 * Math.PI                      // End: bottom (right half circle)
+            );
+            ctx.fill();
+            
+            // Add a highlight line for 3D effect
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(paddle.x + 5, paddle.y + 2, paddle.width - 10, 3);
+        }
+        
+        /**
+         * Clears the canvas.
+         */
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        /**
+         * Main draw function.
+         */
+        function draw() {
+            clearCanvas();
+            drawPaddle();
+        }
+        
+        // ============================================================
+        // INITIAL DRAW
+        // ============================================================
+        draw();
+        
+        // ============================================================
+        // LET'S VISUALIZE THE PADDLE PROPERTIES
+        // ============================================================
+        // Draw some helper text to understand the paddle's position
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.font = '12px Arial';
+        ctx.fillText(`Paddle X: ${paddle.x.toFixed(0)}`, 10, 20);
+        ctx.fillText(`Paddle Y: ${paddle.y.toFixed(0)}`, 10, 35);
+        ctx.fillText(`Width: ${paddle.width}, Height: ${paddle.height}`, 10, 50);
+        
+        // Draw a dot at the paddle's x,y position (top-left corner)
+        ctx.fillStyle = '#e94560';
+        ctx.beginPath();
+        ctx.arc(paddle.x, paddle.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'white';
+        ctx.fillText('(x, y)', paddle.x + 10, paddle.y - 5);
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Objects store related data together (paddle.x, paddle.width, etc.)
+        // 2. Separating drawing into functions keeps code clean
+        // 3. The x,y position is the TOP-LEFT corner of the paddle
+        // 4. We can add visual polish like rounded ends and highlights
+        // 5. The paddle's position is calculated relative to canvas size
+        //
+        // NEXT STEP: Add keyboard and mouse controls to move the paddle!
+        // ============================================================
+        
+        console.log('Step 2 Complete! Paddle object created.');
+        console.log('Paddle:', paddle);
+    </script>
+</body>
+</html>
