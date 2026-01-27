@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Ice Sliding Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(100, 200, 255, 0.5);
+            color: #a8dadc;
+        }
+
+        .game-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: clamp(0.9rem, 3vw, 1.1rem);
+        }
+
+        .game-info span {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
+        }
+
+        .game-container {
+            position: relative;
+            touch-action: none;
+        }
+
+        #gameCanvas {
+            border-radius: 10px;
+            box-shadow: 
+                0 0 30px rgba(100, 200, 255, 0.3),
+                inset 0 0 50px rgba(255, 255, 255, 0.05);
+            background: linear-gradient(145deg, #2a4a6a 0%, #1a3a5a 100%);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: linear-gradient(145deg, #4a90a8, #2a6a88);
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(100, 200, 255, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: clamp(0.75rem, 2vw, 0.9rem);
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .level-complete {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .level-complete.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .level-complete h2 {
+            font-size: clamp(2rem, 8vw, 3.5rem);
+            color: #64dfdf;
+            text-shadow: 0 0 30px rgba(100, 223, 223, 0.8);
+            margin-bottom: 20px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        .level-complete p {
+            font-size: clamp(1rem, 4vw, 1.5rem);
+            margin-bottom: 30px;
+            color: #a8dadc;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .arrow-keys {
+            display: none;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(2, 50px);
+            gap: 5px;
+            margin-top: 15px;
+        }
+
+        @media (pointer: coarse) {
+            .arrow-keys {
+                display: grid;
+            }
+        }
+
+        .arrow-btn {
+            width: 50px;
+            height: 50px;
+            font-size: 1.5rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .arrow-btn.up { grid-column: 2; }
+        .arrow-btn.left { grid-column: 1; grid-row: 2; }
+        .arrow-btn.down { grid-column: 2; grid-row: 2; }
+        .arrow-btn.right { grid-column: 3; grid-row: 2; }
+
+        .snowflake {
+            position: fixed;
+            color: rgba(255, 255, 255, 0.6);
+            pointer-events: none;
+            animation: fall linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>❄️ Ice Sliding Puzzle</h1>
+    
+    <div class="game-info">
+        <span>Level: <strong id="levelDisplay">1</strong>/5</span>
+        <span>Moves: <strong id="moveDisplay">0</strong></span>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <button id="restartBtn">🔄 Restart</button>
+        <button id="prevBtn" disabled>◀ Prev</button>
+        <button id="nextBtn" disabled>Next ▶</button>
+    </div>
+
+    <div class="arrow-keys">
+        <button class="arrow-btn up" data-dir="up">↑</button>
+        <button class="arrow-btn left" data-dir="left">←</button>
+        <button class="arrow-btn down" data-dir="down">↓</button>
+        <button class="arrow-btn right" data-dir="right">→</button>
+    </div>
+
+    <p class="instructions">
+        🎮 Arrow keys or swipe to slide<br>
+        🎯 Reach the green goal!
+    </p>
+
+    <div class="level-complete" id="levelComplete">
+        <h2>🎉 Level Complete!</h2>
+        <p id="completeMessage">Great job!</p>
+        <button id="nextLevelBtn">Next Level ▶</button>
+    </div>
+
+    <script>
+        // Game constants
+        const CELL_TYPES = {
+            EMPTY: 0,
+            WALL: 1,
+            PLAYER: 2,
+            GOAL: 3,
+            ROCK: 4
+        };
+
+        const COLORS = {
+            empty: '#1a3a5a',
+            wall: '#0a1a2a',
+            player: '#64dfdf',
+            playerGlow: 'rgba(100, 223, 223, 0.4)',
+            goal: '#52b788',
+            goalGlow: 'rgba(82, 183, 136, 0.4)',
+            rock: '#5a4a3a',
+            rockHighlight: '#7a6a5a',
+            ice: '#2a5a7a',
+            iceShine: 'rgba(255, 255, 255, 0.1)',
+            grid: 'rgba(255, 255, 255, 0.05)'
+        };
+
+        // Levels (0 = empty/ice, 1 = wall, 2 = player start, 3 = goal, 4 = rock/obstacle)
+        const levels = [
+            // Level 1: Simple introduction
+            {
+                grid: [
+                    [1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 4, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 3, 1],
+                    [1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 2: L-shape path
+            {
+                grid: [
+                    [1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 1, 1, 1, 1, 0, 1],
+                    [1, 0, 1, 0, 0, 0, 0, 1],
+                    [1, 0, 1, 0, 4, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 3, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 3: Rock navigation
+            {
+                grid: [
+                    [1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 4, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 4, 0, 0, 4, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 0, 1],
+                    [1, 0, 0, 4, 0, 0, 3, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 4: Maze with rocks
+            {
+                grid: [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 0, 1, 0, 0, 1],
+                    [1, 0, 1, 4, 0, 1, 0, 0, 1],
+                    [1, 0, 0, 0, 0, 0, 0, 4, 1],
+                    [1, 1, 0, 1, 1, 1, 0, 0, 1],
+                    [1, 0, 0, 0, 4, 0, 0, 0, 1],
+                    [1, 0, 4, 0, 0, 0, 1, 3, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 5: Complex puzzle
+            {
+                grid: [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 0, 0, 0, 1, 0, 0, 0, 1],
+                    [1, 0, 4, 0, 0, 0, 0, 4, 0, 1],
+                    [1, 0, 0, 1, 0, 4, 0, 0, 0, 1],
+                    [1, 1, 0, 0, 0, 1, 1, 0, 0, 1],
+                    [1, 0, 0, 4, 0, 0, 0, 0, 4, 1],
+                    [1, 0, 1, 0, 0, 4, 0, 1, 0, 1],
+                    [1, 0, 0, 0, 1, 0, 0, 0, 3, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            }
+        ];
+
+        // Game state
+        let currentLevel = 0;
+        let grid = [];
+        let playerPos = { x: 0, y: 0 };
+        let goalPos = { x: 0, y: 0 };
+        let moves = 0;
+        let isMoving = false;
+        let unlockedLevels = 1;
+
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let cellSize = 50;
+
+        // DOM elements
+        const levelDisplay = document.getElementById('levelDisplay');
+        const moveDisplay = document.getElementById('moveDisplay');
+        const levelComplete = document.getElementById('levelComplete');
+        const completeMessage = document.getElementById('completeMessage');
+        const restartBtn = document.getElementById('restartBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const nextLevelBtn = document.getElementById('nextLevelBtn');
+        const gameContainer = document.getElementById('gameContainer');
+
+        // Initialize game
+        function init() {
+            loadLevel(currentLevel);
+            createSnowflakes();
+            setupEventListeners();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        function resizeCanvas() {
+            const maxWidth = Math.min(window.innerWidth - 40, 500);
+            const maxHeight = Math.min(window.innerHeight - 300, 500);
+            const cols = grid[0]?.length || 7;
+            const rows = grid.length || 6;
+            
+            cellSize = Math.min(
+                Math.floor(maxWidth / cols),
+                Math.floor(maxHeight / rows),
+                60
+            );
+            
+            canvas.width = cols * cellSize;
+            canvas.height = rows * cellSize;
+            
+            draw();
+        }
+
+        function loadLevel(levelIndex) {
+            const level = levels[levelIndex];
+            grid = level.grid.map(row => [...row]);
+            
+            // Find player and goal positions
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[y].length; x++) {
+                    if (grid[y][x] === CELL_TYPES.PLAYER) {
+                        playerPos = { x, y };
+                        grid[y][x] = CELL_TYPES.EMPTY;
+                    } else if (grid[y][x] === CELL_TYPES.GOAL) {
+                        goalPos = { x, y };
+                    }
+                }
+            }
+            
+            moves = 0;
+            updateUI();
+            resizeCanvas();
+        }
+
+        function updateUI() {
+            levelDisplay.textContent = currentLevel + 1;
+            moveDisplay.textContent = moves;
+            prevBtn.disabled = currentLevel === 0;
+            nextBtn.disabled = currentLevel >= unlockedLevels - 1 || currentLevel >= levels.length - 1;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid
+            for (let y = 0; y < grid.length; y++) {
+                for (let x = 0; x < grid[y].length; x++) {
+                    drawCell(x, y, grid[y][x]);
+                }
+            }
+            
+            // Draw goal with glow
+            drawGoal(goalPos.x, goalPos.y);
+            
+            // Draw player with glow
+            drawPlayer(playerPos.x, playerPos.y);
+        }
+
+        function drawCell(x, y, type) {
+            const px = x * cellSize;
+            const py = y * cellSize;
+            
+            switch (type) {
+                case CELL_TYPES.EMPTY:
+                case CELL_TYPES.GOAL:
+                    // Ice floor
+                    ctx.fillStyle = COLORS.ice;
+                    ctx.fillRect(px, py, cellSize, cellSize);
+                    
+                    // Ice shine
+                    ctx.fillStyle = COLORS.iceShine;
+                    ctx.beginPath();
+                    ctx.moveTo(px + cellSize * 0.2, py + cellSize * 0.1);
+                    ctx.lineTo(px + cellSize * 0.4, py + cellSize * 0.1);
+                    ctx.lineTo(px + cellSize * 0.2, py + cellSize * 0.3);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Grid lines
+                    ctx.strokeStyle = COLORS.grid;
+                    ctx.strokeRect(px, py, cellSize, cellSize);
+                    break;
+                    
+                case CELL_TYPES.WALL:
+                    // Wall with 3D effect
+                    const gradient = ctx.createLinearGradient(px, py, px + cellSize, py + cellSize);
+                    gradient.addColorStop(0, '#1a2a3a');
+                    gradient.addColorStop(1, '#0a1520');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(px, py, cellSize, cellSize);
+                    
+                    // Wall highlight
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                    ctx.fillRect(px, py, cellSize, 3);
+                    ctx.fillRect(px, py, 3, cellSize);
+                    
+                    // Wall shadow
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.fillRect(px + cellSize - 3, py, 3, cellSize);
+                    ctx.fillRect(px, py + cellSize - 3, cellSize, 3);
+                    break;
+                    
+                case CELL_TYPES.ROCK:
+                    // Ice floor underneath
+                    ctx.fillStyle = COLORS.ice;
+                    ctx.fillRect(px, py, cellSize, cellSize);
+                    ctx.strokeStyle = COLORS.grid;
+                    ctx.strokeRect(px, py, cellSize, cellSize);
+                    
+                    // Rock
+                    const rockGradient = ctx.createRadialGradient(
+                        px + cellSize * 0.4, py + cellSize * 0.4, 0,
+                        px + cellSize * 0.5, py + cellSize * 0.5, cellSize * 0.4
+                    );
+                    rockGradient.addColorStop(0, COLORS.rockHighlight);
+                    rockGradient.addColorStop(1, COLORS.rock);
+                    
+                    ctx.fillStyle = rockGradient;
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        px + cellSize / 2, py + cellSize / 2,
+                        cellSize * 0.35, cellSize * 0.3,
+                        0, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                    
+                    // Rock shadow
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        px + cellSize / 2 + 2, py + cellSize / 2 + 4,
+                        cellSize * 0.35, cellSize * 0.15,
+                        0, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                    break;
+            }
+        }
+
+        function drawGoal(x, y) {
+            const px = x * cellSize + cellSize / 2;
+            const py = y * cellSize + cellSize / 2;
+            const radius = cellSize * 0.35;
+            
+            // Glow effect
+            ctx.shadowColor = COLORS.goal;
+            ctx.shadowBlur = 20;
+            
+            // Goal circle
+            const goalGradient = ctx.createRadialGradient(
+                px - radius * 0.3, py - radius * 0.3, 0,
+                px, py, radius
+            );
+            goalGradient.addColorStop(0, '#7ee8a8');
+            goalGradient.addColorStop(1, COLORS.goal);
+            
+            ctx.fillStyle = goalGradient;
+            ctx.beginPath();
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Flag icon
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#fff';
+            ctx.font = `${cellSize * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚩', px, py);
+        }
+
+        function drawPlayer(x, y) {
+            const px = x * cellSize + cellSize / 2;
+            const py = y * cellSize + cellSize / 2;
+            const radius = cellSize * 0.35;
+            
+            // Glow effect
+            ctx.shadowColor = COLORS.player;
+            ctx.shadowBlur = 25;
+            
+            // Player circle
+            const playerGradient = ctx.createRadialGradient(
+                px - radius * 0.3, py - radius * 0.3, 0,
+                px, py, radius
+            );
+            playerGradient.addColorStop(0, '#a8f0f0');
+            playerGradient.addColorStop(1, COLORS.player);
+            
+            ctx.fillStyle = playerGradient;
+            ctx.beginPath();
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Penguin emoji
+            ctx.shadowBlur = 0;
+            ctx.font = `${cellSize * 0.45}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🐧', px, py);
+        }
+
+        function move(dx, dy) {
+            if (isMoving) return;
+            
+            let newX = playerPos.x;
+            let newY = playerPos.y;
+            let moved = false;
+            
+            // Slide until hitting obstacle
+            while (true) {
+                const nextX = newX + dx;
+                const nextY = newY + dy;
+                
+                // Check bounds
+                if (nextY < 0 || nextY >= grid.length || 
+                    nextX < 0 || nextX >= grid[0].length) {
+                    break;
+                }
+                
+                // Check for wall or rock
+                const cellType = grid[nextY][nextX];
+                if (cellType === CELL_TYPES.WALL || cellType === CELL_TYPES.ROCK) {
+                    break;
+                }
+                
+                newX = nextX;
+                newY = nextY;
+                moved = true;
+            }
+            
+            if (moved) {
+                isMoving = true;
+                moves++;
+                animateMove(playerPos.x, playerPos.y, newX, newY);
+            }
+        }
+
+        function animateMove(fromX, fromY, toX, toY) {
+            const startTime = performance.now();
+            const duration = 200;
+            
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function
+                const eased = 1 - Math.pow(1 - progress, 3);
+                
+                const currentX = fromX + (toX - fromX) * eased;
+                const currentY = fromY + (toY - fromY) * eased;
+                
+                // Clear and redraw
+                draw();
+                
+                // Draw player at interpolated position
+                if (progress < 1) {
+                    // Clear where we drew the player
+                    ctx.clearRect(
+                        playerPos.x * cellSize, playerPos.y * cellSize,
+                        cellSize, cellSize
+                    );
+                    drawCell(playerPos.x, playerPos.y, grid[playerPos.y][playerPos.x]);
+                    if (playerPos.x === goalPos.x && playerPos.y === goalPos.y) {
+                        drawGoal(goalPos.x, goalPos.y);
+                    }
+                    
+                    // Draw moving player
+                    const px = currentX * cellSize + cellSize / 2;
+                    const py = currentY * cellSize + cellSize / 2;
+                    const radius = cellSize * 0.35;
+                    
+                    ctx.shadowColor = COLORS.player;
+                    ctx.shadowBlur = 25;
+                    
+                    const playerGradient = ctx.createRadialGradient(
+                        px - radius * 0.3, py - radius * 0.3, 0,
+                        px, py, radius
+                    );
+                    playerGradient.addColorStop(0, '#a8f0f0');
+                    playerGradient.addColorStop(1, COLORS.player);
+                    
+                    ctx.fillStyle = playerGradient;
+                    ctx.beginPath();
+                    ctx.arc(px, py, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.font = `${cellSize * 0.45}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('🐧', px, py);
+                    
+                    requestAnimationFrame(animate);
+                } else {
+                    playerPos = { x: toX, y: toY };
+                    isMoving = false;
+                    updateUI();
+                    draw();
+                    
+                    // Check win condition
+                    if (playerPos.x === goalPos.x && playerPos.y === goalPos.y) {
+                        setTimeout(showLevelComplete, 300);
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        function showLevelComplete() {
+            if (currentLevel + 1 > unlockedLevels) {
+                unlockedLevels = currentLevel + 2;
+            }
+            
+            if (currentLevel === levels.length - 1) {
+                completeMessage.textContent = `🏆 All levels complete in ${moves} moves!`;
+                nextLevelBtn.textContent = '🔄 Play Again';
+            } else {
+                completeMessage.textContent = `Completed in ${moves} moves!`;
+                nextLevelBtn.textContent = 'Next Level ▶';
+            }
+            
+            levelComplete.classList.add('show');
+            updateUI();
+        }
+
+        function setupEventListeners() {
+            // Keyboard controls
+            document.addEventListener('keydown', (e) => {
+                if (levelComplete.classList.contains('show')) return;
+                
+                switch (e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        e.preventDefault();
+                        move(0, -1);
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        e.preventDefault();
+                        move(0, 1);
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        e.preventDefault();
+                        move(-1, 0);
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        e.preventDefault();
+                        move(1, 0);
+                        break;
+                    case 'r':
+                    case 'R':
+                        loadLevel(currentLevel);
+                        break;
+                }
+            });
+
+            // Touch/swipe controls
+            let touchStartX = 0;
+            let touchStartY = 0;
+            let touchStartTime = 0;
+
+            gameContainer.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+            }, { passive: true });
+
+            gameContainer.addEventListener('touchend', (e) => {
+                if (levelComplete.classList.contains('show')) return;
+                
+                const touchEndX = e.changedTouches[0].clientX;
+                const touchEndY = e.changedTouches[0].clientY;
+                const touchEndTime = Date.now();
+                
+                const dx = touchEndX - touchStartX;
+                const dy = touchEndY - touchStartY;
+                const dt = touchEndTime - touchStartTime;
+                
+                // Must be a quick swipe with minimum distance
+                if (dt < 500 && (Math.abs(dx) > 30 || Math.abs(dy) > 30)) {
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        move(dx > 0 ? 1 : -1, 0);
+                    } else {
+                        move(0, dy > 0 ? 1 : -1);
+                    }
+                }
+            }, { passive: true });
+
+            // Arrow buttons for mobile
+            document.querySelectorAll('.arrow-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (levelComplete.classList.contains('show')) return;
+                    
+                    const dir = btn.dataset.dir;
+                    switch (dir) {
+                        case 'up': move(0, -1); break;
+                        case 'down': move(0, 1); break;
+                        case 'left': move(-1, 0); break;
+                        case 'right': move(1, 0); break;
+                    }
+                });
+            });
+
+            // Button controls
+            restartBtn.addEventListener('click', () => {
+                levelComplete.classList.remove('show');
+                loadLevel(currentLevel);
+            });
+
+            prevBtn.addEventListener('click', () => {
+                if (currentLevel > 0) {
+                    currentLevel--;
+                    levelComplete.classList.remove('show');
+                    loadLevel(currentLevel);
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                if (currentLevel < unlockedLevels - 1 && currentLevel < levels.length - 1) {
+                    currentLevel++;
+                    levelComplete.classList.remove('show');
+                    loadLevel(currentLevel);
+                }
+            });
+
+            nextLevelBtn.addEventListener('click', () => {
+                levelComplete.classList.remove('show');
+                if (currentLevel < levels.length - 1) {
+                    currentLevel++;
+                    loadLevel(currentLevel);
+                } else {
+                    currentLevel = 0;
+                    unlockedLevels = 1;
+                    loadLevel(currentLevel);
+                }
+            });
+        }
+
+        function createSnowflakes() {
+            const snowflakes = ['❄', '❅', '❆', '✧', '✦'];
+            
+            for (let i = 0; i < 20; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.textContent = snowflakes[Math.floor(Math.random() * snowflakes.length)];
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.fontSize = (Math.random() * 10 + 10) + 'px';
+                snowflake.style.opacity = Math.random() * 0.5 + 0.3;
+                snowflake.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                snowflake.style.animationDelay = (Math.random() * 10) + 's';
+                document.body.appendChild(snowflake);
+            }
+        }
+
+        // Start game
+        init();
+    </script>
+</body>
+</html>

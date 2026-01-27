@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Click Counter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .game-container {
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin: 2rem 0;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: #8892b0;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: #64ffda;
+            line-height: 1;
+        }
+
+        #timer {
+            color: #ff6b6b;
+        }
+
+        .click-area {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1;
+            max-width: 320px;
+            margin: 2rem auto;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s, box-shadow 0.1s;
+            border: 2px solid rgba(100, 255, 218, 0.3);
+            box-shadow: 0 0 40px rgba(100, 255, 218, 0.1);
+        }
+
+        .click-area:hover {
+            box-shadow: 0 0 60px rgba(100, 255, 218, 0.2);
+        }
+
+        .click-area:active {
+            transform: scale(0.97);
+        }
+
+        .click-area.disabled {
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .click-text {
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(100, 255, 218, 0.4);
+            transform: scale(0);
+            animation: ripple-effect 0.6s ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-effect {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+
+        .float-score {
+            position: absolute;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #64ffda;
+            pointer-events: none;
+            animation: float-up 0.8s ease-out forwards;
+        }
+
+        @keyframes float-up {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-60px) scale(1.2);
+            }
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #64ffda 0%, #48c6a9 100%);
+            color: #1a1a2e;
+            border: none;
+            padding: 1rem 3rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(100, 255, 218, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .game-over {
+            display: none;
+            animation: fade-in 0.5s ease-out;
+        }
+
+        .game-over.visible {
+            display: block;
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .final-score {
+            font-size: 5rem;
+            font-weight: 700;
+            color: #64ffda;
+            margin: 1rem 0;
+        }
+
+        .final-label {
+            font-size: 1.25rem;
+            color: #8892b0;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .cps {
+            font-size: 1rem;
+            color: #8892b0;
+            margin-top: 0.5rem;
+        }
+
+        .progress-ring {
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: calc(100% + 8px);
+            height: calc(100% + 8px);
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring circle {
+            fill: none;
+            stroke-width: 4;
+        }
+
+        .progress-ring .bg {
+            stroke: rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-ring .progress {
+            stroke: #64ffda;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .stat-value {
+                font-size: 2.5rem;
+            }
+
+            .click-area {
+                max-width: 260px;
+            }
+
+            .final-score {
+                font-size: 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Click Counter</h1>
+        
+        <div id="game-active">
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Score</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Time</div>
+                    <div class="stat-value" id="timer">30</div>
+                </div>
+            </div>
+
+            <div class="click-area" id="click-area">
+                <svg class="progress-ring" id="progress-ring">
+                    <circle class="bg" cx="50%" cy="50%" r="48%"></circle>
+                    <circle class="progress" id="progress-circle" cx="50%" cy="50%" r="48%"></circle>
+                </svg>
+                <span class="click-text" id="click-text">Start</span>
+            </div>
+        </div>
+
+        <div class="game-over" id="game-over">
+            <div class="final-label">Final Score</div>
+            <div class="final-score" id="final-score">0</div>
+            <div class="cps" id="cps">0 clicks per second</div>
+            <button class="btn" id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const clickArea = document.getElementById('click-area');
+        const scoreEl = document.getElementById('score');
+        const timerEl = document.getElementById('timer');
+        const clickText = document.getElementById('click-text');
+        const gameActive = document.getElementById('game-active');
+        const gameOver = document.getElementById('game-over');
+        const finalScore = document.getElementById('final-score');
+        const cpsEl = document.getElementById('cps');
+        const restartBtn = document.getElementById('restart-btn');
+        const progressCircle = document.getElementById('progress-circle');
+
+        let score = 0;
+        let timeLeft = 30;
+        let gameRunning = false;
+        let timerInterval = null;
+        let circumference = 0;
+
+        function initProgressRing() {
+            const ring = document.getElementById('progress-ring');
+            const rect = clickArea.getBoundingClientRect();
+            const radius = (rect.width / 2) - 4;
+            circumference = 2 * Math.PI * radius;
+            progressCircle.style.strokeDasharray = circumference;
+            progressCircle.style.strokeDashoffset = 0;
+        }
+
+        function updateProgress() {
+            const offset = circumference - (timeLeft / 30) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+        }
+
+        function createRipple(e) {
+            const rect = clickArea.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+            ripple.style.width = '50px';
+            ripple.style.height = '50px';
+            ripple.style.marginLeft = '-25px';
+            ripple.style.marginTop = '-25px';
+            
+            clickArea.appendChild(ripple);
+            
+            setTimeout(() => ripple.remove(), 600);
+        }
+
+        function createFloatScore(e) {
+            const rect = clickArea.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const float = document.createElement('div');
+            float.className = 'float-score';
+            float.textContent = '+1';
+            float.style.left = x + 'px';
+            float.style.top = y + 'px';
+            
+            clickArea.appendChild(float);
+            
+            setTimeout(() => float.remove(), 800);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 30;
+            gameRunning = true;
+            
+            scoreEl.textContent = '0';
+            timerEl.textContent = '30';
+            clickText.textContent = 'Click!';
+            gameOver.classList.remove('visible');
+            clickArea.classList.remove('disabled');
+            
+            initProgressRing();
+            updateProgress();
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                updateProgress();
+                
+                if (timeLeft <= 5) {
+                    timerEl.style.color = '#ff4444';
+                } else {
+                    timerEl.style.color = '#ff6b6b';
+                }
+                
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            
+            clickArea.classList.add('disabled');
+            clickText.textContent = 'Done!';
+            
+            finalScore.textContent = score;
+            const cps = (score / 30).toFixed(1);
+            cpsEl.textContent = `${cps} clicks per second`;
+            
+            setTimeout(() => {
+                gameOver.classList.add('visible');
+            }, 500);
+        }
+
+        function handleClick(e) {
+            if (!gameRunning) {
+                startGame();
+                return;
+            }
+            
+            score++;
+            scoreEl.textContent = score;
+            
+            createRipple(e);
+            createFloatScore(e);
+        }
+
+        clickArea.addEventListener('click', handleClick);
+        clickArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleClick({ clientX: touch.clientX, clientY: touch.clientY });
+        });
+
+        restartBtn.addEventListener('click', () => {
+            gameOver.classList.remove('visible');
+            setTimeout(startGame, 100);
+        });
+
+        // Initialize
+        initProgressRing();
+        window.addEventListener('resize', initProgressRing);
+    </script>
+</body>
+</html>

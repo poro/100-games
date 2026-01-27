@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Target Practice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            cursor: none;
+        }
+
+        #crosshair {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+            z-index: 1000;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #crosshair::after {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #crosshair .dot {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: #ff4757;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px #ff4757;
+        }
+
+        #hud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        #timer .stat-value {
+            color: #ffd32a;
+        }
+
+        #score .stat-value {
+            color: #7bed9f;
+        }
+
+        #accuracy .stat-value {
+            color: #70a1ff;
+        }
+
+        .target {
+            position: absolute;
+            border-radius: 50%;
+            cursor: none;
+            pointer-events: auto;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #ee5a24);
+            box-shadow: 
+                0 0 20px rgba(255, 107, 107, 0.5),
+                inset 0 0 20px rgba(255, 255, 255, 0.3);
+            transition: transform 0.1s ease-out;
+        }
+
+        .target::before {
+            content: '';
+            position: absolute;
+            width: 60%;
+            height: 60%;
+            top: 20%;
+            left: 20%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fff, #ff6b6b);
+            opacity: 0.8;
+        }
+
+        .target::after {
+            content: '';
+            position: absolute;
+            width: 25%;
+            height: 25%;
+            top: 37.5%;
+            left: 37.5%;
+            border-radius: 50%;
+            background: #c0392b;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        .target.hit {
+            animation: explode 0.3s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes explode {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5);
+                opacity: 0.5;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0);
+                opacity: 0;
+            }
+        }
+
+        .points-popup {
+            position: absolute;
+            color: #7bed9f;
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            text-shadow: 0 0 10px #7bed9f, 2px 2px 0 rgba(0,0,0,0.5);
+            z-index: 50;
+        }
+
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-60px) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        #start-screen,
+        #end-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 200;
+            cursor: default;
+        }
+
+        #end-screen {
+            display: none;
+        }
+
+        h1 {
+            font-size: clamp(36px, 8vw, 64px);
+            color: #fff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 30px #ff4757;
+        }
+
+        .subtitle {
+            color: #aaa;
+            margin-bottom: 40px;
+            font-size: clamp(14px, 3vw, 18px);
+        }
+
+        .btn {
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #ff4757 0%, #c0392b 100%);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(255, 71, 87, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 71, 87, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .final-stats {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .final-stat {
+            color: #fff;
+            font-size: 24px;
+            margin: 15px 0;
+        }
+
+        .final-stat span {
+            color: #7bed9f;
+            font-weight: bold;
+            font-size: 32px;
+        }
+
+        .miss-indicator {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            pointer-events: none;
+            z-index: 50;
+            transform: translate(-50%, -50%);
+            animation: missFlash 0.4s ease-out forwards;
+        }
+
+        .miss-indicator::before,
+        .miss-indicator::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 71, 87, 0.8);
+            border-radius: 2px;
+        }
+
+        .miss-indicator::before {
+            width: 100%;
+            height: 3px;
+            top: 50%;
+            transform: translateY(-50%) rotate(45deg);
+        }
+
+        .miss-indicator::after {
+            width: 100%;
+            height: 3px;
+            top: 50%;
+            transform: translateY(-50%) rotate(-45deg);
+        }
+
+        @keyframes missFlash {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1.5);
+            }
+        }
+
+        /* Mobile touch indicator */
+        @media (hover: none) and (pointer: coarse) {
+            #game-container {
+                cursor: default;
+            }
+            
+            #crosshair {
+                display: none !important;
+            }
+
+            .target {
+                cursor: default;
+            }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            #hud {
+                padding: 10px 15px;
+            }
+
+            .stat-value {
+                font-size: 22px;
+            }
+
+            .stat-label {
+                font-size: 10px;
+            }
+
+            .btn {
+                padding: 12px 35px;
+                font-size: 16px;
+            }
+
+            .final-stat {
+                font-size: 18px;
+            }
+
+            .final-stat span {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="crosshair"><div class="dot"></div></div>
+        
+        <div id="hud">
+            <div class="stat" id="timer">
+                <span class="stat-label">Time</span>
+                <span class="stat-value">60</span>
+            </div>
+            <div class="stat" id="score">
+                <span class="stat-label">Score</span>
+                <span class="stat-value">0</span>
+            </div>
+            <div class="stat" id="accuracy">
+                <span class="stat-label">Accuracy</span>
+                <span class="stat-value">100%</span>
+            </div>
+        </div>
+
+        <div id="start-screen">
+            <h1>🎯 Target Practice</h1>
+            <p class="subtitle">Hit shrinking targets for points • Smaller = More Points</p>
+            <button class="btn" id="start-btn">Start Game</button>
+        </div>
+
+        <div id="end-screen">
+            <h1>Game Over!</h1>
+            <div class="final-stats">
+                <div class="final-stat">Final Score: <span id="final-score">0</span></div>
+                <div class="final-stat">Accuracy: <span id="final-accuracy">0%</span></div>
+                <div class="final-stat">Targets Hit: <span id="final-hits">0</span></div>
+            </div>
+            <button class="btn" id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const game = {
+            container: document.getElementById('game-container'),
+            crosshair: document.getElementById('crosshair'),
+            hud: {
+                timer: document.querySelector('#timer .stat-value'),
+                score: document.querySelector('#score .stat-value'),
+                accuracy: document.querySelector('#accuracy .stat-value')
+            },
+            screens: {
+                start: document.getElementById('start-screen'),
+                end: document.getElementById('end-screen')
+            },
+            final: {
+                score: document.getElementById('final-score'),
+                accuracy: document.getElementById('final-accuracy'),
+                hits: document.getElementById('final-hits')
+            },
+            
+            // Game state
+            isRunning: false,
+            score: 0,
+            timeLeft: 60,
+            shots: 0,
+            hits: 0,
+            targets: [],
+            timerInterval: null,
+            spawnInterval: null,
+            
+            // Settings
+            initialTargetSize: 100,
+            minTargetSize: 20,
+            shrinkDuration: 2500, // 2.5 seconds
+            spawnRate: 800, // ms between spawns
+            maxTargets: 5,
+            
+            init() {
+                this.bindEvents();
+                this.updateCrosshair(-100, -100);
+            },
+            
+            bindEvents() {
+                // Start button
+                document.getElementById('start-btn').addEventListener('click', () => this.startGame());
+                document.getElementById('restart-btn').addEventListener('click', () => this.startGame());
+                
+                // Mouse movement for crosshair
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isRunning) {
+                        this.crosshair.style.display = 'block';
+                        this.updateCrosshair(e.clientX, e.clientY);
+                    }
+                });
+                
+                // Click/tap to shoot
+                this.container.addEventListener('click', (e) => this.handleShot(e));
+                this.container.addEventListener('touchstart', (e) => {
+                    if (this.isRunning && !e.target.classList.contains('btn')) {
+                        e.preventDefault();
+                        const touch = e.touches[0];
+                        this.handleShot({ clientX: touch.clientX, clientY: touch.clientY, isMobile: true });
+                    }
+                }, { passive: false });
+                
+                // Hide crosshair on mobile
+                document.addEventListener('touchstart', () => {
+                    this.crosshair.style.display = 'none';
+                }, { once: true });
+            },
+            
+            updateCrosshair(x, y) {
+                this.crosshair.style.left = x + 'px';
+                this.crosshair.style.top = y + 'px';
+            },
+            
+            startGame() {
+                this.isRunning = true;
+                this.score = 0;
+                this.timeLeft = 60;
+                this.shots = 0;
+                this.hits = 0;
+                this.targets = [];
+                
+                // Clear any existing targets
+                document.querySelectorAll('.target').forEach(t => t.remove());
+                document.querySelectorAll('.points-popup').forEach(p => p.remove());
+                
+                // Update HUD
+                this.updateHUD();
+                
+                // Hide screens
+                this.screens.start.style.display = 'none';
+                this.screens.end.style.display = 'none';
+                
+                // Start timer
+                this.timerInterval = setInterval(() => {
+                    this.timeLeft--;
+                    this.hud.timer.textContent = this.timeLeft;
+                    
+                    if (this.timeLeft <= 10) {
+                        this.hud.timer.style.color = '#ff4757';
+                    }
+                    
+                    if (this.timeLeft <= 0) {
+                        this.endGame();
+                    }
+                }, 1000);
+                
+                // Start spawning targets
+                this.spawnTarget();
+                this.spawnInterval = setInterval(() => {
+                    if (this.targets.length < this.maxTargets) {
+                        this.spawnTarget();
+                    }
+                }, this.spawnRate);
+            },
+            
+            spawnTarget() {
+                const target = document.createElement('div');
+                target.className = 'target';
+                
+                // Random position (with padding from edges)
+                const padding = this.initialTargetSize;
+                const x = padding + Math.random() * (window.innerWidth - padding * 2);
+                const y = padding + 60 + Math.random() * (window.innerHeight - padding * 2 - 60);
+                
+                target.style.left = x + 'px';
+                target.style.top = y + 'px';
+                target.style.width = this.initialTargetSize + 'px';
+                target.style.height = this.initialTargetSize + 'px';
+                
+                // Track target data
+                const targetData = {
+                    element: target,
+                    x, y,
+                    size: this.initialTargetSize,
+                    startTime: Date.now(),
+                    shrinkInterval: null
+                };
+                
+                // Shrink animation
+                targetData.shrinkInterval = setInterval(() => {
+                    const elapsed = Date.now() - targetData.startTime;
+                    const progress = elapsed / this.shrinkDuration;
+                    
+                    if (progress >= 1) {
+                        this.removeTarget(targetData);
+                    } else {
+                        const newSize = this.initialTargetSize - (this.initialTargetSize - this.minTargetSize) * progress;
+                        targetData.size = newSize;
+                        target.style.width = newSize + 'px';
+                        target.style.height = newSize + 'px';
+                    }
+                }, 16);
+                
+                // Click handler for this target
+                target.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.hitTarget(targetData, e.clientX, e.clientY);
+                });
+                
+                target.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const touch = e.touches[0];
+                    this.hitTarget(targetData, touch.clientX, touch.clientY);
+                }, { passive: false });
+                
+                this.targets.push(targetData);
+                this.container.appendChild(target);
+            },
+            
+            hitTarget(targetData, x, y) {
+                if (!this.isRunning) return;
+                
+                this.shots++;
+                this.hits++;
+                
+                // Calculate points based on size (smaller = more points)
+                const sizeRatio = 1 - (targetData.size - this.minTargetSize) / (this.initialTargetSize - this.minTargetSize);
+                const points = Math.round(10 + sizeRatio * 90); // 10-100 points
+                this.score += points;
+                
+                // Show points popup
+                this.showPointsPopup(x, y, points);
+                
+                // Animate hit
+                targetData.element.classList.add('hit');
+                
+                // Remove target
+                setTimeout(() => {
+                    this.removeTarget(targetData);
+                }, 300);
+                
+                this.updateHUD();
+            },
+            
+            handleShot(e) {
+                if (!this.isRunning) return;
+                if (e.target.classList.contains('target')) return; // Target handles its own hits
+                if (e.target.classList.contains('btn')) return;
+                if (this.screens.start.contains(e.target) || this.screens.end.contains(e.target)) return;
+                
+                // Missed shot
+                this.shots++;
+                this.showMissIndicator(e.clientX, e.clientY);
+                this.updateHUD();
+            },
+            
+            showPointsPopup(x, y, points) {
+                const popup = document.createElement('div');
+                popup.className = 'points-popup';
+                popup.textContent = '+' + points;
+                popup.style.left = x + 'px';
+                popup.style.top = y + 'px';
+                this.container.appendChild(popup);
+                
+                setTimeout(() => popup.remove(), 800);
+            },
+            
+            showMissIndicator(x, y) {
+                const miss = document.createElement('div');
+                miss.className = 'miss-indicator';
+                miss.style.left = x + 'px';
+                miss.style.top = y + 'px';
+                this.container.appendChild(miss);
+                
+                setTimeout(() => miss.remove(), 400);
+            },
+            
+            removeTarget(targetData) {
+                clearInterval(targetData.shrinkInterval);
+                const index = this.targets.indexOf(targetData);
+                if (index > -1) {
+                    this.targets.splice(index, 1);
+                }
+                if (targetData.element.parentNode) {
+                    targetData.element.remove();
+                }
+            },
+            
+            updateHUD() {
+                this.hud.score.textContent = this.score;
+                const accuracy = this.shots > 0 ? Math.round((this.hits / this.shots) * 100) : 100;
+                this.hud.accuracy.textContent = accuracy + '%';
+            },
+            
+            endGame() {
+                this.isRunning = false;
+                
+                // Clear intervals
+                clearInterval(this.timerInterval);
+                clearInterval(this.spawnInterval);
+                
+                // Clear remaining targets
+                this.targets.forEach(t => {
+                    clearInterval(t.shrinkInterval);
+                    t.element.remove();
+                });
+                this.targets = [];
+                
+                // Reset timer color
+                this.hud.timer.style.color = '#ffd32a';
+                
+                // Hide crosshair
+                this.crosshair.style.display = 'none';
+                
+                // Show final stats
+                const accuracy = this.shots > 0 ? Math.round((this.hits / this.shots) * 100) : 0;
+                this.final.score.textContent = this.score;
+                this.final.accuracy.textContent = accuracy + '%';
+                this.final.hits.textContent = this.hits;
+                
+                // Show end screen
+                this.screens.end.style.display = 'flex';
+            }
+        };
+        
+        // Initialize game
+        game.init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bouncing Balls</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 15px 20px;
+            text-align: center;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 1.8rem;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            margin-bottom: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: linear-gradient(145deg, #e94560, #c73e54);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .stats {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 15px;
+        }
+
+        #canvas-container {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        canvas {
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%);
+            border-radius: 15px;
+            box-shadow: 
+                0 0 30px rgba(0, 0, 0, 0.5),
+                inset 0 0 100px rgba(255, 255, 255, 0.02);
+            cursor: crosshair;
+        }
+
+        .instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.85rem;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .drag-indicator {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.4rem;
+            }
+
+            .stats {
+                font-size: 0.8rem;
+                gap: 10px;
+            }
+
+            .btn {
+                padding: 8px 20px;
+                font-size: 0.9rem;
+            }
+
+            .instructions {
+                font-size: 0.75rem;
+                bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎱 Bouncing Balls</h1>
+        <div class="controls">
+            <div class="stats">
+                <span class="stat">Balls: <span id="ball-count">0</span></span>
+                <span class="stat">FPS: <span id="fps">60</span></span>
+            </div>
+            <button class="btn" id="clear-btn">🗑️ Clear All</button>
+            <button class="btn" id="gravity-btn">🌍 Gravity: ON</button>
+        </div>
+    </header>
+
+    <div id="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="instructions">
+        Click to spawn • Drag to throw • Watch them bounce!
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const ballCountEl = document.getElementById('ball-count');
+        const fpsEl = document.getElementById('fps');
+        const clearBtn = document.getElementById('clear-btn');
+        const gravityBtn = document.getElementById('gravity-btn');
+
+        let balls = [];
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragEnd = { x: 0, y: 0 };
+        let gravityEnabled = true;
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fps = 60;
+
+        // Physics constants
+        const GRAVITY = 0.5;
+        const FRICTION = 0.99;
+        const BOUNCE = 0.85;
+        const MIN_RADIUS = 15;
+        const MAX_RADIUS = 40;
+
+        // Vibrant color palette
+        const COLORS = [
+            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+            '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+            '#F8B500', '#FF69B4', '#00CED1', '#FF7F50', '#9370DB',
+            '#20B2AA', '#FFD700', '#FF6347', '#40E0D0', '#EE82EE'
+        ];
+
+        class Ball {
+            constructor(x, y, vx = 0, vy = 0) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.radius = MIN_RADIUS + Math.random() * (MAX_RADIUS - MIN_RADIUS);
+                this.mass = this.radius * this.radius;
+                this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+                this.glowIntensity = 0.5 + Math.random() * 0.5;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+            }
+
+            update() {
+                if (gravityEnabled) {
+                    this.vy += GRAVITY;
+                }
+
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                this.rotation += this.rotationSpeed;
+
+                // Wall collisions
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -BOUNCE;
+                    this.rotationSpeed = this.vy * 0.01;
+                }
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -BOUNCE;
+                    this.rotationSpeed = -this.vy * 0.01;
+                }
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -BOUNCE;
+                }
+                if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -BOUNCE;
+                    this.rotationSpeed = this.vx * 0.01;
+                    
+                    // Extra friction on ground
+                    this.vx *= 0.98;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Glow effect
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius * 1.5);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(0.5, this.color + '80');
+                gradient.addColorStop(1, 'transparent');
+                
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 1.5, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.globalAlpha = this.glowIntensity * 0.3;
+                ctx.fill();
+
+                // Main ball
+                ctx.globalAlpha = 1;
+                const ballGradient = ctx.createRadialGradient(
+                    -this.radius * 0.3, -this.radius * 0.3, 0,
+                    0, 0, this.radius
+                );
+                ballGradient.addColorStop(0, '#fff');
+                ballGradient.addColorStop(0.3, this.color);
+                ballGradient.addColorStop(1, this.darkenColor(this.color, 40));
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = ballGradient;
+                ctx.fill();
+
+                // Highlight
+                ctx.beginPath();
+                ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.25, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            darkenColor(color, percent) {
+                const num = parseInt(color.replace('#', ''), 16);
+                const amt = Math.round(2.55 * percent);
+                const R = Math.max((num >> 16) - amt, 0);
+                const G = Math.max((num >> 8 & 0x00FF) - amt, 0);
+                const B = Math.max((num & 0x0000FF) - amt, 0);
+                return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+            }
+
+            collideWith(other) {
+                const dx = other.x - this.x;
+                const dy = other.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = this.radius + other.radius;
+
+                if (dist < minDist && dist > 0) {
+                    // Normalize collision vector
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    // Relative velocity
+                    const dvx = this.vx - other.vx;
+                    const dvy = this.vy - other.vy;
+
+                    // Relative velocity along collision normal
+                    const dvn = dvx * nx + dvy * ny;
+
+                    // Don't resolve if velocities are separating
+                    if (dvn > 0) return;
+
+                    // Calculate impulse
+                    const impulse = (2 * dvn) / (this.mass + other.mass);
+
+                    // Apply impulse
+                    this.vx -= impulse * other.mass * nx * BOUNCE;
+                    this.vy -= impulse * other.mass * ny * BOUNCE;
+                    other.vx += impulse * this.mass * nx * BOUNCE;
+                    other.vy += impulse * this.mass * ny * BOUNCE;
+
+                    // Separate balls to prevent overlap
+                    const overlap = (minDist - dist) / 2;
+                    this.x -= overlap * nx;
+                    this.y -= overlap * ny;
+                    other.x += overlap * nx;
+                    other.y += overlap * ny;
+
+                    // Transfer some rotation
+                    const tempRot = this.rotationSpeed;
+                    this.rotationSpeed = other.rotationSpeed * 0.5;
+                    other.rotationSpeed = tempRot * 0.5;
+                }
+            }
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            const rect = container.getBoundingClientRect();
+            const padding = 20;
+            
+            canvas.width = Math.min(rect.width - padding, 1200);
+            canvas.height = Math.min(rect.height - padding, 800);
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            if (e.touches) {
+                return {
+                    x: (e.touches[0].clientX - rect.left) * scaleX,
+                    y: (e.touches[0].clientY - rect.top) * scaleY
+                };
+            }
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function spawnBall(x, y, vx = 0, vy = 0) {
+            if (balls.length < 100) {
+                balls.push(new Ball(x, y, vx, vy));
+                updateBallCount();
+            }
+        }
+
+        function updateBallCount() {
+            ballCountEl.textContent = balls.length;
+        }
+
+        function drawDragLine() {
+            if (isDragging) {
+                const dx = dragEnd.x - dragStart.x;
+                const dy = dragEnd.y - dragStart.y;
+                
+                ctx.beginPath();
+                ctx.moveTo(dragStart.x, dragStart.y);
+                ctx.lineTo(dragStart.x - dx * 0.5, dragStart.y - dy * 0.5);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+
+                // Preview ball
+                ctx.beginPath();
+                ctx.arc(dragStart.x, dragStart.y, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Arrow head
+                const angle = Math.atan2(-dy, -dx);
+                const arrowLen = 15;
+                const arrowX = dragStart.x - dx * 0.5;
+                const arrowY = dragStart.y - dy * 0.5;
+                
+                ctx.beginPath();
+                ctx.moveTo(arrowX, arrowY);
+                ctx.lineTo(
+                    arrowX - arrowLen * Math.cos(angle - Math.PI / 6),
+                    arrowY - arrowLen * Math.sin(angle - Math.PI / 6)
+                );
+                ctx.moveTo(arrowX, arrowY);
+                ctx.lineTo(
+                    arrowX - arrowLen * Math.cos(angle + Math.PI / 6),
+                    arrowY - arrowLen * Math.sin(angle + Math.PI / 6)
+                );
+                ctx.stroke();
+            }
+        }
+
+        function update() {
+            // Update all balls
+            for (let i = 0; i < balls.length; i++) {
+                balls[i].update();
+                
+                // Check collisions with other balls
+                for (let j = i + 1; j < balls.length; j++) {
+                    balls[i].collideWith(balls[j]);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw floor reflection hint
+            const floorGradient = ctx.createLinearGradient(0, canvas.height - 50, 0, canvas.height);
+            floorGradient.addColorStop(0, 'transparent');
+            floorGradient.addColorStop(1, 'rgba(255, 255, 255, 0.03)');
+            ctx.fillStyle = floorGradient;
+            ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+
+            // Draw balls
+            for (const ball of balls) {
+                ball.draw();
+            }
+
+            // Draw drag indicator
+            drawDragLine();
+        }
+
+        function gameLoop(currentTime) {
+            // FPS calculation
+            frameCount++;
+            if (currentTime - lastTime >= 1000) {
+                fps = frameCount;
+                fpsEl.textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Event listeners
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            isDragging = true;
+            dragStart = { ...pos };
+            dragEnd = { ...pos };
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                dragEnd = getMousePos(e);
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                const dx = dragEnd.x - dragStart.x;
+                const dy = dragEnd.y - dragStart.y;
+                const vx = -dx * 0.15;
+                const vy = -dy * 0.15;
+                spawnBall(dragStart.x, dragStart.y, vx, vy);
+                isDragging = false;
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (isDragging) {
+                const dx = dragEnd.x - dragStart.x;
+                const dy = dragEnd.y - dragStart.y;
+                const vx = -dx * 0.15;
+                const vy = -dy * 0.15;
+                spawnBall(dragStart.x, dragStart.y, vx, vy);
+                isDragging = false;
+            }
+        });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const pos = getMousePos(e);
+            isDragging = true;
+            dragStart = { ...pos };
+            dragEnd = { ...pos };
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDragging) {
+                dragEnd = getMousePos(e);
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (isDragging) {
+                const dx = dragEnd.x - dragStart.x;
+                const dy = dragEnd.y - dragStart.y;
+                const vx = -dx * 0.15;
+                const vy = -dy * 0.15;
+                spawnBall(dragStart.x, dragStart.y, vx, vy);
+                isDragging = false;
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            balls = [];
+            updateBallCount();
+        });
+
+        gravityBtn.addEventListener('click', () => {
+            gravityEnabled = !gravityEnabled;
+            gravityBtn.textContent = `🌍 Gravity: ${gravityEnabled ? 'ON' : 'OFF'}`;
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Initialize
+        resizeCanvas();
+        requestAnimationFrame(gameLoop);
+
+        // Spawn a few starter balls
+        setTimeout(() => {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    spawnBall(
+                        100 + Math.random() * (canvas.width - 200),
+                        50 + Math.random() * 100,
+                        (Math.random() - 0.5) * 10,
+                        Math.random() * 5
+                    );
+                }, i * 200);
+            }
+        }, 500);
+    </script>
+</body>
+</html>

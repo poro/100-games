@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gravity Golf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a472a 0%, #2d5a3f 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        header {
+            width: 100%;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 1rem;
+        }
+
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        #gameContainer {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            padding: 10px;
+        }
+
+        #gameCanvas {
+            background: #3a7d44;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 
+                        inset 0 0 50px rgba(0, 0, 0, 0.2);
+            cursor: crosshair;
+        }
+
+        .controls {
+            padding: 15px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: linear-gradient(145deg, #4a9c5d, #357a42);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: linear-gradient(145deg, #2d5a3f, #1a472a);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            color: white;
+            max-width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .modal p {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .modal .score-summary {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .power-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .power-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4CAF50, #FFEB3B, #f44336);
+            transition: width 0.05s;
+        }
+
+        .hint {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .title {
+                font-size: 1.2rem;
+            }
+            .stats {
+                gap: 10px;
+            }
+            .stat-value {
+                font-size: 1rem;
+            }
+            header {
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">⛳ Gravity Golf</div>
+        <div class="stats">
+            <div class="stat">
+                <span class="stat-label">Hole</span>
+                <span class="stat-value" id="holeNum">1/5</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Par</span>
+                <span class="stat-value" id="parDisplay">3</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Strokes</span>
+                <span class="stat-value" id="strokeDisplay">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Total</span>
+                <span class="stat-value" id="totalDisplay">0</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <p class="hint" id="hint">Click and drag to aim, release to putt!</p>
+
+    <div class="controls">
+        <button id="resetBall">Reset Ball</button>
+        <button id="restartGame">Restart Game</button>
+    </div>
+
+    <div class="overlay hidden" id="holeComplete">
+        <div class="modal">
+            <h2 id="holeMessage">Nice Shot!</h2>
+            <p id="holeScore"></p>
+            <button id="nextHole">Next Hole →</button>
+        </div>
+    </div>
+
+    <div class="overlay hidden" id="gameComplete">
+        <div class="modal">
+            <h2>🏆 Game Complete!</h2>
+            <div class="score-summary">
+                <p id="finalScore"></p>
+                <p id="parComparison"></p>
+            </div>
+            <button id="playAgain">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Game state
+        let ball = { x: 0, y: 0, vx: 0, vy: 0, radius: 8 };
+        let hole = { x: 0, y: 0, radius: 14 };
+        let walls = [];
+        let obstacles = [];
+        let currentHole = 0;
+        let strokes = 0;
+        let totalStrokes = 0;
+        let holeStrokes = [];
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragEnd = { x: 0, y: 0 };
+        let ballInHole = false;
+
+        // Physics constants
+        const FRICTION = 0.985;
+        const MIN_VELOCITY = 0.1;
+        const MAX_POWER = 15;
+        const BOUNCE_DAMPING = 0.7;
+
+        // Hole definitions
+        const holes = [
+            {
+                name: "The Opener",
+                par: 2,
+                ball: { x: 0.15, y: 0.5 },
+                hole: { x: 0.85, y: 0.5 },
+                walls: [],
+                obstacles: []
+            },
+            {
+                name: "The Corner",
+                par: 3,
+                ball: { x: 0.15, y: 0.85 },
+                hole: { x: 0.85, y: 0.15 },
+                walls: [
+                    { x1: 0.4, y1: 0.3, x2: 0.4, y2: 0.9 }
+                ],
+                obstacles: []
+            },
+            {
+                name: "The Squeeze",
+                par: 3,
+                ball: { x: 0.1, y: 0.5 },
+                hole: { x: 0.9, y: 0.5 },
+                walls: [
+                    { x1: 0.45, y1: 0, x2: 0.45, y2: 0.35 },
+                    { x1: 0.55, y1: 0.65, x2: 0.55, y2: 1 }
+                ],
+                obstacles: []
+            },
+            {
+                name: "The Maze",
+                par: 4,
+                ball: { x: 0.1, y: 0.9 },
+                hole: { x: 0.9, y: 0.1 },
+                walls: [
+                    { x1: 0.25, y1: 0.2, x2: 0.25, y2: 0.7 },
+                    { x1: 0.5, y1: 0.4, x2: 0.5, y2: 0.9 },
+                    { x1: 0.75, y1: 0.1, x2: 0.75, y2: 0.6 }
+                ],
+                obstacles: []
+            },
+            {
+                name: "The Gauntlet",
+                par: 4,
+                ball: { x: 0.1, y: 0.5 },
+                hole: { x: 0.9, y: 0.5 },
+                walls: [],
+                obstacles: [
+                    { x: 0.3, y: 0.35, radius: 20 },
+                    { x: 0.3, y: 0.65, radius: 20 },
+                    { x: 0.5, y: 0.5, radius: 25 },
+                    { x: 0.7, y: 0.35, radius: 20 },
+                    { x: 0.7, y: 0.65, radius: 20 }
+                ]
+            }
+        ];
+
+        // Resize canvas
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const maxWidth = Math.min(container.clientWidth - 20, 700);
+            const maxHeight = container.clientHeight - 20;
+            const aspect = 1.4;
+
+            let width = maxWidth;
+            let height = width / aspect;
+
+            if (height > maxHeight) {
+                height = maxHeight;
+                width = height * aspect;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            loadHole(currentHole);
+        }
+
+        // Load a hole
+        function loadHole(index) {
+            const h = holes[index];
+            const w = canvas.width;
+            const ht = canvas.height;
+
+            ball.x = h.ball.x * w;
+            ball.y = h.ball.y * ht;
+            ball.vx = 0;
+            ball.vy = 0;
+
+            hole.x = h.hole.x * w;
+            hole.y = h.hole.y * ht;
+
+            walls = h.walls.map(wall => ({
+                x1: wall.x1 * w,
+                y1: wall.y1 * ht,
+                x2: wall.x2 * w,
+                y2: wall.y2 * ht
+            }));
+
+            obstacles = h.obstacles.map(obs => ({
+                x: obs.x * w,
+                y: obs.y * ht,
+                radius: obs.radius
+            }));
+
+            strokes = 0;
+            ballInHole = false;
+            updateDisplay();
+        }
+
+        // Update display
+        function updateDisplay() {
+            document.getElementById('holeNum').textContent = `${currentHole + 1}/5`;
+            document.getElementById('parDisplay').textContent = holes[currentHole].par;
+            document.getElementById('strokeDisplay').textContent = strokes;
+            document.getElementById('totalDisplay').textContent = totalStrokes;
+        }
+
+        // Get pointer position
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches ? e.touches[0] : e;
+            return {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+
+        // Check if ball is moving
+        function ballIsMoving() {
+            return Math.abs(ball.vx) > MIN_VELOCITY || Math.abs(ball.vy) > MIN_VELOCITY;
+        }
+
+        // Start drag
+        function startDrag(e) {
+            if (ballIsMoving() || ballInHole) return;
+            e.preventDefault();
+            const pos = getPointerPos(e);
+            const dx = pos.x - ball.x;
+            const dy = pos.y - ball.y;
+            
+            // Only start if clicking near the ball
+            if (Math.sqrt(dx * dx + dy * dy) < 50) {
+                isDragging = true;
+                dragStart = { x: ball.x, y: ball.y };
+                dragEnd = pos;
+            }
+        }
+
+        // Move drag
+        function moveDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            dragEnd = getPointerPos(e);
+        }
+
+        // End drag
+        function endDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            isDragging = false;
+
+            const dx = dragStart.x - dragEnd.x;
+            const dy = dragStart.y - dragEnd.y;
+            const power = Math.min(Math.sqrt(dx * dx + dy * dy) / 10, MAX_POWER);
+
+            if (power > 0.5) {
+                const angle = Math.atan2(dy, dx);
+                ball.vx = Math.cos(angle) * power;
+                ball.vy = Math.sin(angle) * power;
+                strokes++;
+                totalStrokes++;
+                updateDisplay();
+            }
+        }
+
+        // Event listeners
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', moveDrag);
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('mouseleave', endDrag);
+
+        canvas.addEventListener('touchstart', startDrag, { passive: false });
+        canvas.addEventListener('touchmove', moveDrag, { passive: false });
+        canvas.addEventListener('touchend', endDrag, { passive: false });
+
+        // Line segment collision
+        function lineCircleCollision(x1, y1, x2, y2, cx, cy, r) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const fx = x1 - cx;
+            const fy = y1 - cy;
+
+            const a = dx * dx + dy * dy;
+            const b = 2 * (fx * dx + fy * dy);
+            const c = fx * fx + fy * fy - r * r;
+
+            let discriminant = b * b - 4 * a * c;
+            if (discriminant < 0) return null;
+
+            discriminant = Math.sqrt(discriminant);
+            const t1 = (-b - discriminant) / (2 * a);
+            const t2 = (-b + discriminant) / (2 * a);
+
+            if (t1 >= 0 && t1 <= 1) {
+                return {
+                    x: x1 + t1 * dx,
+                    y: y1 + t1 * dy,
+                    t: t1
+                };
+            }
+            if (t2 >= 0 && t2 <= 1) {
+                return {
+                    x: x1 + t2 * dx,
+                    y: y1 + t2 * dy,
+                    t: t2
+                };
+            }
+            return null;
+        }
+
+        // Reflect velocity off wall
+        function reflectVelocity(vx, vy, x1, y1, x2, y2) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            const dot = vx * nx + vy * ny;
+            return {
+                vx: (vx - 2 * dot * nx) * BOUNCE_DAMPING,
+                vy: (vy - 2 * dot * ny) * BOUNCE_DAMPING
+            };
+        }
+
+        // Update physics
+        function update() {
+            if (ballInHole) return;
+
+            // Apply velocity
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            // Apply friction
+            ball.vx *= FRICTION;
+            ball.vy *= FRICTION;
+
+            // Stop if very slow
+            if (Math.abs(ball.vx) < MIN_VELOCITY) ball.vx = 0;
+            if (Math.abs(ball.vy) < MIN_VELOCITY) ball.vy = 0;
+
+            // Wall collisions (boundaries)
+            if (ball.x - ball.radius < 0) {
+                ball.x = ball.radius;
+                ball.vx = -ball.vx * BOUNCE_DAMPING;
+            }
+            if (ball.x + ball.radius > canvas.width) {
+                ball.x = canvas.width - ball.radius;
+                ball.vx = -ball.vx * BOUNCE_DAMPING;
+            }
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.vy = -ball.vy * BOUNCE_DAMPING;
+            }
+            if (ball.y + ball.radius > canvas.height) {
+                ball.y = canvas.height - ball.radius;
+                ball.vy = -ball.vy * BOUNCE_DAMPING;
+            }
+
+            // Interior wall collisions
+            for (const wall of walls) {
+                const col = lineCircleCollision(
+                    wall.x1, wall.y1, wall.x2, wall.y2,
+                    ball.x, ball.y, ball.radius
+                );
+                if (col) {
+                    const ref = reflectVelocity(ball.vx, ball.vy, wall.x1, wall.y1, wall.x2, wall.y2);
+                    ball.vx = ref.vx;
+                    ball.vy = ref.vy;
+
+                    // Push ball out
+                    const dx = wall.x2 - wall.x1;
+                    const dy = wall.y2 - wall.y1;
+                    const len = Math.sqrt(dx * dx + dy * dy);
+                    const nx = -dy / len;
+                    const ny = dx / len;
+                    ball.x += nx * 2;
+                    ball.y += ny * 2;
+                }
+            }
+
+            // Obstacle collisions
+            for (const obs of obstacles) {
+                const dx = ball.x - obs.x;
+                const dy = ball.y - obs.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = ball.radius + obs.radius;
+
+                if (dist < minDist) {
+                    // Normalize
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+
+                    // Push out
+                    ball.x = obs.x + nx * minDist;
+                    ball.y = obs.y + ny * minDist;
+
+                    // Reflect velocity
+                    const dot = ball.vx * nx + ball.vy * ny;
+                    ball.vx = (ball.vx - 2 * dot * nx) * BOUNCE_DAMPING;
+                    ball.vy = (ball.vy - 2 * dot * ny) * BOUNCE_DAMPING;
+                }
+            }
+
+            // Check if ball in hole
+            const hx = ball.x - hole.x;
+            const hy = ball.y - hole.y;
+            const holeDist = Math.sqrt(hx * hx + hy * hy);
+            const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+
+            if (holeDist < hole.radius - ball.radius / 2 && speed < 5) {
+                ballInHole = true;
+                ball.vx = 0;
+                ball.vy = 0;
+                ball.x = hole.x;
+                ball.y = hole.y;
+                holeStrokes.push(strokes);
+                setTimeout(showHoleComplete, 500);
+            }
+        }
+
+        // Show hole complete modal
+        function showHoleComplete() {
+            const par = holes[currentHole].par;
+            const diff = strokes - par;
+            let message = '';
+            
+            if (strokes === 1) message = '🦅 HOLE IN ONE!';
+            else if (diff <= -2) message = '🦅 Eagle!';
+            else if (diff === -1) message = '🐦 Birdie!';
+            else if (diff === 0) message = '👍 Par!';
+            else if (diff === 1) message = '😅 Bogey';
+            else if (diff === 2) message = '😬 Double Bogey';
+            else message = '💪 Keep practicing!';
+
+            document.getElementById('holeMessage').textContent = message;
+            document.getElementById('holeScore').textContent = 
+                `${strokes} stroke${strokes !== 1 ? 's' : ''} (Par ${par})`;
+
+            if (currentHole >= holes.length - 1) {
+                showGameComplete();
+            } else {
+                document.getElementById('holeComplete').classList.remove('hidden');
+            }
+        }
+
+        // Show game complete
+        function showGameComplete() {
+            const totalPar = holes.reduce((sum, h) => sum + h.par, 0);
+            const diff = totalStrokes - totalPar;
+            let comparison = '';
+
+            if (diff < 0) comparison = `${Math.abs(diff)} under par! 🏆`;
+            else if (diff === 0) comparison = 'Even par! 👍';
+            else comparison = `${diff} over par`;
+
+            document.getElementById('finalScore').textContent = 
+                `Total: ${totalStrokes} strokes`;
+            document.getElementById('parComparison').textContent = comparison;
+            document.getElementById('gameComplete').classList.remove('hidden');
+        }
+
+        // Next hole
+        document.getElementById('nextHole').addEventListener('click', () => {
+            document.getElementById('holeComplete').classList.add('hidden');
+            currentHole++;
+            loadHole(currentHole);
+        });
+
+        // Play again
+        document.getElementById('playAgain').addEventListener('click', () => {
+            document.getElementById('gameComplete').classList.add('hidden');
+            currentHole = 0;
+            totalStrokes = 0;
+            holeStrokes = [];
+            loadHole(currentHole);
+        });
+
+        // Reset ball
+        document.getElementById('resetBall').addEventListener('click', () => {
+            if (!ballInHole) {
+                const h = holes[currentHole];
+                ball.x = h.ball.x * canvas.width;
+                ball.y = h.ball.y * canvas.height;
+                ball.vx = 0;
+                ball.vy = 0;
+                strokes++;
+                totalStrokes++;
+                updateDisplay();
+            }
+        });
+
+        // Restart game
+        document.getElementById('restartGame').addEventListener('click', () => {
+            currentHole = 0;
+            totalStrokes = 0;
+            holeStrokes = [];
+            loadHole(currentHole);
+        });
+
+        // Draw
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grass texture
+            ctx.fillStyle = '#3a7d44';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw subtle grass pattern
+            ctx.strokeStyle = 'rgba(50, 140, 70, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 15) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+
+            // Draw hole shadow
+            ctx.beginPath();
+            ctx.arc(hole.x + 3, hole.y + 3, hole.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fill();
+
+            // Draw hole
+            ctx.beginPath();
+            ctx.arc(hole.x, hole.y, hole.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw flag
+            if (!ballInHole) {
+                ctx.beginPath();
+                ctx.moveTo(hole.x, hole.y);
+                ctx.lineTo(hole.x, hole.y - 40);
+                ctx.strokeStyle = '#ddd';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(hole.x, hole.y - 40);
+                ctx.lineTo(hole.x + 20, hole.y - 32);
+                ctx.lineTo(hole.x, hole.y - 24);
+                ctx.fillStyle = '#e53935';
+                ctx.fill();
+            }
+
+            // Draw walls
+            ctx.strokeStyle = '#5d4037';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            for (const wall of walls) {
+                ctx.beginPath();
+                ctx.moveTo(wall.x1, wall.y1);
+                ctx.lineTo(wall.x2, wall.y2);
+                ctx.stroke();
+            }
+
+            // Draw obstacles
+            for (const obs of obstacles) {
+                // Shadow
+                ctx.beginPath();
+                ctx.arc(obs.x + 3, obs.y + 3, obs.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+
+                // Obstacle
+                const gradient = ctx.createRadialGradient(
+                    obs.x - obs.radius / 3, obs.y - obs.radius / 3, 0,
+                    obs.x, obs.y, obs.radius
+                );
+                gradient.addColorStop(0, '#8d6e63');
+                gradient.addColorStop(1, '#5d4037');
+                ctx.beginPath();
+                ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+
+            // Draw aim line
+            if (isDragging && !ballInHole) {
+                const dx = dragStart.x - dragEnd.x;
+                const dy = dragStart.y - dragEnd.y;
+                const power = Math.min(Math.sqrt(dx * dx + dy * dy) / 10, MAX_POWER);
+                const angle = Math.atan2(dy, dx);
+
+                // Direction line
+                ctx.beginPath();
+                ctx.moveTo(ball.x, ball.y);
+                ctx.lineTo(
+                    ball.x + Math.cos(angle) * power * 8,
+                    ball.y + Math.sin(angle) * power * 8
+                );
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Power dots
+                const numDots = Math.floor(power / 2);
+                for (let i = 1; i <= numDots; i++) {
+                    const dotX = ball.x + Math.cos(angle) * i * 15;
+                    const dotY = ball.y + Math.sin(angle) * i * 15;
+                    ctx.beginPath();
+                    ctx.arc(dotX, dotY, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.8 - i * 0.1})`;
+                    ctx.fill();
+                }
+            }
+
+            // Draw ball shadow
+            if (!ballInHole) {
+                ctx.beginPath();
+                ctx.ellipse(ball.x + 3, ball.y + 5, ball.radius, ball.radius * 0.6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fill();
+            }
+
+            // Draw ball
+            const ballGradient = ctx.createRadialGradient(
+                ball.x - ball.radius / 3, ball.y - ball.radius / 3, 0,
+                ball.x, ball.y, ball.radius
+            );
+            ballGradient.addColorStop(0, '#ffffff');
+            ballGradient.addColorStop(1, '#cccccc');
+
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ballGradient;
+            ctx.fill();
+
+            // Ball highlight
+            ctx.beginPath();
+            ctx.arc(ball.x - ball.radius / 3, ball.y - ball.radius / 3, ball.radius / 4, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.fill();
+
+            // Update hint
+            const hint = document.getElementById('hint');
+            if (ballIsMoving()) {
+                hint.textContent = '⏳ Ball rolling...';
+            } else if (ballInHole) {
+                hint.textContent = '🎉 In the hole!';
+            } else {
+                hint.textContent = 'Click and drag to aim, release to putt!';
+            }
+        }
+
+        // Game loop
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        gameLoop();
+    </script>
+</body>
+</html>

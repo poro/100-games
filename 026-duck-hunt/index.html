@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🦆 Duck Hunt</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(180deg, 
+                #87CEEB 0%, 
+                #87CEEB 50%, 
+                #228B22 50%, 
+                #228B22 55%,
+                #006400 55%,
+                #006400 100%);
+            cursor: crosshair;
+        }
+
+        /* Sun */
+        .sun {
+            position: absolute;
+            top: 40px;
+            right: 80px;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #FFD700, #FFA500);
+            border-radius: 50%;
+            box-shadow: 0 0 40px #FFD700;
+        }
+
+        /* Clouds */
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.9;
+        }
+
+        .cloud::before, .cloud::after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+
+        .cloud-1 {
+            width: 80px;
+            height: 30px;
+            top: 60px;
+            left: 10%;
+            animation: float 20s linear infinite;
+        }
+
+        .cloud-1::before {
+            width: 40px;
+            height: 40px;
+            top: -20px;
+            left: 10px;
+        }
+
+        .cloud-1::after {
+            width: 50px;
+            height: 50px;
+            top: -25px;
+            left: 35px;
+        }
+
+        .cloud-2 {
+            width: 100px;
+            height: 35px;
+            top: 100px;
+            left: 40%;
+            animation: float 25s linear infinite reverse;
+        }
+
+        .cloud-2::before {
+            width: 50px;
+            height: 50px;
+            top: -25px;
+            left: 15px;
+        }
+
+        .cloud-2::after {
+            width: 60px;
+            height: 60px;
+            top: -30px;
+            left: 45px;
+        }
+
+        @keyframes float {
+            0% { transform: translateX(-100px); }
+            100% { transform: translateX(100vw); }
+        }
+
+        /* Trees */
+        .tree {
+            position: absolute;
+            bottom: 45%;
+        }
+
+        .tree-trunk {
+            width: 20px;
+            height: 40px;
+            background: #8B4513;
+            margin: 0 auto;
+        }
+
+        .tree-top {
+            width: 0;
+            height: 0;
+            border-left: 35px solid transparent;
+            border-right: 35px solid transparent;
+            border-bottom: 60px solid #228B22;
+            position: relative;
+        }
+
+        .tree-top::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: -30px;
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+            border-right: 30px solid transparent;
+            border-bottom: 50px solid #2E8B2E;
+        }
+
+        .tree-1 { left: 5%; }
+        .tree-2 { left: 15%; transform: scale(0.8); }
+        .tree-3 { left: 80%; }
+        .tree-4 { left: 90%; transform: scale(0.7); }
+
+        /* Duck */
+        .duck {
+            position: absolute;
+            width: 60px;
+            height: 50px;
+            cursor: crosshair;
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+
+        .duck-body {
+            position: absolute;
+            width: 45px;
+            height: 35px;
+            background: #8B4513;
+            border-radius: 50% 50% 50% 50%;
+            top: 10px;
+            left: 5px;
+        }
+
+        .duck-head {
+            position: absolute;
+            width: 25px;
+            height: 25px;
+            background: #006400;
+            border-radius: 50%;
+            top: 5px;
+            left: 35px;
+        }
+
+        .duck-eye {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            top: 8px;
+            left: 14px;
+        }
+
+        .duck-eye::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: black;
+            border-radius: 50%;
+            top: 1px;
+            left: 1px;
+        }
+
+        .duck-beak {
+            position: absolute;
+            width: 15px;
+            height: 8px;
+            background: #FFA500;
+            top: 15px;
+            left: 50px;
+            border-radius: 0 50% 50% 0;
+        }
+
+        .duck-wing {
+            position: absolute;
+            width: 30px;
+            height: 20px;
+            background: #A0522D;
+            border-radius: 50%;
+            top: 15px;
+            left: 10px;
+            transform-origin: right center;
+            animation: flap 0.15s ease-in-out infinite alternate;
+        }
+
+        @keyframes flap {
+            0% { transform: rotate(-20deg); }
+            100% { transform: rotate(20deg); }
+        }
+
+        .duck.hit {
+            animation: fall 1s ease-in forwards;
+        }
+
+        .duck.hit .duck-wing {
+            animation: none;
+        }
+
+        @keyframes fall {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(180deg) translateY(100vh); }
+        }
+
+        .duck.flying-left {
+            transform: scaleX(-1);
+        }
+
+        /* HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.5), transparent);
+            z-index: 100;
+        }
+
+        .hud-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 1.2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .ammo-display {
+            display: flex;
+            gap: 5px;
+        }
+
+        .shell {
+            width: 12px;
+            height: 30px;
+            background: linear-gradient(90deg, #CD7F32, #DAA520, #CD7F32);
+            border-radius: 3px 3px 6px 6px;
+            border: 1px solid #8B4513;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .shell.used {
+            opacity: 0.3;
+            transform: translateY(5px);
+        }
+
+        #score, #round, #high-score {
+            font-weight: bold;
+            min-width: 60px;
+        }
+
+        /* Duck counter */
+        .duck-counter {
+            display: flex;
+            gap: 5px;
+        }
+
+        .duck-icon {
+            width: 20px;
+            height: 15px;
+            background: #8B4513;
+            border-radius: 50%;
+            position: relative;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .duck-icon.hit {
+            opacity: 1;
+            background: #FF4444;
+        }
+
+        .duck-icon::before {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: inherit;
+            border-radius: 50%;
+            right: -3px;
+            top: 2px;
+        }
+
+        /* Start Screen */
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            color: white;
+        }
+
+        #start-screen h1, #game-over-screen h1 {
+            font-size: 4rem;
+            margin-bottom: 10px;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+        }
+
+        #start-screen h2 {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+            opacity: 0.8;
+        }
+
+        .instructions {
+            text-align: center;
+            margin-bottom: 30px;
+            line-height: 1.8;
+            opacity: 0.9;
+        }
+
+        .start-btn {
+            padding: 15px 50px;
+            font-size: 1.5rem;
+            background: linear-gradient(180deg, #4CAF50, #388E3C);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+
+        .start-btn:active {
+            transform: scale(0.98);
+        }
+
+        #game-over-screen {
+            display: none;
+        }
+
+        #final-score {
+            font-size: 2rem;
+            margin: 20px 0;
+            color: #FFD700;
+        }
+
+        /* Round announcement */
+        #round-announce {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            color: white;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            z-index: 150;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #round-announce.show {
+            animation: announce 2s ease-out forwards;
+        }
+
+        @keyframes announce {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* Shot effect */
+        .shot-effect {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, yellow, orange, transparent);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: shot 0.3s ease-out forwards;
+            z-index: 50;
+        }
+
+        @keyframes shot {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+
+        /* Hit points popup */
+        .points-popup {
+            position: absolute;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+            animation: popup 1s ease-out forwards;
+            z-index: 60;
+        }
+
+        @keyframes popup {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+
+        /* Dog (optional, appears at bottom) */
+        #dog {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3rem;
+            opacity: 0;
+            transition: opacity 0.5s;
+            z-index: 20;
+        }
+
+        #dog.show {
+            opacity: 1;
+            animation: dogLaugh 0.5s ease-in-out 3;
+        }
+
+        @keyframes dogLaugh {
+            0%, 100% { transform: translateX(-50%) rotate(0deg); }
+            25% { transform: translateX(-50%) rotate(-5deg); }
+            75% { transform: translateX(-50%) rotate(5deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            #hud {
+                flex-wrap: wrap;
+                gap: 10px;
+                justify-content: center;
+            }
+
+            .hud-section {
+                font-size: 1rem;
+            }
+
+            #start-screen h1, #game-over-screen h1 {
+                font-size: 2.5rem;
+            }
+
+            .instructions {
+                font-size: 0.9rem;
+                padding: 0 20px;
+            }
+
+            .duck {
+                width: 50px;
+                height: 40px;
+            }
+
+            .duck-body {
+                width: 35px;
+                height: 28px;
+            }
+
+            .duck-head {
+                width: 20px;
+                height: 20px;
+                left: 28px;
+            }
+
+            .duck-beak {
+                width: 12px;
+                height: 6px;
+                left: 40px;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Sky decorations -->
+        <div class="sun"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        
+        <!-- Trees -->
+        <div class="tree tree-1">
+            <div class="tree-top"></div>
+            <div class="tree-trunk"></div>
+        </div>
+        <div class="tree tree-2">
+            <div class="tree-top"></div>
+            <div class="tree-trunk"></div>
+        </div>
+        <div class="tree tree-3">
+            <div class="tree-top"></div>
+            <div class="tree-trunk"></div>
+        </div>
+        <div class="tree tree-4">
+            <div class="tree-top"></div>
+            <div class="tree-trunk"></div>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div class="hud-section">
+                <span>🎯 Score:</span>
+                <span id="score">0</span>
+            </div>
+            <div class="hud-section">
+                <span>🏆 Best:</span>
+                <span id="high-score">0</span>
+            </div>
+            <div class="hud-section">
+                <span>📍 Round:</span>
+                <span id="round">1</span>
+            </div>
+            <div class="hud-section ammo-display" id="ammo">
+                <div class="shell"></div>
+                <div class="shell"></div>
+                <div class="shell"></div>
+            </div>
+            <div class="hud-section duck-counter" id="duck-counter">
+                <!-- Duck icons added dynamically -->
+            </div>
+        </div>
+
+        <!-- Round announcement -->
+        <div id="round-announce">Round 1</div>
+
+        <!-- Dog -->
+        <div id="dog">🐕</div>
+
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1>🦆 Duck Hunt</h1>
+            <h2>Classic Shooting Game</h2>
+            <div class="instructions">
+                <p>🎯 Click or tap to shoot the ducks</p>
+                <p>🔫 You have 3 shots per round</p>
+                <p>🦆 Hit ducks to score points</p>
+                <p>⚡ Ducks get faster each round!</p>
+            </div>
+            <button class="start-btn" id="start-btn">Start Hunt!</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen">
+            <h1>Game Over!</h1>
+            <div id="final-score">Score: 0</div>
+            <p id="rounds-survived">You survived 0 rounds!</p>
+            <button class="start-btn" id="restart-btn">Hunt Again!</button>
+        </div>
+    </div>
+
+    <script>
+        // Audio Context for sound effects
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            switch(type) {
+                case 'shoot':
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.1);
+                    break;
+                    
+                case 'hit':
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.2);
+                    break;
+                    
+                case 'miss':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.3);
+                    break;
+                    
+                case 'quack':
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(500, audioCtx.currentTime);
+                    oscillator.frequency.setValueAtTime(400, audioCtx.currentTime + 0.1);
+                    oscillator.frequency.setValueAtTime(500, audioCtx.currentTime + 0.2);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.25);
+                    break;
+                    
+                case 'round':
+                    // Fanfare
+                    const osc1 = audioCtx.createOscillator();
+                    const gain1 = audioCtx.createGain();
+                    osc1.connect(gain1);
+                    gain1.connect(audioCtx.destination);
+                    osc1.type = 'triangle';
+                    osc1.frequency.setValueAtTime(523, audioCtx.currentTime);
+                    osc1.frequency.setValueAtTime(659, audioCtx.currentTime + 0.15);
+                    osc1.frequency.setValueAtTime(784, audioCtx.currentTime + 0.3);
+                    gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc1.start();
+                    osc1.stop(audioCtx.currentTime + 0.5);
+                    break;
+                    
+                case 'gameOver':
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5);
+                    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    oscillator.start();
+                    oscillator.stop(audioCtx.currentTime + 0.5);
+                    break;
+            }
+        }
+
+        // Game State
+        const game = {
+            score: 0,
+            highScore: parseInt(localStorage.getItem('duckHuntHighScore')) || 0,
+            round: 1,
+            ammo: 3,
+            maxAmmo: 3,
+            ducksPerRound: 5,
+            ducksHit: 0,
+            ducksSpawned: 0,
+            activeDucks: [],
+            isPlaying: false,
+            baseSpeed: 2,
+            speedMultiplier: 1
+        };
+
+        // DOM Elements
+        const container = document.getElementById('game-container');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const roundDisplay = document.getElementById('round');
+        const ammoDisplay = document.getElementById('ammo');
+        const duckCounter = document.getElementById('duck-counter');
+        const roundAnnounce = document.getElementById('round-announce');
+        const dog = document.getElementById('dog');
+
+        // Initialize
+        highScoreDisplay.textContent = game.highScore;
+
+        // Event Listeners
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        container.addEventListener('click', handleShot);
+        container.addEventListener('touchstart', handleTouch, { passive: false });
+
+        function handleTouch(e) {
+            if (!game.isPlaying) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleShot({ clientX: touch.clientX, clientY: touch.clientY, target: document.elementFromPoint(touch.clientX, touch.clientY) });
+        }
+
+        function startGame() {
+            initAudio();
+            game.score = 0;
+            game.round = 1;
+            game.ammo = game.maxAmmo;
+            game.ducksHit = 0;
+            game.ducksSpawned = 0;
+            game.activeDucks = [];
+            game.speedMultiplier = 1;
+            game.isPlaying = true;
+
+            updateUI();
+            startScreen.classList.add('hidden');
+            gameOverScreen.style.display = 'none';
+            
+            announceRound();
+            setTimeout(spawnDuck, 2000);
+        }
+
+        function announceRound() {
+            playSound('round');
+            roundAnnounce.textContent = `Round ${game.round}`;
+            roundAnnounce.classList.add('show');
+            setTimeout(() => roundAnnounce.classList.remove('show'), 2000);
+            updateDuckCounter();
+        }
+
+        function updateDuckCounter() {
+            duckCounter.innerHTML = '';
+            for (let i = 0; i < game.ducksPerRound; i++) {
+                const icon = document.createElement('div');
+                icon.className = 'duck-icon' + (i < game.ducksHit ? ' hit' : '');
+                duckCounter.appendChild(icon);
+            }
+        }
+
+        function updateUI() {
+            scoreDisplay.textContent = game.score;
+            roundDisplay.textContent = game.round;
+            
+            const shells = ammoDisplay.querySelectorAll('.shell');
+            shells.forEach((shell, i) => {
+                shell.classList.toggle('used', i >= game.ammo);
+            });
+        }
+
+        function createDuck() {
+            const duck = document.createElement('div');
+            duck.className = 'duck';
+            
+            // Random starting position
+            const startLeft = Math.random() > 0.5;
+            const startX = startLeft ? -70 : window.innerWidth + 10;
+            const startY = 50 + Math.random() * (window.innerHeight * 0.3);
+            
+            duck.style.left = startX + 'px';
+            duck.style.top = startY + 'px';
+            
+            if (!startLeft) {
+                duck.classList.add('flying-left');
+            }
+            
+            duck.innerHTML = `
+                <div class="duck-body"></div>
+                <div class="duck-head">
+                    <div class="duck-eye"></div>
+                </div>
+                <div class="duck-beak"></div>
+                <div class="duck-wing"></div>
+            `;
+            
+            // Movement properties
+            duck.dataset.vx = (startLeft ? 1 : -1) * (game.baseSpeed + Math.random() * 2) * game.speedMultiplier;
+            duck.dataset.vy = (Math.random() - 0.5) * 2 * game.speedMultiplier;
+            duck.dataset.hit = 'false';
+            
+            container.appendChild(duck);
+            game.activeDucks.push(duck);
+            
+            // Quack!
+            if (Math.random() > 0.5) {
+                setTimeout(() => playSound('quack'), Math.random() * 1000);
+            }
+            
+            return duck;
+        }
+
+        function spawnDuck() {
+            if (!game.isPlaying) return;
+            
+            if (game.ducksSpawned < game.ducksPerRound) {
+                createDuck();
+                game.ducksSpawned++;
+                
+                // Spawn next duck after delay
+                const delay = Math.max(1500 - game.round * 100, 800);
+                setTimeout(spawnDuck, delay);
+            }
+        }
+
+        function handleShot(e) {
+            if (!game.isPlaying || game.ammo <= 0) return;
+            
+            // Don't shoot through UI elements
+            if (e.target.closest('#hud') || e.target.closest('#start-screen') || e.target.closest('#game-over-screen')) {
+                return;
+            }
+            
+            game.ammo--;
+            playSound('shoot');
+            
+            // Visual shot effect
+            const effect = document.createElement('div');
+            effect.className = 'shot-effect';
+            effect.style.left = (e.clientX - 10) + 'px';
+            effect.style.top = (e.clientY - 10) + 'px';
+            container.appendChild(effect);
+            setTimeout(() => effect.remove(), 300);
+            
+            // Check if hit a duck
+            const clickedDuck = e.target.closest('.duck');
+            if (clickedDuck && clickedDuck.dataset.hit === 'false') {
+                hitDuck(clickedDuck, e.clientX, e.clientY);
+            }
+            
+            updateUI();
+            
+            // Check if out of ammo
+            if (game.ammo === 0) {
+                setTimeout(checkRoundEnd, 500);
+            }
+        }
+
+        function hitDuck(duck, x, y) {
+            duck.dataset.hit = 'true';
+            duck.classList.add('hit');
+            
+            playSound('hit');
+            
+            // Points based on round
+            const points = 100 * game.round;
+            game.score += points;
+            game.ducksHit++;
+            
+            // Show points popup
+            const popup = document.createElement('div');
+            popup.className = 'points-popup';
+            popup.textContent = '+' + points;
+            popup.style.left = x + 'px';
+            popup.style.top = y + 'px';
+            container.appendChild(popup);
+            setTimeout(() => popup.remove(), 1000);
+            
+            updateDuckCounter();
+            
+            // Check high score
+            if (game.score > game.highScore) {
+                game.highScore = game.score;
+                localStorage.setItem('duckHuntHighScore', game.highScore);
+                highScoreDisplay.textContent = game.highScore;
+            }
+            
+            // Remove duck after falling
+            setTimeout(() => {
+                const index = game.activeDucks.indexOf(duck);
+                if (index > -1) game.activeDucks.splice(index, 1);
+                duck.remove();
+            }, 1000);
+            
+            updateUI();
+        }
+
+        function checkRoundEnd() {
+            // Wait for all active ducks to leave or be hit
+            const aliveDucks = game.activeDucks.filter(d => d.dataset.hit === 'false');
+            
+            if (aliveDucks.length === 0 && game.ducksSpawned >= game.ducksPerRound) {
+                // All ducks handled
+                if (game.ducksHit === 0) {
+                    // Missed all ducks - game over
+                    showDog();
+                    setTimeout(gameOver, 2000);
+                } else if (game.ducksHit < Math.ceil(game.ducksPerRound / 2)) {
+                    // Hit less than half - game over
+                    showDog();
+                    setTimeout(gameOver, 2000);
+                } else {
+                    // Passed the round
+                    nextRound();
+                }
+            } else if (game.ammo === 0 && aliveDucks.length > 0) {
+                // Out of ammo with ducks remaining - wait for them to leave
+                setTimeout(checkRoundEnd, 500);
+            }
+        }
+
+        function showDog() {
+            dog.classList.add('show');
+            setTimeout(() => dog.classList.remove('show'), 2000);
+        }
+
+        function nextRound() {
+            game.round++;
+            game.ammo = game.maxAmmo;
+            game.ducksHit = 0;
+            game.ducksSpawned = 0;
+            game.speedMultiplier = 1 + (game.round - 1) * 0.15;
+            
+            // Clean up any remaining ducks
+            game.activeDucks.forEach(d => d.remove());
+            game.activeDucks = [];
+            
+            updateUI();
+            announceRound();
+            setTimeout(spawnDuck, 2000);
+        }
+
+        function gameOver() {
+            game.isPlaying = false;
+            playSound('gameOver');
+            
+            // Clean up
+            game.activeDucks.forEach(d => d.remove());
+            game.activeDucks = [];
+            
+            document.getElementById('final-score').textContent = `Score: ${game.score}`;
+            document.getElementById('rounds-survived').textContent = `You reached Round ${game.round}!`;
+            gameOverScreen.style.display = 'flex';
+        }
+
+        // Game loop for duck movement
+        function gameLoop() {
+            if (game.isPlaying) {
+                game.activeDucks.forEach(duck => {
+                    if (duck.dataset.hit === 'true') return;
+                    
+                    let x = parseFloat(duck.style.left);
+                    let y = parseFloat(duck.style.top);
+                    let vx = parseFloat(duck.dataset.vx);
+                    let vy = parseFloat(duck.dataset.vy);
+                    
+                    x += vx;
+                    y += vy;
+                    
+                    // Bounce off top/bottom
+                    if (y < 30 || y > window.innerHeight * 0.4) {
+                        vy = -vy;
+                        duck.dataset.vy = vy;
+                    }
+                    
+                    // Random direction changes
+                    if (Math.random() < 0.02) {
+                        vy = (Math.random() - 0.5) * 3 * game.speedMultiplier;
+                        duck.dataset.vy = vy;
+                    }
+                    
+                    duck.style.left = x + 'px';
+                    duck.style.top = y + 'px';
+                    
+                    // Remove if off screen
+                    if (x < -100 || x > window.innerWidth + 100) {
+                        const index = game.activeDucks.indexOf(duck);
+                        if (index > -1) game.activeDucks.splice(index, 1);
+                        duck.remove();
+                        
+                        // Check if round should end
+                        if (game.activeDucks.length === 0 && game.ducksSpawned >= game.ducksPerRound) {
+                            setTimeout(checkRoundEnd, 100);
+                        }
+                    }
+                });
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>

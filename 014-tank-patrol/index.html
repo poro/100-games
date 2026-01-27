@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tank Patrol</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 0 10px;
+        }
+
+        h1 {
+            color: #e94560;
+            font-size: 1.8rem;
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            letter-spacing: 2px;
+        }
+
+        #stats {
+            display: flex;
+            gap: 20px;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(233, 69, 96, 0.3);
+        }
+
+        .stat span {
+            color: #e94560;
+            font-weight: bold;
+        }
+
+        #gameCanvas {
+            border: 3px solid #e94560;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.3),
+                        inset 0 0 50px rgba(0, 0, 0, 0.5);
+            background: #0a0a15;
+        }
+
+        #controls {
+            display: none;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border: 2px solid #e94560;
+            background: rgba(233, 69, 96, 0.2);
+            color: #fff;
+            font-size: 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .control-btn:active, .control-btn.pressed {
+            background: rgba(233, 69, 96, 0.6);
+            transform: scale(0.95);
+            box-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
+        }
+
+        .control-btn.empty {
+            visibility: hidden;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 40px 60px;
+            border-radius: 20px;
+            text-align: center;
+            border: 3px solid #e94560;
+            box-shadow: 0 0 50px rgba(233, 69, 96, 0.5);
+            display: none;
+            z-index: 100;
+        }
+
+        #message h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: #e94560;
+        }
+
+        #message p {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+
+        #message button {
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        #message button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.6);
+        }
+
+        #instructions {
+            color: #888;
+            font-size: 0.85rem;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        @media (pointer: coarse), (max-width: 768px) {
+            #controls {
+                display: flex;
+                flex-direction: column;
+            }
+
+            #instructions {
+                display: none;
+            }
+
+            h1 {
+                font-size: 1.4rem;
+            }
+
+            #stats {
+                font-size: 0.85rem;
+                gap: 10px;
+            }
+
+            .stat {
+                padding: 5px 10px;
+            }
+        }
+
+        @media (max-height: 700px) {
+            #gameContainer {
+                gap: 8px;
+            }
+
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="header">
+            <h1>🎖️ TANK PATROL</h1>
+            <div id="stats">
+                <div class="stat">Level: <span id="levelDisplay">1</span>/3</div>
+                <div class="stat">Time: <span id="timeDisplay">0</span>s</div>
+            </div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div id="controls">
+            <div class="control-row">
+                <div class="control-btn empty"></div>
+                <button class="control-btn" id="btnUp">▲</button>
+                <div class="control-btn empty"></div>
+            </div>
+            <div class="control-row">
+                <button class="control-btn" id="btnLeft">◀</button>
+                <button class="control-btn" id="btnDown">▼</button>
+                <button class="control-btn" id="btnRight">▶</button>
+            </div>
+        </div>
+        <div id="instructions">Arrow Keys: ↑↓ Move | ←→ Rotate | Reach the green exit!</div>
+    </div>
+
+    <div id="message">
+        <h2 id="messageTitle">Level Complete!</h2>
+        <p id="messageText">Great job, soldier!</p>
+        <button id="messageBtn">Continue</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const message = document.getElementById('message');
+        const messageTitle = document.getElementById('messageTitle');
+        const messageText = document.getElementById('messageText');
+        const messageBtn = document.getElementById('messageBtn');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const timeDisplay = document.getElementById('timeDisplay');
+
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const maxWidth = Math.min(600, window.innerWidth - 20);
+            const maxHeight = Math.min(500, window.innerHeight - 200);
+            const size = Math.min(maxWidth, maxHeight);
+            canvas.width = size;
+            canvas.height = size;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Game state
+        let currentLevel = 0;
+        let gameTime = 0;
+        let gameInterval = null;
+        let gameRunning = false;
+
+        // Tank properties
+        const tank = {
+            x: 0,
+            y: 0,
+            angle: 0,
+            size: 0,
+            speed: 0,
+            rotationSpeed: 0.08
+        };
+
+        // Controls state
+        const keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
+
+        // Level definitions (1 = wall, 0 = path, 2 = start, 3 = exit, 4 = obstacle)
+        const levels = [
+            // Level 1 - Simple maze
+            {
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,2,0,0,0,1,0,0,0,0,0,1],
+                    [1,0,1,1,0,1,0,1,1,1,0,1],
+                    [1,0,1,0,0,0,0,0,0,1,0,1],
+                    [1,0,1,0,1,1,1,1,0,1,0,1],
+                    [1,0,0,0,0,0,0,1,0,0,0,1],
+                    [1,1,1,1,1,1,0,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,0,3],
+                    [1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                startAngle: 0
+            },
+            // Level 2 - More complex with obstacles
+            {
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,2,0,0,4,0,0,0,0,4,0,1],
+                    [1,0,1,1,1,1,0,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,4,0,0,1],
+                    [1,1,1,0,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,4,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,0,1,1,1],
+                    [1,0,4,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,0,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,4,0,0,0,0,1],
+                    [1,1,1,0,1,1,1,1,0,1,0,3],
+                    [1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                startAngle: 0
+            },
+            // Level 3 - Challenging maze
+            {
+                grid: [
+                    [1,1,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,4,0,0,0,0,0,2,1],
+                    [1,0,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,4,0,0,0,0,1],
+                    [1,1,1,1,1,1,1,1,1,1,0,1],
+                    [1,0,0,0,0,0,0,0,0,0,0,1],
+                    [1,0,1,1,1,1,1,1,1,1,1,1],
+                    [1,0,0,0,4,0,0,0,4,0,0,1],
+                    [1,1,1,0,1,1,1,1,1,1,0,1],
+                    [1,4,0,0,0,0,0,0,0,0,0,1],
+                    [3,0,1,1,1,1,1,1,1,1,4,1],
+                    [1,1,1,1,1,1,1,1,1,1,1,1]
+                ],
+                startAngle: Math.PI
+            }
+        ];
+
+        let currentGrid = [];
+        let cellSize = 0;
+        let exitPos = { x: 0, y: 0 };
+
+        function initLevel(levelIndex) {
+            const level = levels[levelIndex];
+            currentGrid = level.grid.map(row => [...row]);
+            cellSize = canvas.width / currentGrid[0].length;
+            tank.size = cellSize * 0.6;
+            tank.speed = cellSize * 0.05;
+
+            // Find start and exit positions
+            for (let y = 0; y < currentGrid.length; y++) {
+                for (let x = 0; x < currentGrid[y].length; x++) {
+                    if (currentGrid[y][x] === 2) {
+                        tank.x = x * cellSize + cellSize / 2;
+                        tank.y = y * cellSize + cellSize / 2;
+                        tank.angle = level.startAngle;
+                    }
+                    if (currentGrid[y][x] === 3) {
+                        exitPos = { x: x * cellSize + cellSize / 2, y: y * cellSize + cellSize / 2 };
+                    }
+                }
+            }
+
+            levelDisplay.textContent = levelIndex + 1;
+            gameTime = 0;
+            timeDisplay.textContent = '0';
+        }
+
+        function drawMaze() {
+            for (let y = 0; y < currentGrid.length; y++) {
+                for (let x = 0; x < currentGrid[y].length; x++) {
+                    const cell = currentGrid[y][x];
+                    const px = x * cellSize;
+                    const py = y * cellSize;
+
+                    if (cell === 1) {
+                        // Wall
+                        ctx.fillStyle = '#2a2a4a';
+                        ctx.fillRect(px, py, cellSize, cellSize);
+                        ctx.strokeStyle = '#3a3a6a';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+                    } else if (cell === 3) {
+                        // Exit
+                        ctx.fillStyle = '#1a3a1a';
+                        ctx.fillRect(px, py, cellSize, cellSize);
+                        
+                        // Pulsing exit indicator
+                        const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+                        ctx.fillStyle = `rgba(0, 255, 100, ${pulse})`;
+                        ctx.beginPath();
+                        ctx.arc(px + cellSize/2, py + cellSize/2, cellSize/3, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = '#fff';
+                        ctx.font = `${cellSize/3}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('EXIT', px + cellSize/2, py + cellSize/2);
+                    } else if (cell === 4) {
+                        // Obstacle (mine)
+                        ctx.fillStyle = '#1a1a2a';
+                        ctx.fillRect(px, py, cellSize, cellSize);
+                        
+                        // Draw mine
+                        ctx.fillStyle = '#ff4444';
+                        ctx.beginPath();
+                        ctx.arc(px + cellSize/2, py + cellSize/2, cellSize/4, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = '#ffff00';
+                        ctx.font = `bold ${cellSize/3}px Arial`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('!', px + cellSize/2, py + cellSize/2);
+                    } else {
+                        // Path
+                        ctx.fillStyle = '#1a1a2a';
+                        ctx.fillRect(px, py, cellSize, cellSize);
+                    }
+                }
+            }
+        }
+
+        function drawTank() {
+            ctx.save();
+            ctx.translate(tank.x, tank.y);
+            ctx.rotate(tank.angle);
+
+            // Tank body
+            const w = tank.size;
+            const h = tank.size * 0.7;
+
+            // Tracks
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-w/2, -h/2, w, h/4);
+            ctx.fillRect(-w/2, h/4, w, h/4);
+
+            // Main body
+            ctx.fillStyle = '#4a7c59';
+            ctx.fillRect(-w/2 + 2, -h/3, w - 4, h * 0.66);
+
+            // Turret
+            ctx.fillStyle = '#3a6c49';
+            ctx.beginPath();
+            ctx.arc(0, 0, h/3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Cannon
+            ctx.fillStyle = '#2a5c39';
+            ctx.fillRect(0, -h/10, w/2 + 5, h/5);
+
+            // Cannon tip
+            ctx.fillStyle = '#1a4c29';
+            ctx.fillRect(w/2, -h/8, 8, h/4);
+
+            ctx.restore();
+        }
+
+        function getGridPos(x, y) {
+            return {
+                gridX: Math.floor(x / cellSize),
+                gridY: Math.floor(y / cellSize)
+            };
+        }
+
+        function isCollision(x, y) {
+            // Check multiple points around the tank
+            const checkRadius = tank.size * 0.35;
+            const points = [
+                { x: x, y: y },
+                { x: x + checkRadius, y: y },
+                { x: x - checkRadius, y: y },
+                { x: x, y: y + checkRadius },
+                { x: x, y: y - checkRadius }
+            ];
+
+            for (const point of points) {
+                const pos = getGridPos(point.x, point.y);
+                if (pos.gridX < 0 || pos.gridX >= currentGrid[0].length ||
+                    pos.gridY < 0 || pos.gridY >= currentGrid.length) {
+                    return 'wall';
+                }
+                const cell = currentGrid[pos.gridY][pos.gridX];
+                if (cell === 1) return 'wall';
+                if (cell === 4) return 'obstacle';
+            }
+            return null;
+        }
+
+        function checkExit() {
+            const dist = Math.hypot(tank.x - exitPos.x, tank.y - exitPos.y);
+            return dist < cellSize * 0.4;
+        }
+
+        function updateTank() {
+            // Rotation
+            if (keys.left) tank.angle -= tank.rotationSpeed;
+            if (keys.right) tank.angle += tank.rotationSpeed;
+
+            // Movement
+            let newX = tank.x;
+            let newY = tank.y;
+
+            if (keys.up) {
+                newX += Math.cos(tank.angle) * tank.speed;
+                newY += Math.sin(tank.angle) * tank.speed;
+            }
+            if (keys.down) {
+                newX -= Math.cos(tank.angle) * tank.speed * 0.6;
+                newY -= Math.sin(tank.angle) * tank.speed * 0.6;
+            }
+
+            const collision = isCollision(newX, newY);
+            if (collision === 'obstacle') {
+                gameOver();
+                return;
+            }
+            if (!collision) {
+                tank.x = newX;
+                tank.y = newY;
+            }
+
+            if (checkExit()) {
+                levelComplete();
+            }
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMaze();
+            updateTank();
+            drawTank();
+
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function startGame() {
+            gameRunning = true;
+            gameLoop();
+            
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(() => {
+                if (gameRunning) {
+                    gameTime++;
+                    timeDisplay.textContent = gameTime;
+                }
+            }, 1000);
+        }
+
+        function stopGame() {
+            gameRunning = false;
+            if (gameInterval) {
+                clearInterval(gameInterval);
+                gameInterval = null;
+            }
+        }
+
+        function levelComplete() {
+            stopGame();
+            
+            if (currentLevel < levels.length - 1) {
+                messageTitle.textContent = '🎖️ Level Complete!';
+                messageText.textContent = `Time: ${gameTime}s - Ready for the next challenge?`;
+                messageBtn.textContent = 'Next Level';
+                messageBtn.onclick = () => {
+                    message.style.display = 'none';
+                    currentLevel++;
+                    initLevel(currentLevel);
+                    startGame();
+                };
+            } else {
+                messageTitle.textContent = '🏆 Victory!';
+                messageText.textContent = `Mission accomplished in ${gameTime}s! All areas secured.`;
+                messageBtn.textContent = 'Play Again';
+                messageBtn.onclick = () => {
+                    message.style.display = 'none';
+                    currentLevel = 0;
+                    initLevel(currentLevel);
+                    startGame();
+                };
+            }
+            message.style.display = 'block';
+        }
+
+        function gameOver() {
+            stopGame();
+            messageTitle.textContent = '💥 Tank Destroyed!';
+            messageText.textContent = 'You hit a mine! Be careful, soldier.';
+            messageBtn.textContent = 'Try Again';
+            messageBtn.onclick = () => {
+                message.style.display = 'none';
+                initLevel(currentLevel);
+                startGame();
+            };
+            message.style.display = 'block';
+        }
+
+        function showStartScreen() {
+            stopGame();
+            messageTitle.textContent = '🎖️ Tank Patrol';
+            messageText.textContent = 'Navigate through enemy territory!\nReach the exit while avoiding mines.';
+            messageBtn.textContent = 'Start Mission';
+            messageBtn.onclick = () => {
+                message.style.display = 'none';
+                initLevel(currentLevel);
+                startGame();
+            };
+            message.style.display = 'block';
+            
+            // Draw initial preview
+            initLevel(0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMaze();
+            drawTank();
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+            if (e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 'ArrowDown') keys.down = true;
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 'ArrowDown') keys.down = false;
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+        });
+
+        // Mobile controls
+        function setupMobileButton(btnId, key) {
+            const btn = document.getElementById(btnId);
+            
+            const activate = (e) => {
+                e.preventDefault();
+                keys[key] = true;
+                btn.classList.add('pressed');
+            };
+            
+            const deactivate = (e) => {
+                e.preventDefault();
+                keys[key] = false;
+                btn.classList.remove('pressed');
+            };
+
+            btn.addEventListener('touchstart', activate, { passive: false });
+            btn.addEventListener('touchend', deactivate, { passive: false });
+            btn.addEventListener('touchcancel', deactivate, { passive: false });
+            btn.addEventListener('mousedown', activate);
+            btn.addEventListener('mouseup', deactivate);
+            btn.addEventListener('mouseleave', deactivate);
+        }
+
+        setupMobileButton('btnUp', 'up');
+        setupMobileButton('btnDown', 'down');
+        setupMobileButton('btnLeft', 'left');
+        setupMobileButton('btnRight', 'right');
+
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // Initialize
+        showStartScreen();
+    </script>
+</body>
+</html>

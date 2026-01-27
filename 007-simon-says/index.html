@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Says</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255,255,255,0.3);
+            letter-spacing: 3px;
+        }
+
+        .score-board {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .score-board span {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .score-board .high-score {
+            color: #ffd700;
+        }
+
+        .game-container {
+            position: relative;
+            width: min(400px, 90vw);
+            height: min(400px, 90vw);
+        }
+
+        .simon-board {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            background: #1a1a1a;
+            box-shadow: 
+                0 0 0 15px #2a2a2a,
+                0 0 0 20px #1a1a1a,
+                0 20px 60px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .btn {
+            border: none;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:active:not(.disabled) {
+            transform: scale(0.95);
+        }
+
+        .btn.disabled {
+            cursor: not-allowed;
+        }
+
+        .btn-green {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            border-radius: 100% 0 0 0;
+        }
+        .btn-green.active, .btn-green.lit {
+            background: linear-gradient(135deg, #58ff9e 0%, #2ecc71 100%);
+            box-shadow: 0 0 40px #2ecc71, inset 0 0 30px rgba(255,255,255,0.3);
+        }
+
+        .btn-red {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border-radius: 0 100% 0 0;
+        }
+        .btn-red.active, .btn-red.lit {
+            background: linear-gradient(135deg, #ff7b6b 0%, #e74c3c 100%);
+            box-shadow: 0 0 40px #e74c3c, inset 0 0 30px rgba(255,255,255,0.3);
+        }
+
+        .btn-yellow {
+            background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+            border-radius: 0 0 0 100%;
+        }
+        .btn-yellow.active, .btn-yellow.lit {
+            background: linear-gradient(135deg, #ffe45c 0%, #f1c40f 100%);
+            box-shadow: 0 0 40px #f1c40f, inset 0 0 30px rgba(255,255,255,0.3);
+        }
+
+        .btn-blue {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            border-radius: 0 0 100% 0;
+        }
+        .btn-blue.active, .btn-blue.lit {
+            background: linear-gradient(135deg, #64c8ff 0%, #3498db 100%);
+            box-shadow: 0 0 40px #3498db, inset 0 0 30px rgba(255,255,255,0.3);
+        }
+
+        .center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 35%;
+            height: 35%;
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                inset 0 5px 15px rgba(0,0,0,0.5),
+                0 0 0 5px #333;
+            z-index: 10;
+        }
+
+        .round-display {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .status {
+            color: #888;
+            font-size: 0.75rem;
+            margin-top: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .start-btn {
+            margin-top: 25px;
+            padding: 15px 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(155, 89, 182, 0.4);
+        }
+
+        .start-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(155, 89, 182, 0.5);
+        }
+
+        .start-btn:active {
+            transform: translateY(0);
+        }
+
+        .start-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            margin-top: 15px;
+            color: #fff;
+            font-size: 1.1rem;
+            min-height: 30px;
+            text-align: center;
+        }
+
+        .message.error {
+            color: #e74c3c;
+            animation: shake 0.5s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            .score-board {
+                gap: 15px;
+                font-size: 0.9rem;
+            }
+            .score-board span {
+                padding: 6px 15px;
+            }
+            .start-btn {
+                padding: 12px 35px;
+                font-size: 1rem;
+            }
+            .round-display {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>SIMON SAYS</h1>
+    
+    <div class="score-board">
+        <span>Score: <strong id="score">0</strong></span>
+        <span class="high-score">Best: <strong id="high-score">0</strong></span>
+    </div>
+
+    <div class="game-container">
+        <div class="simon-board">
+            <button class="btn btn-green disabled" data-color="green" data-index="0"></button>
+            <button class="btn btn-red disabled" data-color="red" data-index="1"></button>
+            <button class="btn btn-yellow disabled" data-color="yellow" data-index="2"></button>
+            <button class="btn btn-blue disabled" data-color="blue" data-index="3"></button>
+        </div>
+        <div class="center-circle">
+            <div class="round-display" id="round">—</div>
+            <div class="status" id="status">Ready</div>
+        </div>
+    </div>
+
+    <button class="start-btn" id="start-btn">Start Game</button>
+    <div class="message" id="message"></div>
+
+    <script>
+        // Audio context for generating tones
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        // Frequencies for each color (musical notes)
+        const frequencies = {
+            green: 329.63,  // E4
+            red: 261.63,    // C4
+            yellow: 220.00, // A3
+            blue: 164.81    // E3
+        };
+
+        // Game state
+        let sequence = [];
+        let playerIndex = 0;
+        let isPlaying = false;
+        let canClick = false;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('simonHighScore')) || 0;
+
+        // DOM elements
+        const buttons = document.querySelectorAll('.btn');
+        const startBtn = document.getElementById('start-btn');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const roundDisplay = document.getElementById('round');
+        const statusDisplay = document.getElementById('status');
+        const messageDisplay = document.getElementById('message');
+
+        // Initialize high score display
+        highScoreDisplay.textContent = highScore;
+
+        // Play a tone for a button
+        function playTone(color, duration = 300) {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.frequency.value = frequencies[color];
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration / 1000);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration / 1000);
+        }
+
+        // Play error sound
+        function playErrorSound() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.frequency.value = 100;
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+
+        // Light up a button
+        function lightButton(index, duration = 300) {
+            const btn = buttons[index];
+            const color = btn.dataset.color;
+            
+            btn.classList.add('lit');
+            playTone(color, duration);
+            
+            setTimeout(() => {
+                btn.classList.remove('lit');
+            }, duration);
+        }
+
+        // Flash all buttons (for game over)
+        function flashAll(times = 3) {
+            return new Promise(resolve => {
+                let count = 0;
+                const flash = () => {
+                    if (count >= times) {
+                        resolve();
+                        return;
+                    }
+                    buttons.forEach(btn => btn.classList.add('lit'));
+                    setTimeout(() => {
+                        buttons.forEach(btn => btn.classList.remove('lit'));
+                        count++;
+                        setTimeout(flash, 150);
+                    }, 150);
+                };
+                flash();
+            });
+        }
+
+        // Add random color to sequence
+        function addToSequence() {
+            sequence.push(Math.floor(Math.random() * 4));
+        }
+
+        // Play the current sequence
+        async function playSequence() {
+            canClick = false;
+            statusDisplay.textContent = 'Watch';
+            
+            await new Promise(r => setTimeout(r, 500));
+            
+            for (let i = 0; i < sequence.length; i++) {
+                lightButton(sequence[i], 400);
+                await new Promise(r => setTimeout(r, 600));
+            }
+            
+            canClick = true;
+            statusDisplay.textContent = 'Your Turn';
+            enableButtons();
+        }
+
+        // Enable button clicks
+        function enableButtons() {
+            buttons.forEach(btn => btn.classList.remove('disabled'));
+        }
+
+        // Disable button clicks
+        function disableButtons() {
+            buttons.forEach(btn => btn.classList.add('disabled'));
+        }
+
+        // Handle button click
+        function handleButtonClick(e) {
+            if (!canClick || !isPlaying) return;
+            
+            const btn = e.currentTarget;
+            const index = parseInt(btn.dataset.index);
+            const color = btn.dataset.color;
+            
+            // Visual and audio feedback
+            btn.classList.add('active');
+            playTone(color, 200);
+            setTimeout(() => btn.classList.remove('active'), 200);
+            
+            // Check if correct
+            if (index === sequence[playerIndex]) {
+                playerIndex++;
+                
+                // Completed the sequence
+                if (playerIndex === sequence.length) {
+                    score = sequence.length;
+                    scoreDisplay.textContent = score;
+                    
+                    if (score > highScore) {
+                        highScore = score;
+                        highScoreDisplay.textContent = highScore;
+                        localStorage.setItem('simonHighScore', highScore);
+                        messageDisplay.textContent = '🎉 New High Score!';
+                        messageDisplay.className = 'message';
+                    } else {
+                        messageDisplay.textContent = 'Perfect! Next round...';
+                        messageDisplay.className = 'message';
+                    }
+                    
+                    // Next round
+                    canClick = false;
+                    disableButtons();
+                    playerIndex = 0;
+                    
+                    setTimeout(() => {
+                        messageDisplay.textContent = '';
+                        addToSequence();
+                        roundDisplay.textContent = sequence.length;
+                        playSequence();
+                    }, 1000);
+                }
+            } else {
+                // Wrong button - game over
+                gameOver();
+            }
+        }
+
+        // Game over
+        async function gameOver() {
+            canClick = false;
+            isPlaying = false;
+            disableButtons();
+            
+            playErrorSound();
+            messageDisplay.textContent = `Game Over! You reached round ${sequence.length}`;
+            messageDisplay.className = 'message error';
+            statusDisplay.textContent = 'Game Over';
+            
+            await flashAll(3);
+            
+            startBtn.disabled = false;
+            startBtn.textContent = 'Play Again';
+        }
+
+        // Start game
+        function startGame() {
+            // Reset state
+            sequence = [];
+            playerIndex = 0;
+            score = 0;
+            isPlaying = true;
+            
+            scoreDisplay.textContent = '0';
+            messageDisplay.textContent = '';
+            messageDisplay.className = 'message';
+            startBtn.disabled = true;
+            
+            // Start first round
+            addToSequence();
+            roundDisplay.textContent = '1';
+            
+            setTimeout(() => {
+                playSequence();
+            }, 500);
+        }
+
+        // Event listeners
+        buttons.forEach(btn => {
+            btn.addEventListener('click', handleButtonClick);
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleButtonClick(e);
+            }, { passive: false });
+        });
+
+        startBtn.addEventListener('click', startGame);
+
+        // Prevent double-tap zoom on mobile
+        document.addEventListener('touchend', (e) => {
+            if (e.target.classList.contains('btn') || e.target.id === 'start-btn') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>

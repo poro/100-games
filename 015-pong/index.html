@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pong - Classic Arcade</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #fff;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            text-transform: uppercase;
+            letter-spacing: 0.5em;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+
+        .scoreboard {
+            display: flex;
+            gap: 60px;
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            color: #fff;
+        }
+
+        .score {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .score-label {
+            font-size: 0.6em;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .score-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        #gameCanvas {
+            border: 4px solid #fff;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2),
+                        inset 0 0 50px rgba(255, 255, 255, 0.05);
+            background: #111;
+        }
+
+        .info {
+            color: #666;
+            font-size: clamp(0.7rem, 2vw, 0.9rem);
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        .info span {
+            color: #999;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            pointer-events: none;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #message.hidden {
+            display: none;
+        }
+
+        .winner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        .winner-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .winner-text {
+            color: #fff;
+            font-size: clamp(2rem, 8vw, 4rem);
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.8);
+            animation: glow 1s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5); }
+            to { text-shadow: 0 0 40px rgba(255, 255, 255, 1), 0 0 60px rgba(255, 255, 255, 0.5); }
+        }
+
+        .play-again {
+            background: transparent;
+            border: 2px solid #fff;
+            color: #fff;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-family: inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .play-again:hover {
+            background: #fff;
+            color: #000;
+        }
+
+        .speed-indicator {
+            color: #444;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 600px) {
+            .game-container {
+                padding: 10px;
+                gap: 15px;
+            }
+
+            .scoreboard {
+                gap: 40px;
+            }
+
+            .info {
+                padding: 0 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Pong</h1>
+        
+        <div class="scoreboard">
+            <div class="score">
+                <span class="score-label">Player</span>
+                <span class="score-value" id="playerScore">0</span>
+            </div>
+            <div class="score">
+                <span class="score-label">CPU</span>
+                <span class="score-value" id="cpuScore">0</span>
+            </div>
+        </div>
+
+        <div style="position: relative;">
+            <canvas id="gameCanvas"></canvas>
+            <div id="message">Press Space or Tap to Start</div>
+        </div>
+
+        <div class="info">
+            <span>W/S</span> or <span>↑/↓</span> to move | <span>Touch</span> on mobile<br>
+            First to <span>7</span> wins | Ball speeds up!
+        </div>
+
+        <div class="speed-indicator">
+            Speed: <span id="speedDisplay">1.0x</span>
+        </div>
+    </div>
+
+    <div class="winner-overlay" id="winnerOverlay">
+        <div class="winner-text" id="winnerText">Player Wins!</div>
+        <button class="play-again" id="playAgain">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const messageEl = document.getElementById('message');
+        const playerScoreEl = document.getElementById('playerScore');
+        const cpuScoreEl = document.getElementById('cpuScore');
+        const speedDisplay = document.getElementById('speedDisplay');
+        const winnerOverlay = document.getElementById('winnerOverlay');
+        const winnerText = document.getElementById('winnerText');
+        const playAgainBtn = document.getElementById('playAgain');
+
+        // Game constants
+        const WINNING_SCORE = 7;
+        const PADDLE_WIDTH = 12;
+        const PADDLE_HEIGHT = 80;
+        const BALL_SIZE = 12;
+        const INITIAL_BALL_SPEED = 5;
+        const SPEED_INCREMENT = 0.15;
+        const MAX_SPEED_MULTIPLIER = 2.5;
+        const AI_SPEED = 4;
+        const PADDLE_SPEED = 8;
+
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const maxWidth = Math.min(800, window.innerWidth - 40);
+            const maxHeight = Math.min(500, window.innerHeight - 300);
+            const aspectRatio = 800 / 500;
+
+            if (maxWidth / aspectRatio <= maxHeight) {
+                canvas.width = maxWidth;
+                canvas.height = maxWidth / aspectRatio;
+            } else {
+                canvas.height = maxHeight;
+                canvas.width = maxHeight * aspectRatio;
+            }
+        }
+
+        // Game state
+        let gameState = 'waiting'; // waiting, playing, paused, ended
+        let playerScore = 0;
+        let cpuScore = 0;
+        let speedMultiplier = 1;
+
+        // Game objects
+        let player = {
+            x: 20,
+            y: 0,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            dy: 0
+        };
+
+        let cpu = {
+            x: 0,
+            y: 0,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT
+        };
+
+        let ball = {
+            x: 0,
+            y: 0,
+            size: BALL_SIZE,
+            dx: 0,
+            dy: 0,
+            speed: INITIAL_BALL_SPEED
+        };
+
+        // Input state
+        let keys = {};
+        let touchY = null;
+
+        function initGame() {
+            resizeCanvas();
+            
+            // Position paddles
+            player.x = 20;
+            player.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
+            
+            cpu.x = canvas.width - 20 - PADDLE_WIDTH;
+            cpu.y = canvas.height / 2 - PADDLE_HEIGHT / 2;
+
+            resetBall();
+        }
+
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.speed = INITIAL_BALL_SPEED;
+            speedMultiplier = 1;
+            
+            // Random direction
+            const angle = (Math.random() - 0.5) * Math.PI / 2;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            ball.dx = Math.cos(angle) * ball.speed * direction;
+            ball.dy = Math.sin(angle) * ball.speed;
+
+            updateSpeedDisplay();
+        }
+
+        function updateSpeedDisplay() {
+            speedDisplay.textContent = speedMultiplier.toFixed(1) + 'x';
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            // Player movement
+            const scaledPaddleSpeed = PADDLE_SPEED * (canvas.height / 500);
+            
+            if (touchY !== null) {
+                const targetY = touchY - player.height / 2;
+                const diff = targetY - player.y;
+                player.y += Math.sign(diff) * Math.min(Math.abs(diff), scaledPaddleSpeed * 1.5);
+            } else {
+                if (keys['w'] || keys['W'] || keys['ArrowUp']) {
+                    player.y -= scaledPaddleSpeed;
+                }
+                if (keys['s'] || keys['S'] || keys['ArrowDown']) {
+                    player.y += scaledPaddleSpeed;
+                }
+            }
+
+            // Clamp player paddle
+            player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+
+            // AI movement
+            const scaledAISpeed = AI_SPEED * (canvas.height / 500);
+            const aiTarget = ball.y - cpu.height / 2;
+            const aiDiff = aiTarget - cpu.y;
+            
+            // AI has slight delay and imperfection
+            if (Math.abs(aiDiff) > 10) {
+                cpu.y += Math.sign(aiDiff) * Math.min(Math.abs(aiDiff), scaledAISpeed);
+            }
+            cpu.y = Math.max(0, Math.min(canvas.height - cpu.height, cpu.y));
+
+            // Ball movement
+            ball.x += ball.dx * speedMultiplier;
+            ball.y += ball.dy * speedMultiplier;
+
+            // Ball collision with top/bottom
+            if (ball.y - ball.size / 2 <= 0 || ball.y + ball.size / 2 >= canvas.height) {
+                ball.dy *= -1;
+                ball.y = ball.y - ball.size / 2 <= 0 ? ball.size / 2 : canvas.height - ball.size / 2;
+            }
+
+            // Ball collision with player paddle
+            if (ball.dx < 0 && 
+                ball.x - ball.size / 2 <= player.x + player.width &&
+                ball.x + ball.size / 2 >= player.x &&
+                ball.y >= player.y &&
+                ball.y <= player.y + player.height) {
+                
+                const hitPos = (ball.y - player.y) / player.height;
+                const angle = (hitPos - 0.5) * Math.PI / 2.5;
+                
+                ball.dx = Math.abs(ball.speed * Math.cos(angle));
+                ball.dy = ball.speed * Math.sin(angle);
+                ball.x = player.x + player.width + ball.size / 2;
+
+                // Speed up
+                if (speedMultiplier < MAX_SPEED_MULTIPLIER) {
+                    speedMultiplier += SPEED_INCREMENT;
+                    updateSpeedDisplay();
+                }
+            }
+
+            // Ball collision with CPU paddle
+            if (ball.dx > 0 &&
+                ball.x + ball.size / 2 >= cpu.x &&
+                ball.x - ball.size / 2 <= cpu.x + cpu.width &&
+                ball.y >= cpu.y &&
+                ball.y <= cpu.y + cpu.height) {
+                
+                const hitPos = (ball.y - cpu.y) / cpu.height;
+                const angle = (hitPos - 0.5) * Math.PI / 2.5;
+                
+                ball.dx = -Math.abs(ball.speed * Math.cos(angle));
+                ball.dy = ball.speed * Math.sin(angle);
+                ball.x = cpu.x - ball.size / 2;
+
+                // Speed up
+                if (speedMultiplier < MAX_SPEED_MULTIPLIER) {
+                    speedMultiplier += SPEED_INCREMENT;
+                    updateSpeedDisplay();
+                }
+            }
+
+            // Scoring
+            if (ball.x < 0) {
+                cpuScore++;
+                cpuScoreEl.textContent = cpuScore;
+                checkWinner();
+                if (gameState === 'playing') {
+                    resetBall();
+                }
+            } else if (ball.x > canvas.width) {
+                playerScore++;
+                playerScoreEl.textContent = playerScore;
+                checkWinner();
+                if (gameState === 'playing') {
+                    resetBall();
+                }
+            }
+        }
+
+        function checkWinner() {
+            if (playerScore >= WINNING_SCORE) {
+                gameState = 'ended';
+                winnerText.textContent = 'You Win!';
+                winnerOverlay.classList.add('show');
+            } else if (cpuScore >= WINNING_SCORE) {
+                gameState = 'ended';
+                winnerText.textContent = 'CPU Wins!';
+                winnerOverlay.classList.add('show');
+            }
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw center line
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw paddles with glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#fff';
+            
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.fillRect(cpu.x, cpu.y, cpu.width, cpu.height);
+
+            // Draw ball with glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            if (gameState === 'waiting') {
+                gameState = 'playing';
+                messageEl.classList.add('hidden');
+            }
+        }
+
+        function resetGame() {
+            playerScore = 0;
+            cpuScore = 0;
+            playerScoreEl.textContent = '0';
+            cpuScoreEl.textContent = '0';
+            speedMultiplier = 1;
+            updateSpeedDisplay();
+            winnerOverlay.classList.remove('show');
+            gameState = 'waiting';
+            messageEl.classList.remove('hidden');
+            initGame();
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                startGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startGame();
+            const rect = canvas.getBoundingClientRect();
+            touchY = e.touches[0].clientY - rect.top;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            touchY = e.touches[0].clientY - rect.top;
+        });
+
+        canvas.addEventListener('touchend', () => {
+            touchY = null;
+        });
+
+        canvas.addEventListener('click', () => {
+            startGame();
+        });
+
+        playAgainBtn.addEventListener('click', resetGame);
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            // Reposition paddles proportionally
+            player.y = Math.min(player.y, canvas.height - player.height);
+            cpu.x = canvas.width - 20 - PADDLE_WIDTH;
+            cpu.y = Math.min(cpu.y, canvas.height - cpu.height);
+        });
+
+        // Initialize and start
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>

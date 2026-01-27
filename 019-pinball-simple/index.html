@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pinball</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        .game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 400px;
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 18px;
+        }
+
+        .score {
+            color: #ffd700;
+            font-weight: bold;
+            text-shadow: 0 0 10px #ffd700;
+        }
+
+        .balls {
+            color: #ff6b6b;
+        }
+
+        .balls span {
+            font-size: 20px;
+        }
+
+        #gameCanvas {
+            border-radius: 15px;
+            box-shadow: 
+                0 0 30px rgba(0, 150, 255, 0.3),
+                inset 0 0 50px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(180deg, #0a0a15 0%, #1a1a35 100%);
+        }
+
+        .controls-hint {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            color: #fff;
+            z-index: 100;
+            border: 2px solid #4a9eff;
+            box-shadow: 0 0 30px rgba(74, 158, 255, 0.5);
+        }
+
+        .overlay h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #ffd700;
+            text-shadow: 0 0 20px #ffd700;
+        }
+
+        .overlay p {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #aaa;
+        }
+
+        .overlay .final-score {
+            font-size: 48px;
+            color: #4a9eff;
+            margin: 20px 0;
+            text-shadow: 0 0 20px #4a9eff;
+        }
+
+        .overlay button {
+            background: linear-gradient(180deg, #4a9eff 0%, #2a6ec9 100%);
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            color: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .overlay button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.7);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .touch-zones {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        @media (pointer: coarse) {
+            .touch-zones {
+                display: block;
+                pointer-events: auto;
+            }
+        }
+
+        .touch-zone {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 50%;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+
+        .touch-zone.left {
+            left: 0;
+        }
+
+        .touch-zone.right {
+            right: 0;
+        }
+
+        .touch-zone.active {
+            opacity: 0.1;
+            background: #4a9eff;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="hud">
+            <div class="score">SCORE: <span id="score">0</span></div>
+            <div class="balls">BALLS: <span id="balls">🔴🔴🔴</span></div>
+        </div>
+        <div style="position: relative;">
+            <canvas id="gameCanvas"></canvas>
+            <div class="touch-zones">
+                <div class="touch-zone left" id="touchLeft"></div>
+                <div class="touch-zone right" id="touchRight"></div>
+            </div>
+        </div>
+        <div class="controls-hint">
+            ⌨️ A/D or ←/→ for flippers | 📱 Tap left/right sides
+        </div>
+
+        <div class="overlay" id="startScreen">
+            <h1>🎯 PINBALL</h1>
+            <p>Hit bumpers for points!</p>
+            <p>Don't let the ball fall!</p>
+            <button onclick="startGame()">START GAME</button>
+        </div>
+
+        <div class="overlay hidden" id="gameOverScreen">
+            <h1>GAME OVER</h1>
+            <p>Final Score</p>
+            <div class="final-score" id="finalScore">0</div>
+            <button onclick="startGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Responsive sizing
+        function resize() {
+            const maxWidth = Math.min(400, window.innerWidth - 40);
+            const maxHeight = Math.min(700, window.innerHeight - 150);
+            const ratio = 400 / 700;
+            
+            if (maxWidth / maxHeight > ratio) {
+                canvas.height = maxHeight;
+                canvas.width = maxHeight * ratio;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = maxWidth / ratio;
+            }
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Game state
+        let score = 0;
+        let ballsLeft = 3;
+        let gameRunning = false;
+        let ball = null;
+        let flippers = { left: 0, right: 0 };
+        let keys = { left: false, right: false };
+
+        // Scale factor for responsive drawing
+        const getScale = () => canvas.width / 400;
+
+        // Ball class
+        class Ball {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                const s = getScale();
+                this.x = 350 * s;
+                this.y = 200 * s;
+                this.vx = (-2 + Math.random() * -1) * s;
+                this.vy = -3 * s;
+                this.radius = 10 * s;
+                this.active = true;
+            }
+
+            update() {
+                const s = getScale();
+                // Gravity
+                this.vy += 0.15 * s;
+                
+                // Friction
+                this.vx *= 0.999;
+                this.vy *= 0.999;
+
+                // Max speed
+                const maxSpeed = 15 * s;
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wall collisions
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -0.8;
+                }
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.8;
+                }
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -0.8;
+                }
+
+                // Ball lost
+                if (this.y > canvas.height + this.radius) {
+                    this.active = false;
+                }
+            }
+
+            draw() {
+                // Ball glow
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.radius * 2
+                );
+                gradient.addColorStop(0, 'rgba(255, 100, 100, 0.8)');
+                gradient.addColorStop(0.5, 'rgba(255, 50, 50, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Ball
+                const ballGrad = ctx.createRadialGradient(
+                    this.x - this.radius * 0.3, this.y - this.radius * 0.3, 0,
+                    this.x, this.y, this.radius
+                );
+                ballGrad.addColorStop(0, '#ff8888');
+                ballGrad.addColorStop(0.5, '#cc3333');
+                ballGrad.addColorStop(1, '#881111');
+                ctx.fillStyle = ballGrad;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Highlight
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.beginPath();
+                ctx.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Bumpers
+        const bumperConfig = [
+            { x: 200, y: 150, radius: 30 },
+            { x: 100, y: 250, radius: 25 },
+            { x: 300, y: 250, radius: 25 },
+            { x: 150, y: 380, radius: 20 },
+            { x: 250, y: 380, radius: 20 },
+            { x: 200, y: 300, radius: 25 }
+        ];
+
+        let bumpers = [];
+        let bumperHits = [];
+
+        function initBumpers() {
+            const s = getScale();
+            bumpers = bumperConfig.map(b => ({
+                x: b.x * s,
+                y: b.y * s,
+                radius: b.radius * s,
+                points: Math.round(100 * (30 / b.radius))
+            }));
+            bumperHits = bumpers.map(() => 0);
+        }
+
+        function drawBumpers() {
+            bumpers.forEach((b, i) => {
+                const hitGlow = bumperHits[i] > 0 ? bumperHits[i] / 10 : 0;
+                
+                // Outer glow
+                const glow = ctx.createRadialGradient(b.x, b.y, b.radius * 0.5, b.x, b.y, b.radius * 2);
+                glow.addColorStop(0, `rgba(255, 215, 0, ${0.3 + hitGlow * 0.5})`);
+                glow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius * 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Bumper body
+                const grad = ctx.createRadialGradient(
+                    b.x - b.radius * 0.3, b.y - b.radius * 0.3, 0,
+                    b.x, b.y, b.radius
+                );
+                const brightness = hitGlow > 0 ? 255 : 200;
+                grad.addColorStop(0, `rgb(${brightness}, ${brightness}, ${Math.round(brightness * 0.8)})`);
+                grad.addColorStop(0.7, `rgb(${Math.round(brightness * 0.8)}, ${Math.round(brightness * 0.6)}, 0)`);
+                grad.addColorStop(1, `rgb(${Math.round(brightness * 0.5)}, ${Math.round(brightness * 0.3)}, 0)`);
+                
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Border
+                ctx.strokeStyle = '#ffd700';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Points text
+                ctx.fillStyle = '#333';
+                ctx.font = `bold ${b.radius * 0.6}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(b.points, b.x, b.y);
+
+                if (bumperHits[i] > 0) bumperHits[i]--;
+            });
+        }
+
+        function checkBumperCollision() {
+            if (!ball) return;
+            
+            bumpers.forEach((b, i) => {
+                const dx = ball.x - b.x;
+                const dy = ball.y - b.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const minDist = ball.radius + b.radius;
+
+                if (dist < minDist) {
+                    // Bounce
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = minDist - dist;
+                    
+                    ball.x += nx * overlap;
+                    ball.y += ny * overlap;
+
+                    // Reflect velocity with boost
+                    const dot = ball.vx * nx + ball.vy * ny;
+                    const s = getScale();
+                    const boost = 1.5;
+                    ball.vx = (ball.vx - 2 * dot * nx) * boost;
+                    ball.vy = (ball.vy - 2 * dot * ny) * boost;
+
+                    // Score
+                    score += b.points;
+                    updateHUD();
+                    bumperHits[i] = 10;
+                }
+            });
+        }
+
+        // Flippers
+        function drawFlippers() {
+            const s = getScale();
+            const baseY = 620 * s;
+            const flipperLength = 70 * s;
+            const flipperWidth = 15 * s;
+            
+            // Left flipper
+            const leftPivot = { x: 120 * s, y: baseY };
+            const leftAngle = -0.3 - flippers.left * 0.5;
+            drawFlipper(leftPivot, flipperLength, flipperWidth, leftAngle, false);
+
+            // Right flipper
+            const rightPivot = { x: 280 * s, y: baseY };
+            const rightAngle = Math.PI + 0.3 + flippers.right * 0.5;
+            drawFlipper(rightPivot, flipperLength, flipperWidth, rightAngle, true);
+        }
+
+        function drawFlipper(pivot, length, width, angle, isRight) {
+            ctx.save();
+            ctx.translate(pivot.x, pivot.y);
+            ctx.rotate(angle);
+
+            // Glow
+            ctx.shadowColor = '#4a9eff';
+            ctx.shadowBlur = 15;
+
+            // Flipper shape
+            const grad = ctx.createLinearGradient(0, -width, 0, width);
+            grad.addColorStop(0, '#6ab7ff');
+            grad.addColorStop(0.5, '#4a9eff');
+            grad.addColorStop(1, '#2a6ec9');
+            ctx.fillStyle = grad;
+
+            ctx.beginPath();
+            ctx.moveTo(0, -width / 2);
+            ctx.lineTo(length, -width / 4);
+            ctx.lineTo(length, width / 4);
+            ctx.lineTo(0, width / 2);
+            ctx.arc(0, 0, width / 2, Math.PI / 2, -Math.PI / 2, false);
+            ctx.closePath();
+            ctx.fill();
+
+            // Pivot
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(0, 0, width / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function checkFlipperCollision() {
+            if (!ball) return;
+            
+            const s = getScale();
+            const baseY = 620 * s;
+            const flipperLength = 70 * s;
+            const flipperWidth = 15 * s;
+
+            // Check each flipper
+            [
+                { pivot: { x: 120 * s, y: baseY }, angle: -0.3 - flippers.left * 0.5, active: keys.left },
+                { pivot: { x: 280 * s, y: baseY }, angle: Math.PI + 0.3 + flippers.right * 0.5, active: keys.right, isRight: true }
+            ].forEach(flipper => {
+                // Transform ball position to flipper space
+                const dx = ball.x - flipper.pivot.x;
+                const dy = ball.y - flipper.pivot.y;
+                const cos = Math.cos(-flipper.angle);
+                const sin = Math.sin(-flipper.angle);
+                const localX = dx * cos - dy * sin;
+                const localY = dx * sin + dy * cos;
+
+                // Check if ball is near flipper
+                if (localX > -ball.radius && localX < flipperLength + ball.radius) {
+                    const flipperY = 0;
+                    const halfWidth = flipperWidth / 2 * (1 - localX / flipperLength * 0.5);
+                    
+                    if (Math.abs(localY - flipperY) < halfWidth + ball.radius) {
+                        // Collision! Push ball out and bounce
+                        const pushDir = localY > flipperY ? 1 : -1;
+                        const newLocalY = flipperY + pushDir * (halfWidth + ball.radius);
+                        
+                        // Transform back
+                        const newDx = localX * Math.cos(flipper.angle) - newLocalY * Math.sin(flipper.angle);
+                        const newDy = localX * Math.sin(flipper.angle) + newLocalY * Math.cos(flipper.angle);
+                        ball.x = flipper.pivot.x + newDx;
+                        ball.y = flipper.pivot.y + newDy;
+
+                        // Bounce with flipper momentum
+                        const bounceAngle = flipper.angle - Math.PI / 2;
+                        let power = 8 * s;
+                        if (flipper.active) power = 15 * s;
+                        
+                        ball.vx = Math.cos(bounceAngle) * power * (flipper.isRight ? -1 : 1);
+                        ball.vy = Math.sin(bounceAngle) * power;
+                        
+                        // Add some randomness
+                        ball.vx += (Math.random() - 0.5) * 2 * s;
+                    }
+                }
+            });
+        }
+
+        // Side walls (angled)
+        function drawWalls() {
+            const s = getScale();
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = '#4a9eff';
+            ctx.shadowBlur = 10;
+
+            // Left wall
+            ctx.beginPath();
+            ctx.moveTo(10 * s, 550 * s);
+            ctx.lineTo(80 * s, 600 * s);
+            ctx.stroke();
+
+            // Right wall
+            ctx.beginPath();
+            ctx.moveTo(390 * s, 550 * s);
+            ctx.lineTo(320 * s, 600 * s);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+        }
+
+        function checkWallCollision() {
+            if (!ball) return;
+            
+            const s = getScale();
+            
+            // Left angled wall
+            const leftWall = {
+                x1: 10 * s, y1: 550 * s,
+                x2: 80 * s, y2: 600 * s
+            };
+            checkLineCollision(leftWall);
+
+            // Right angled wall
+            const rightWall = {
+                x1: 390 * s, y1: 550 * s,
+                x2: 320 * s, y2: 600 * s
+            };
+            checkLineCollision(rightWall);
+        }
+
+        function checkLineCollision(wall) {
+            const dx = wall.x2 - wall.x1;
+            const dy = wall.y2 - wall.y1;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            const nx = -dy / len;
+            const ny = dx / len;
+
+            // Distance from ball to line
+            const dist = (ball.x - wall.x1) * nx + (ball.y - wall.y1) * ny;
+
+            if (Math.abs(dist) < ball.radius) {
+                // Check if ball is within line segment
+                const t = ((ball.x - wall.x1) * dx + (ball.y - wall.y1) * dy) / (len * len);
+                if (t >= 0 && t <= 1) {
+                    // Push out
+                    const pushDir = dist > 0 ? 1 : -1;
+                    ball.x += nx * (ball.radius - Math.abs(dist)) * pushDir;
+                    ball.y += ny * (ball.radius - Math.abs(dist)) * pushDir;
+
+                    // Reflect
+                    const dot = ball.vx * nx + ball.vy * ny;
+                    ball.vx -= 2 * dot * nx * 0.8;
+                    ball.vy -= 2 * dot * ny * 0.8;
+                }
+            }
+        }
+
+        // Plunger lane
+        function drawPlungerLane() {
+            const s = getScale();
+            ctx.fillStyle = '#1a1a35';
+            ctx.fillRect(360 * s, 100 * s, 35 * s, 550 * s);
+            
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(360 * s, 100 * s, 35 * s, 550 * s);
+        }
+
+        // Update HUD
+        function updateHUD() {
+            document.getElementById('score').textContent = score.toLocaleString();
+            document.getElementById('balls').textContent = '🔴'.repeat(ballsLeft) + '⚫'.repeat(3 - ballsLeft);
+        }
+
+        // Game loop
+        function update() {
+            if (!gameRunning) return;
+
+            // Update flipper animations
+            const flipperSpeed = 0.3;
+            if (keys.left) {
+                flippers.left = Math.min(1, flippers.left + flipperSpeed);
+            } else {
+                flippers.left = Math.max(0, flippers.left - flipperSpeed);
+            }
+            if (keys.right) {
+                flippers.right = Math.min(1, flippers.right + flipperSpeed);
+            } else {
+                flippers.right = Math.max(0, flippers.right - flipperSpeed);
+            }
+
+            if (ball && ball.active) {
+                ball.update();
+                checkBumperCollision();
+                checkFlipperCollision();
+                checkWallCollision();
+            } else if (ball && !ball.active) {
+                ballsLeft--;
+                updateHUD();
+                if (ballsLeft > 0) {
+                    ball.reset();
+                } else {
+                    endGame();
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Background gradient
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGrad.addColorStop(0, '#0a0a15');
+            bgGrad.addColorStop(1, '#1a1a35');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawPlungerLane();
+            drawWalls();
+            drawBumpers();
+            drawFlippers();
+            
+            if (ball) ball.draw();
+
+            // Border
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            
+            score = 0;
+            ballsLeft = 3;
+            gameRunning = true;
+            
+            initBumpers();
+            ball = new Ball();
+            updateHUD();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score.toLocaleString();
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        // Input handling
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = true;
+                e.preventDefault();
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = true;
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('keyup', e => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = false;
+            }
+        });
+
+        // Touch controls
+        const touchLeft = document.getElementById('touchLeft');
+        const touchRight = document.getElementById('touchRight');
+
+        touchLeft.addEventListener('touchstart', e => {
+            e.preventDefault();
+            keys.left = true;
+            touchLeft.classList.add('active');
+        });
+        touchLeft.addEventListener('touchend', e => {
+            e.preventDefault();
+            keys.left = false;
+            touchLeft.classList.remove('active');
+        });
+
+        touchRight.addEventListener('touchstart', e => {
+            e.preventDefault();
+            keys.right = true;
+            touchRight.classList.add('active');
+        });
+        touchRight.addEventListener('touchend', e => {
+            e.preventDefault();
+            keys.right = false;
+            touchRight.classList.remove('active');
+        });
+
+        // Start game loop
+        initBumpers();
+        gameLoop();
+    </script>
+</body>
+</html>

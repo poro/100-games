@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Pac-Man Lite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        h1 {
+            color: #ffff00;
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            text-shadow: 0 0 10px #ffff00, 0 0 20px #ff8800;
+            margin-bottom: 10px;
+            letter-spacing: 3px;
+        }
+
+        #score-display {
+            color: #fff;
+            font-size: clamp(1rem, 3vw, 1.5rem);
+            margin-bottom: 10px;
+        }
+
+        #game-container {
+            position: relative;
+            background: #000;
+            border: 4px solid #2121de;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(33, 33, 222, 0.5);
+        }
+
+        #game-canvas {
+            display: block;
+        }
+
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            text-align: center;
+            text-shadow: 0 0 10px #fff;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #message.show {
+            opacity: 1;
+        }
+
+        #message span {
+            color: #ffff00;
+        }
+
+        /* D-Pad Controls */
+        #dpad {
+            display: none;
+            margin-top: 20px;
+            position: relative;
+            width: 150px;
+            height: 150px;
+        }
+
+        .dpad-btn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(145deg, #333, #222);
+            border: 2px solid #444;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .dpad-btn:active {
+            background: linear-gradient(145deg, #444, #333);
+            transform: scale(0.95);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #btn-up { top: 0; left: 50px; }
+        #btn-down { bottom: 0; left: 50px; }
+        #btn-left { top: 50px; left: 0; }
+        #btn-right { top: 50px; right: 0; }
+
+        #restart-btn {
+            margin-top: 15px;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            background: linear-gradient(145deg, #2121de, #1a1ab0);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(33, 33, 222, 0.4);
+        }
+
+        #restart-btn:hover {
+            background: linear-gradient(145deg, #2929ff, #2121de);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(33, 33, 222, 0.6);
+        }
+
+        #instructions {
+            color: #888;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        @media (pointer: coarse), (max-width: 600px) {
+            #dpad {
+                display: block;
+            }
+            #instructions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>PAC-MAN LITE</h1>
+    <div id="score-display">Score: <span id="score">0</span> / <span id="total">0</span></div>
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="message"></div>
+    </div>
+    <div id="dpad">
+        <button class="dpad-btn" id="btn-up">▲</button>
+        <button class="dpad-btn" id="btn-down">▼</button>
+        <button class="dpad-btn" id="btn-left">◀</button>
+        <button class="dpad-btn" id="btn-right">▶</button>
+    </div>
+    <button id="restart-btn">Restart</button>
+    <p id="instructions">Use Arrow Keys to move</p>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const message = document.getElementById('message');
+        const scoreEl = document.getElementById('score');
+        const totalEl = document.getElementById('total');
+
+        // Maze layout: 0=empty, 1=wall, 2=dot
+        const mazeTemplate = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,2,2,2,2,2,2,1,2,2,2,2,2,2,1],
+            [1,2,1,1,2,1,2,1,2,1,2,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,2,1,1,2,1,2,1,1,2,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,1,1,2,1,2,1,1,1,2,1,2,1,1,1],
+            [0,0,1,2,1,2,2,2,2,2,1,2,1,0,0],
+            [1,1,1,2,1,2,1,1,1,2,1,2,1,1,1],
+            [1,2,2,2,2,2,2,1,2,2,2,2,2,2,1],
+            [1,2,1,1,2,1,2,1,2,1,2,1,1,2,1],
+            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
+            [1,2,1,2,1,1,2,1,2,1,1,2,1,2,1],
+            [1,2,2,2,2,2,2,1,2,2,2,2,2,2,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        const COLS = mazeTemplate[0].length;
+        const ROWS = mazeTemplate.length;
+        let CELL_SIZE;
+        let maze;
+        let score = 0;
+        let totalDots = 0;
+        let gameOver = false;
+        let gameWon = false;
+
+        // Player
+        let player = {
+            x: 7,
+            y: 9,
+            dir: { x: 0, y: 0 },
+            nextDir: { x: 0, y: 0 },
+            mouthOpen: 0,
+            mouthDir: 1
+        };
+
+        // Ghosts
+        const ghostColors = ['#ff0000', '#00ffff', '#ffb8ff'];
+        let ghosts = [];
+
+        function initGame() {
+            // Copy maze
+            maze = mazeTemplate.map(row => [...row]);
+            
+            // Count dots
+            totalDots = 0;
+            for (let row of maze) {
+                for (let cell of row) {
+                    if (cell === 2) totalDots++;
+                }
+            }
+            totalEl.textContent = totalDots;
+            
+            // Reset player
+            player.x = 7;
+            player.y = 9;
+            player.dir = { x: 0, y: 0 };
+            player.nextDir = { x: 0, y: 0 };
+            
+            // Initialize ghosts
+            ghosts = [
+                { x: 6, y: 7, color: ghostColors[0], dir: { x: 0, y: 0 } },
+                { x: 7, y: 7, color: ghostColors[1], dir: { x: 0, y: 0 } },
+                { x: 8, y: 7, color: ghostColors[2], dir: { x: 0, y: 0 } }
+            ];
+            
+            score = 0;
+            scoreEl.textContent = score;
+            gameOver = false;
+            gameWon = false;
+            message.classList.remove('show');
+        }
+
+        function resize() {
+            const maxWidth = Math.min(window.innerWidth - 40, 450);
+            const maxHeight = window.innerHeight - 300;
+            CELL_SIZE = Math.floor(Math.min(maxWidth / COLS, maxHeight / ROWS));
+            CELL_SIZE = Math.max(CELL_SIZE, 20);
+            canvas.width = COLS * CELL_SIZE;
+            canvas.height = ROWS * CELL_SIZE;
+        }
+
+        function isWall(x, y) {
+            if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return true;
+            return maze[y][x] === 1;
+        }
+
+        function canMove(x, y, dir) {
+            const newX = x + dir.x;
+            const newY = y + dir.y;
+            return !isWall(newX, newY);
+        }
+
+        function drawMaze() {
+            for (let y = 0; y < ROWS; y++) {
+                for (let x = 0; x < COLS; x++) {
+                    const cell = maze[y][x];
+                    const px = x * CELL_SIZE;
+                    const py = y * CELL_SIZE;
+                    
+                    if (cell === 1) {
+                        // Wall
+                        ctx.fillStyle = '#2121de';
+                        ctx.fillRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                        ctx.strokeStyle = '#4444ff';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(px + 2, py + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                    } else if (cell === 2) {
+                        // Dot
+                        ctx.fillStyle = '#ffb897';
+                        ctx.beginPath();
+                        ctx.arc(px + CELL_SIZE / 2, py + CELL_SIZE / 2, CELL_SIZE / 8, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+        }
+
+        function drawPlayer() {
+            const px = player.x * CELL_SIZE + CELL_SIZE / 2;
+            const py = player.y * CELL_SIZE + CELL_SIZE / 2;
+            const radius = CELL_SIZE * 0.4;
+            
+            // Calculate mouth angle based on direction
+            let startAngle = 0;
+            if (player.dir.x === 1) startAngle = 0;
+            else if (player.dir.x === -1) startAngle = Math.PI;
+            else if (player.dir.y === 1) startAngle = Math.PI / 2;
+            else if (player.dir.y === -1) startAngle = -Math.PI / 2;
+            
+            const mouthAngle = 0.2 + player.mouthOpen * 0.3;
+            
+            ctx.fillStyle = '#ffff00';
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.arc(px, py, radius, startAngle + mouthAngle, startAngle + Math.PI * 2 - mouthAngle);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Animate mouth
+            player.mouthOpen += 0.15 * player.mouthDir;
+            if (player.mouthOpen > 1 || player.mouthOpen < 0) {
+                player.mouthDir *= -1;
+            }
+        }
+
+        function drawGhost(ghost) {
+            const px = ghost.x * CELL_SIZE + CELL_SIZE / 2;
+            const py = ghost.y * CELL_SIZE + CELL_SIZE / 2;
+            const radius = CELL_SIZE * 0.4;
+            
+            ctx.fillStyle = ghost.color;
+            
+            // Ghost body (rounded top)
+            ctx.beginPath();
+            ctx.arc(px, py - radius * 0.2, radius, Math.PI, 0);
+            ctx.lineTo(px + radius, py + radius * 0.6);
+            
+            // Wavy bottom
+            const waves = 3;
+            const waveWidth = (radius * 2) / waves;
+            for (let i = 0; i < waves; i++) {
+                const wx = px + radius - (i + 0.5) * waveWidth;
+                const wy = py + radius * 0.6;
+                ctx.quadraticCurveTo(wx, wy + radius * 0.3, wx - waveWidth / 2, wy);
+            }
+            ctx.closePath();
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(px - radius * 0.3, py - radius * 0.2, radius * 0.25, 0, Math.PI * 2);
+            ctx.arc(px + radius * 0.3, py - radius * 0.2, radius * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Pupils (look toward player)
+            const dx = Math.sign(player.x - ghost.x) * radius * 0.1;
+            const dy = Math.sign(player.y - ghost.y) * radius * 0.1;
+            ctx.fillStyle = '#00f';
+            ctx.beginPath();
+            ctx.arc(px - radius * 0.3 + dx, py - radius * 0.2 + dy, radius * 0.12, 0, Math.PI * 2);
+            ctx.arc(px + radius * 0.3 + dx, py - radius * 0.2 + dy, radius * 0.12, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function movePlayer() {
+            // Try next direction first
+            if (canMove(player.x, player.y, player.nextDir)) {
+                player.dir = { ...player.nextDir };
+            }
+            
+            // Move in current direction
+            if (canMove(player.x, player.y, player.dir)) {
+                player.x += player.dir.x;
+                player.y += player.dir.y;
+                
+                // Wrap around (tunnel)
+                if (player.x < 0) player.x = COLS - 1;
+                if (player.x >= COLS) player.x = 0;
+            }
+            
+            // Eat dot
+            if (maze[player.y][player.x] === 2) {
+                maze[player.y][player.x] = 0;
+                score++;
+                scoreEl.textContent = score;
+                
+                if (score >= totalDots) {
+                    gameWon = true;
+                    gameOver = true;
+                    message.innerHTML = '🎉 <span>YOU WIN!</span> 🎉';
+                    message.classList.add('show');
+                }
+            }
+        }
+
+        function moveGhosts() {
+            for (let ghost of ghosts) {
+                // Simple AI: try to move toward player with some randomness
+                const directions = [
+                    { x: 0, y: -1 },
+                    { x: 0, y: 1 },
+                    { x: -1, y: 0 },
+                    { x: 1, y: 0 }
+                ];
+                
+                // Filter valid directions
+                const validDirs = directions.filter(d => canMove(ghost.x, ghost.y, d));
+                
+                if (validDirs.length === 0) continue;
+                
+                // 70% chance to move toward player, 30% random
+                let chosenDir;
+                if (Math.random() < 0.7) {
+                    // Find direction that gets closer to player
+                    validDirs.sort((a, b) => {
+                        const distA = Math.abs(ghost.x + a.x - player.x) + Math.abs(ghost.y + a.y - player.y);
+                        const distB = Math.abs(ghost.x + b.x - player.x) + Math.abs(ghost.y + b.y - player.y);
+                        return distA - distB;
+                    });
+                    chosenDir = validDirs[0];
+                } else {
+                    chosenDir = validDirs[Math.floor(Math.random() * validDirs.length)];
+                }
+                
+                ghost.x += chosenDir.x;
+                ghost.y += chosenDir.y;
+                ghost.dir = chosenDir;
+            }
+        }
+
+        function checkCollision() {
+            for (let ghost of ghosts) {
+                if (ghost.x === player.x && ghost.y === player.y) {
+                    gameOver = true;
+                    message.innerHTML = '💀 <span>GAME OVER</span> 💀';
+                    message.classList.add('show');
+                    return;
+                }
+            }
+        }
+
+        let lastMove = 0;
+        let lastGhostMove = 0;
+        const MOVE_INTERVAL = 150;
+        const GHOST_INTERVAL = 250;
+
+        function gameLoop(timestamp) {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawMaze();
+            
+            if (!gameOver) {
+                if (timestamp - lastMove > MOVE_INTERVAL) {
+                    movePlayer();
+                    lastMove = timestamp;
+                }
+                
+                if (timestamp - lastGhostMove > GHOST_INTERVAL) {
+                    moveGhosts();
+                    lastGhostMove = timestamp;
+                }
+                
+                checkCollision();
+            }
+            
+            drawPlayer();
+            for (let ghost of ghosts) {
+                drawGhost(ghost);
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) return;
+            
+            switch (e.key) {
+                case 'ArrowUp':
+                    player.nextDir = { x: 0, y: -1 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowDown':
+                    player.nextDir = { x: 0, y: 1 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                    player.nextDir = { x: -1, y: 0 };
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    player.nextDir = { x: 1, y: 0 };
+                    e.preventDefault();
+                    break;
+            }
+        });
+
+        // D-Pad controls
+        function setupDPad() {
+            const btnUp = document.getElementById('btn-up');
+            const btnDown = document.getElementById('btn-down');
+            const btnLeft = document.getElementById('btn-left');
+            const btnRight = document.getElementById('btn-right');
+
+            const setDir = (dir) => {
+                if (!gameOver) {
+                    player.nextDir = dir;
+                }
+            };
+
+            btnUp.addEventListener('touchstart', (e) => { e.preventDefault(); setDir({ x: 0, y: -1 }); });
+            btnDown.addEventListener('touchstart', (e) => { e.preventDefault(); setDir({ x: 0, y: 1 }); });
+            btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); setDir({ x: -1, y: 0 }); });
+            btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); setDir({ x: 1, y: 0 }); });
+
+            // Also support mouse clicks
+            btnUp.addEventListener('mousedown', () => setDir({ x: 0, y: -1 }));
+            btnDown.addEventListener('mousedown', () => setDir({ x: 0, y: 1 }));
+            btnLeft.addEventListener('mousedown', () => setDir({ x: -1, y: 0 }));
+            btnRight.addEventListener('mousedown', () => setDir({ x: 1, y: 0 }));
+        }
+
+        // Restart button
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            initGame();
+        });
+
+        // Prevent scrolling on touch
+        document.body.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+        // Initialize
+        window.addEventListener('resize', resize);
+        resize();
+        initGame();
+        setupDPad();
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

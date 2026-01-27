@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Dodge the Blocks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            max-height: 800px;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a1a3e 100%);
+            border: 3px solid #4a9eff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(74, 158, 255, 0.3);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        #score, #highScore {
+            font-size: 1.2rem;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(74, 158, 255, 0.8);
+        }
+
+        #score span, #highScore span {
+            color: #4a9eff;
+            font-weight: bold;
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        #overlay.hidden {
+            display: none;
+        }
+
+        #overlay h1 {
+            font-size: 2.5rem;
+            color: #4a9eff;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(74, 158, 255, 0.6);
+        }
+
+        #overlay h2 {
+            font-size: 1.8rem;
+            color: #ff4a4a;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px rgba(255, 74, 74, 0.6);
+        }
+
+        #overlay p {
+            color: #ccc;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+
+        #overlay .finalScore {
+            font-size: 1.5rem;
+            color: #4a9eff;
+            margin-bottom: 20px;
+        }
+
+        #startBtn {
+            background: linear-gradient(135deg, #4a9eff 0%, #0066cc 100%);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-size: 1.3rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(74, 158, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #startBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(74, 158, 255, 0.6);
+        }
+
+        #startBtn:active {
+            transform: scale(0.98);
+        }
+
+        .controls-hint {
+            margin-top: 25px;
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .controls-hint span {
+            display: block;
+            margin: 5px 0;
+        }
+
+        #touchIndicatorLeft, #touchIndicatorRight {
+            position: absolute;
+            bottom: 20px;
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(74, 158, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: rgba(74, 158, 255, 0.4);
+            font-size: 1.5rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #touchIndicatorLeft {
+            left: 20px;
+        }
+
+        #touchIndicatorRight {
+            right: 20px;
+        }
+
+        .touch-active #touchIndicatorLeft,
+        .touch-active #touchIndicatorRight {
+            opacity: 1;
+        }
+
+        @media (max-width: 520px) {
+            #gameContainer {
+                max-width: 100%;
+                max-height: 100vh;
+                border-radius: 0;
+                border-left: none;
+                border-right: none;
+            }
+
+            #overlay h1 {
+                font-size: 2rem;
+            }
+
+            #overlay h2 {
+                font-size: 1.5rem;
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .warning {
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <div id="score">Time: <span>0.0</span>s</div>
+            <div id="highScore">Best: <span>0.0</span>s</div>
+        </div>
+        <div id="touchIndicatorLeft">◀</div>
+        <div id="touchIndicatorRight">▶</div>
+        <div id="overlay">
+            <h1>🎮 Dodge the Blocks</h1>
+            <p>Survive as long as you can! Avoid the falling blocks.</p>
+            <div class="controls-hint">
+                <span>⌨️ Arrow keys / A,D to move</span>
+                <span>📱 Tilt device or tap screen sides</span>
+            </div>
+            <button id="startBtn">Play</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('gameContainer');
+        const overlay = document.getElementById('overlay');
+        const startBtn = document.getElementById('startBtn');
+        const scoreDisplay = document.querySelector('#score span');
+        const highScoreDisplay = document.querySelector('#highScore span');
+
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let highScore = parseFloat(localStorage.getItem('dodgeHighScore')) || 0;
+        let animationId = null;
+        let lastTime = 0;
+        let difficulty = 1;
+
+        // Player
+        const player = {
+            x: 0,
+            y: 0,
+            width: 50,
+            height: 50,
+            speed: 400,
+            color: '#4a9eff',
+            velocityX: 0,
+            targetX: null
+        };
+
+        // Blocks
+        let blocks = [];
+        let blockSpawnTimer = 0;
+        const baseSpawnRate = 1000; // ms between spawns
+        const minSpawnRate = 200;
+        let baseBlockSpeed = 150;
+
+        // Input state
+        const keys = { left: false, right: false };
+        let tiltX = 0;
+        let touchSide = null;
+        let hasTouchCapability = false;
+
+        // Particles for effects
+        let particles = [];
+
+        function resize() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            player.width = Math.max(40, canvas.width * 0.1);
+            player.height = player.width;
+            player.y = canvas.height - player.height - 30;
+            
+            if (!gameRunning) {
+                player.x = canvas.width / 2 - player.width / 2;
+            }
+        }
+
+        function spawnBlock() {
+            const minWidth = 30;
+            const maxWidth = Math.min(100, canvas.width * 0.2);
+            const width = minWidth + Math.random() * (maxWidth - minWidth);
+            
+            // Increase speed with difficulty
+            const speedMultiplier = 1 + (difficulty - 1) * 0.15;
+            const speed = baseBlockSpeed * speedMultiplier * (0.8 + Math.random() * 0.4);
+            
+            blocks.push({
+                x: Math.random() * (canvas.width - width),
+                y: -60,
+                width: width,
+                height: 30 + Math.random() * 20,
+                speed: speed,
+                color: getBlockColor(),
+                rotation: 0,
+                rotationSpeed: (Math.random() - 0.5) * 2
+            });
+        }
+
+        function getBlockColor() {
+            const colors = [
+                '#ff4a4a', '#ff6b4a', '#ff8c4a', '#ffaa4a',
+                '#ff4a6b', '#ff4a8c', '#e64aff', '#b84aff'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 20; i++) {
+                const angle = (Math.PI * 2 / 20) * i + Math.random() * 0.5;
+                const speed = 100 + Math.random() * 200;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1,
+                    decay: 0.02 + Math.random() * 0.02,
+                    size: 3 + Math.random() * 5,
+                    color: color
+                });
+            }
+        }
+
+        function createTrail(x, y) {
+            if (Math.random() > 0.3) return;
+            particles.push({
+                x: x + player.width / 2 + (Math.random() - 0.5) * 20,
+                y: y + player.height,
+                vx: (Math.random() - 0.5) * 30,
+                vy: 50 + Math.random() * 50,
+                life: 0.5,
+                decay: 0.03,
+                size: 2 + Math.random() * 3,
+                color: '#4a9eff'
+            });
+        }
+
+        function updateParticles(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.life -= p.decay;
+                p.vy += 200 * dt; // gravity
+                
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        function checkCollision(rect1, rect2) {
+            // Smaller hitbox for fairness
+            const shrink = 5;
+            return rect1.x + shrink < rect2.x + rect2.width - shrink &&
+                   rect1.x + rect1.width - shrink > rect2.x + shrink &&
+                   rect1.y + shrink < rect2.y + rect2.height - shrink &&
+                   rect1.y + rect1.height - shrink > rect2.y + shrink;
+        }
+
+        function update(dt) {
+            // Update difficulty based on time survived
+            difficulty = 1 + score / 10;
+            
+            // Handle input
+            let moveDirection = 0;
+            
+            if (keys.left) moveDirection -= 1;
+            if (keys.right) moveDirection += 1;
+            
+            // Tilt controls
+            if (Math.abs(tiltX) > 5) {
+                moveDirection += tiltX / 30;
+            }
+            
+            // Touch controls
+            if (touchSide === 'left') moveDirection -= 1;
+            if (touchSide === 'right') moveDirection += 1;
+            
+            // Apply movement with smooth acceleration
+            const targetVelocity = moveDirection * player.speed;
+            player.velocityX += (targetVelocity - player.velocityX) * 10 * dt;
+            player.x += player.velocityX * dt;
+            
+            // Keep player in bounds
+            player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+            
+            // Create trail when moving
+            if (Math.abs(player.velocityX) > 50) {
+                createTrail(player.x, player.y);
+            }
+            
+            // Spawn blocks
+            const currentSpawnRate = Math.max(minSpawnRate, baseSpawnRate / difficulty);
+            blockSpawnTimer += dt * 1000;
+            if (blockSpawnTimer >= currentSpawnRate) {
+                spawnBlock();
+                blockSpawnTimer = 0;
+                
+                // Spawn extra blocks at higher difficulties
+                if (difficulty > 3 && Math.random() < 0.3) {
+                    setTimeout(() => { if (gameRunning) spawnBlock(); }, 200);
+                }
+            }
+            
+            // Update blocks
+            for (let i = blocks.length - 1; i >= 0; i--) {
+                const block = blocks[i];
+                block.y += block.speed * dt;
+                block.rotation += block.rotationSpeed * dt;
+                
+                // Check collision with player
+                if (checkCollision(player, block)) {
+                    gameOver();
+                    createExplosion(player.x + player.width / 2, player.y + player.height / 2, player.color);
+                    return;
+                }
+                
+                // Remove off-screen blocks
+                if (block.y > canvas.height + 50) {
+                    blocks.splice(i, 1);
+                }
+            }
+            
+            // Update score
+            score += dt;
+            scoreDisplay.textContent = score.toFixed(1);
+            
+            // Update particles
+            updateParticles(dt);
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            
+            // Glow effect
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 20;
+            
+            // Draw player as a spaceship-like shape
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height / 2);
+            ctx.lineTo(player.width / 2, player.height / 2);
+            ctx.lineTo(0, player.height / 3);
+            ctx.lineTo(-player.width / 2, player.height / 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Inner highlight
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height / 3);
+            ctx.lineTo(player.width / 4, player.height / 4);
+            ctx.lineTo(0, player.height / 6);
+            ctx.lineTo(-player.width / 4, player.height / 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            ctx.restore();
+        }
+
+        function drawBlocks() {
+            blocks.forEach(block => {
+                ctx.save();
+                ctx.translate(block.x + block.width / 2, block.y + block.height / 2);
+                ctx.rotate(block.rotation);
+                
+                // Glow
+                ctx.shadowColor = block.color;
+                ctx.shadowBlur = 15;
+                
+                // Block body
+                ctx.fillStyle = block.color;
+                ctx.fillRect(-block.width / 2, -block.height / 2, block.width, block.height);
+                
+                // Inner pattern
+                ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-block.width / 2 + 4, -block.height / 2 + 4, block.width - 8, block.height - 8);
+                
+                ctx.restore();
+            });
+        }
+
+        function drawBackground() {
+            // Stars
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 73 + score * 20) % canvas.width;
+                const y = (i * 37 + score * 10 * (i % 3 + 1)) % canvas.height;
+                const size = (i % 3) + 1;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Difficulty warning flash
+            if (difficulty > 5) {
+                ctx.fillStyle = `rgba(255, 0, 0, ${0.05 + Math.sin(Date.now() / 200) * 0.03})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#0a0a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackground();
+            drawParticles();
+            drawBlocks();
+            drawPlayer();
+        }
+
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+            
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+            
+            update(dt);
+            draw();
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            gameRunning = true;
+            score = 0;
+            difficulty = 1;
+            blocks = [];
+            particles = [];
+            blockSpawnTimer = 0;
+            
+            player.x = canvas.width / 2 - player.width / 2;
+            player.velocityX = 0;
+            
+            overlay.classList.add('hidden');
+            container.classList.add('touch-active');
+            
+            lastTime = performance.now();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('dodgeHighScore', highScore.toFixed(1));
+            }
+            
+            highScoreDisplay.textContent = highScore.toFixed(1);
+            
+            // Update overlay for game over
+            overlay.innerHTML = `
+                <h2>💥 Game Over!</h2>
+                <p class="finalScore">You survived <span style="color: #4a9eff">${score.toFixed(1)}</span> seconds</p>
+                <p>Best: ${highScore.toFixed(1)}s</p>
+                <button id="startBtn">Play Again</button>
+            `;
+            
+            overlay.classList.remove('hidden');
+            container.classList.remove('touch-active');
+            
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('startBtn').addEventListener('touchend', (e) => {
+                e.preventDefault();
+                startGame();
+            });
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+            if ((e.key === ' ' || e.key === 'Enter') && !gameRunning) startGame();
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+        });
+
+        // Touch controls
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            hasTouchCapability = true;
+            
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            
+            touchSide = x < canvas.width / 2 ? 'left' : 'right';
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            
+            touchSide = x < canvas.width / 2 ? 'left' : 'right';
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            touchSide = null;
+        });
+
+        canvas.addEventListener('touchcancel', (e) => {
+            touchSide = null;
+        });
+
+        // Device orientation (tilt)
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                if (e.gamma !== null) {
+                    tiltX = e.gamma; // -90 to 90 degrees
+                }
+            });
+        }
+
+        // Request permission for device orientation on iOS
+        startBtn.addEventListener('click', async () => {
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    await DeviceOrientationEvent.requestPermission();
+                } catch (err) {
+                    console.log('Device orientation permission denied');
+                }
+            }
+            startGame();
+        });
+
+        // Prevent default touch behaviors
+        document.body.addEventListener('touchmove', (e) => {
+            if (gameRunning) e.preventDefault();
+        }, { passive: false });
+
+        // Initialize
+        resize();
+        window.addEventListener('resize', resize);
+        highScoreDisplay.textContent = highScore.toFixed(1);
+        
+        // Draw initial state
+        draw();
+    </script>
+</body>
+</html>
