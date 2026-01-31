@@ -143,6 +143,104 @@
             background: #e94560;
         }
         
+        .search-container {
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 0 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 25px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input:focus {
+            border-color: #e94560;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+        }
+        
+        .search-input::placeholder {
+            color: #666;
+        }
+        
+        .random-btn {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border: none;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        
+        .random-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(233, 69, 96, 0.4);
+        }
+        
+        .no-results {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .no-results h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #888;
+        }
+        
+        .recently-played {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px 20px;
+        }
+        
+        .recently-played h3 {
+            color: #888;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .recent-games {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .recent-chip {
+            background: rgba(255,255,255,0.05);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .recent-chip:hover {
+            background: rgba(233, 69, 96, 0.2);
+            color: #fff;
+        }
+        
         footer {
             text-align: center;
             padding: 30px;
@@ -166,6 +264,11 @@
         </div>
     </header>
     
+    <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search games...">
+        <button class="random-btn" id="randomBtn">🎲 Random</button>
+    </div>
+    
     <div class="category-filter">
         <a href="tutorials/" class="filter-btn" style="background: #4ecdc4; color: #1a1a2e;">📚 Tutorials</a>
         <button class="filter-btn active" data-category="all">All Games</button>
@@ -175,6 +278,11 @@
         <button class="filter-btn" data-category="arcade">👾 Arcade</button>
         <button class="filter-btn" data-category="physics">🎱 Physics</button>
         <button class="filter-btn" data-category="shooter">🔫 Shooter</button>
+    </div>
+    
+    <div class="recently-played" id="recentlyPlayed" style="display: none;">
+        <h3>⏱️ Recently Played</h3>
+        <div class="recent-games" id="recentGames"></div>
     </div>
     
     <div class="games-grid" id="gamesGrid">
@@ -220,12 +328,46 @@
             { num: "031", name: "2048", emoji: "🔢", category: "puzzle", folder: "031-2048" },
         ];
 
-        function renderGames(filter = 'all') {
+        let currentFilter = 'all';
+        let currentSearch = '';
+
+        function getFilteredGames() {
+            let filtered = games;
+            
+            // Apply category filter
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(g => g.category === currentFilter);
+            }
+            
+            // Apply search filter
+            if (currentSearch.trim()) {
+                const search = currentSearch.toLowerCase().trim();
+                filtered = filtered.filter(g => 
+                    g.name.toLowerCase().includes(search) ||
+                    g.category.toLowerCase().includes(search) ||
+                    g.emoji.includes(search)
+                );
+            }
+            
+            return filtered;
+        }
+
+        function renderGames() {
             const grid = document.getElementById('gamesGrid');
-            const filtered = filter === 'all' ? games : games.filter(g => g.category === filter);
+            const filtered = getFilteredGames();
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="no-results">
+                        <h3>🔍 No games found</h3>
+                        <p>Try a different search term or category</p>
+                    </div>
+                `;
+                return;
+            }
             
             grid.innerHTML = filtered.map(game => `
-                <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}">
+                <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}" onclick="trackPlay('${game.num}', '${game.name}', '${game.emoji}', '${game.folder}')">
                     <span class="game-number">GAME ${game.num}</span>
                     <span class="game-emoji">${game.emoji}</span>
                     <h3 class="game-title">${game.name}</h3>
@@ -234,15 +376,86 @@
             `).join('');
         }
 
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            renderGames();
+        });
+        
+        // Keyboard shortcut: focus search with /
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '/' && document.activeElement !== searchInput) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            if (e.key === 'Escape') {
+                searchInput.blur();
+                searchInput.value = '';
+                currentSearch = '';
+                renderGames();
+            }
+        });
+
+        // Random game button
+        document.getElementById('randomBtn').addEventListener('click', () => {
+            const randomGame = games[Math.floor(Math.random() * games.length)];
+            trackPlay(randomGame.num, randomGame.name, randomGame.emoji, randomGame.folder);
+            window.location.href = randomGame.folder + '/index.html';
+        });
+
+        // Category filter buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                renderGames(btn.dataset.category);
+                currentFilter = btn.dataset.category || 'all';
+                renderGames();
             });
         });
 
+        // Recently played functionality
+        function getRecentlyPlayed() {
+            try {
+                return JSON.parse(localStorage.getItem('100games-recent') || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function trackPlay(num, name, emoji, folder) {
+            const recent = getRecentlyPlayed();
+            // Remove if already exists
+            const filtered = recent.filter(g => g.num !== num);
+            // Add to front
+            filtered.unshift({ num, name, emoji, folder, timestamp: Date.now() });
+            // Keep only last 5
+            const trimmed = filtered.slice(0, 5);
+            localStorage.setItem('100games-recent', JSON.stringify(trimmed));
+        }
+
+        function renderRecentlyPlayed() {
+            const recent = getRecentlyPlayed();
+            const container = document.getElementById('recentlyPlayed');
+            const gamesDiv = document.getElementById('recentGames');
+            
+            if (recent.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+            
+            container.style.display = 'block';
+            gamesDiv.innerHTML = recent.map(g => `
+                <a href="${g.folder}/index.html" class="recent-chip" onclick="trackPlay('${g.num}', '${g.name}', '${g.emoji}', '${g.folder}')">
+                    <span>${g.emoji}</span>
+                    <span>${g.name}</span>
+                </a>
+            `).join('');
+        }
+
+        // Initial render
         renderGames();
+        renderRecentlyPlayed();
     </script>
 </body>
 </html>
