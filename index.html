@@ -53,7 +53,6 @@
         }
         
         .progress-fill {
-            width: 31%;
             height: 100%;
             background: linear-gradient(90deg, #e94560, #ff6b6b);
             border-radius: 20px;
@@ -63,6 +62,78 @@
             font-weight: bold;
             font-size: 0.9rem;
             transition: width 0.5s ease;
+        }
+        
+        /* Search Bar */
+        .search-container {
+            max-width: 500px;
+            margin: 20px auto;
+            position: relative;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            font-size: 1rem;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 30px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        
+        .search-input:focus {
+            border-color: #e94560;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+        }
+        
+        .search-input::placeholder {
+            color: #666;
+        }
+        
+        .search-icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+            padding: 0 20px;
+        }
+        
+        .action-btn {
+            background: linear-gradient(135deg, #e94560, #ff6b6b);
+            border: none;
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+        
+        .action-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 25px rgba(233, 69, 96, 0.5);
+        }
+        
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #4ecdc4, #45b7aa);
         }
         
         .games-grid {
@@ -84,6 +155,8 @@
             text-decoration: none;
             color: inherit;
             display: block;
+            position: relative;
+            overflow: hidden;
         }
         
         .game-card:hover {
@@ -91,6 +164,10 @@
             border-color: #e94560;
             background: rgba(233, 69, 96, 0.1);
             box-shadow: 0 10px 40px rgba(233, 69, 96, 0.3);
+        }
+        
+        .game-card.hidden {
+            display: none;
         }
         
         .game-number {
@@ -111,6 +188,14 @@
             display: block;
         }
         
+        .game-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
         .game-category {
             display: inline-block;
             background: rgba(255,255,255,0.1);
@@ -118,6 +203,20 @@
             border-radius: 20px;
             font-size: 0.8rem;
             color: #a0a0a0;
+        }
+        
+        .game-difficulty {
+            display: flex;
+            gap: 2px;
+        }
+        
+        .difficulty-star {
+            color: #ffd700;
+            font-size: 0.9rem;
+        }
+        
+        .difficulty-star.empty {
+            color: #444;
         }
         
         .category-filter {
@@ -143,6 +242,43 @@
             background: #e94560;
         }
         
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            flex-wrap: wrap;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #e94560;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .no-results-emoji {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+        
         footer {
             text-align: center;
             padding: 30px;
@@ -150,10 +286,40 @@
             font-size: 0.9rem;
         }
         
+        footer a {
+            color: #e94560;
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Keyboard shortcut hint */
+        .shortcut-hint {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #888;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .shortcut-hint {
+                display: block;
+            }
+        }
+        
         @media (max-width: 600px) {
             h1 { font-size: 2rem; }
             .games-grid { padding: 20px; gap: 15px; }
             .game-card { padding: 20px; }
+            .quick-actions { gap: 10px; }
+            .action-btn { padding: 10px 18px; font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -162,12 +328,41 @@
         <h1>🎮 100 Games Arcade</h1>
         <p class="subtitle">Browser games, pure JavaScript, zero dependencies</p>
         <div class="progress-bar">
-            <div class="progress-fill">31 / 100</div>
+            <div class="progress-fill" id="progressFill">31 / 100</div>
+        </div>
+        
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search games... (Press / to focus)">
+            <span class="search-icon">🔍</span>
         </div>
     </header>
     
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-value" id="totalGames">31</div>
+            <div class="stat-label">Games</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">4</div>
+            <div class="stat-label">Tutorials</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">7</div>
+            <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="visibleCount">31</div>
+            <div class="stat-label">Showing</div>
+        </div>
+    </div>
+    
+    <div class="quick-actions">
+        <button class="action-btn" id="randomGame">🎲 Random Game</button>
+        <a href="tutorials/" class="action-btn secondary">📚 Tutorials</a>
+        <a href="https://github.com/poro/100-games" class="action-btn secondary" target="_blank">⭐ GitHub</a>
+    </div>
+    
     <div class="category-filter">
-        <a href="tutorials/" class="filter-btn" style="background: #4ecdc4; color: #1a1a2e;">📚 Tutorials</a>
         <button class="filter-btn active" data-category="all">All Games</button>
         <button class="filter-btn" data-category="clicker">🖱️ Clicker</button>
         <button class="filter-btn" data-category="reflex">⚡ Reflex</button>
@@ -181,68 +376,165 @@
         <!-- Games populated by JS -->
     </div>
     
+    <div class="no-results" id="noResults" style="display: none;">
+        <span class="no-results-emoji">🕹️</span>
+        <h3>No games found</h3>
+        <p>Try a different search or category</p>
+    </div>
+    
     <footer>
-        Made with ❤️ and Claude • <span id="gameCount">27</span> games and counting!
+        Made with ❤️ by <a href="https://markollila.com" target="_blank">Mark Ollila</a> + <a href="https://claude.ai" target="_blank">Claude</a> • 
+        <a href="https://github.com/poro/100-games" target="_blank">Source on GitHub</a>
     </footer>
+    
+    <div class="shortcut-hint">
+        Press <kbd>/</kbd> to search • <kbd>r</kbd> for random
+    </div>
 
     <script>
         const games = [
-            { num: "001", name: "Click Counter", emoji: "👆", category: "clicker", folder: "001-click-counter" },
-            { num: "002", name: "Whack-a-Mole", emoji: "🐹", category: "reflex", folder: "002-whack-a-mole" },
-            { num: "003", name: "Balloon Pop", emoji: "🎈", category: "clicker", folder: "003-balloon-pop" },
-            { num: "004", name: "Color Match", emoji: "🎨", category: "puzzle", folder: "004-color-match" },
-            { num: "005", name: "Speed Clicker", emoji: "⏱️", category: "clicker", folder: "005-speed-clicker" },
-            { num: "006", name: "Target Practice", emoji: "🎯", category: "shooter", folder: "006-target-practice" },
-            { num: "007", name: "Simon Says", emoji: "🔴", category: "puzzle", folder: "007-simon-says" },
-            { num: "008", name: "Maze Walker", emoji: "🌀", category: "puzzle", folder: "008-maze-walker" },
-            { num: "009", name: "Coin Collector", emoji: "🪙", category: "arcade", folder: "009-coin-collector" },
-            { num: "010", name: "Dodge the Blocks", emoji: "🟥", category: "arcade", folder: "010-dodge-the-blocks" },
-            { num: "011", name: "Snake Classic", emoji: "🐍", category: "arcade", folder: "011-snake-classic" },
-            { num: "012", name: "Pac-Man Lite", emoji: "😮", category: "arcade", folder: "012-pacman-lite" },
-            { num: "013", name: "Ice Sliding Puzzle", emoji: "🧊", category: "puzzle", folder: "013-ice-sliding-puzzle" },
-            { num: "014", name: "Tank Patrol", emoji: "🪖", category: "shooter", folder: "014-tank-patrol" },
-            { num: "015", name: "Pong", emoji: "🏓", category: "arcade", folder: "015-pong" },
-            { num: "016", name: "Breakout", emoji: "🧱", category: "arcade", folder: "016-breakout" },
-            { num: "017", name: "Bouncing Balls", emoji: "⚽", category: "physics", folder: "017-bouncing-balls" },
-            { num: "018", name: "Air Hockey", emoji: "🏒", category: "physics", folder: "018-air-hockey" },
-            { num: "019", name: "Pinball Simple", emoji: "🎰", category: "physics", folder: "019-pinball-simple" },
-            { num: "020", name: "Pool Billiards", emoji: "🎱", category: "physics", folder: "020-pool-billiards" },
-            { num: "021", name: "Gravity Golf", emoji: "⛳", category: "physics", folder: "021-gravity-golf" },
-            { num: "022", name: "Space Invaders", emoji: "👾", category: "shooter", folder: "022-space-invaders" },
-            { num: "023", name: "Galaga Clone", emoji: "🚀", category: "shooter", folder: "023-galaga-clone" },
-            { num: "024", name: "Asteroid Shooter", emoji: "☄️", category: "shooter", folder: "024-asteroid-shooter" },
-            { num: "025", name: "Tower Defense Lite", emoji: "🏰", category: "shooter", folder: "025-tower-defense-lite" },
-            { num: "026", name: "Duck Hunt", emoji: "🦆", category: "shooter", folder: "026-duck-hunt" },
-            { num: "027", name: "Zombie Wave", emoji: "🧟", category: "shooter", folder: "027-zombie-wave" },
-            { num: "028", name: "Flappy Bird", emoji: "🐦", category: "arcade", folder: "028-flappy-bird" },
-            { num: "029", name: "Tetris", emoji: "🧱", category: "puzzle", folder: "029-tetris" },
-            { num: "030", name: "Memory Match", emoji: "🧠", category: "puzzle", folder: "030-memory-match" },
-            { num: "031", name: "2048", emoji: "🔢", category: "puzzle", folder: "031-2048" },
+            { num: "001", name: "Click Counter", emoji: "👆", category: "clicker", difficulty: 1, folder: "001-click-counter" },
+            { num: "002", name: "Whack-a-Mole", emoji: "🐹", category: "reflex", difficulty: 2, folder: "002-whack-a-mole" },
+            { num: "003", name: "Balloon Pop", emoji: "🎈", category: "clicker", difficulty: 1, folder: "003-balloon-pop" },
+            { num: "004", name: "Color Match", emoji: "🎨", category: "puzzle", difficulty: 2, folder: "004-color-match" },
+            { num: "005", name: "Speed Clicker", emoji: "⏱️", category: "clicker", difficulty: 1, folder: "005-speed-clicker" },
+            { num: "006", name: "Target Practice", emoji: "🎯", category: "shooter", difficulty: 2, folder: "006-target-practice" },
+            { num: "007", name: "Simon Says", emoji: "🔴", category: "puzzle", difficulty: 2, folder: "007-simon-says" },
+            { num: "008", name: "Maze Walker", emoji: "🌀", category: "puzzle", difficulty: 3, folder: "008-maze-walker" },
+            { num: "009", name: "Coin Collector", emoji: "🪙", category: "arcade", difficulty: 2, folder: "009-coin-collector" },
+            { num: "010", name: "Dodge the Blocks", emoji: "🟥", category: "arcade", difficulty: 2, folder: "010-dodge-the-blocks" },
+            { num: "011", name: "Snake Classic", emoji: "🐍", category: "arcade", difficulty: 3, folder: "011-snake-classic" },
+            { num: "012", name: "Pac-Man Lite", emoji: "😮", category: "arcade", difficulty: 3, folder: "012-pacman-lite" },
+            { num: "013", name: "Ice Sliding Puzzle", emoji: "🧊", category: "puzzle", difficulty: 3, folder: "013-ice-sliding-puzzle" },
+            { num: "014", name: "Tank Patrol", emoji: "🪖", category: "shooter", difficulty: 3, folder: "014-tank-patrol" },
+            { num: "015", name: "Pong", emoji: "🏓", category: "arcade", difficulty: 2, folder: "015-pong" },
+            { num: "016", name: "Breakout", emoji: "🧱", category: "arcade", difficulty: 3, folder: "016-breakout" },
+            { num: "017", name: "Bouncing Balls", emoji: "⚽", category: "physics", difficulty: 2, folder: "017-bouncing-balls" },
+            { num: "018", name: "Air Hockey", emoji: "🏒", category: "physics", difficulty: 3, folder: "018-air-hockey" },
+            { num: "019", name: "Pinball Simple", emoji: "🎰", category: "physics", difficulty: 4, folder: "019-pinball-simple" },
+            { num: "020", name: "Pool Billiards", emoji: "🎱", category: "physics", difficulty: 4, folder: "020-pool-billiards" },
+            { num: "021", name: "Gravity Golf", emoji: "⛳", category: "physics", difficulty: 3, folder: "021-gravity-golf" },
+            { num: "022", name: "Space Invaders", emoji: "👾", category: "shooter", difficulty: 3, folder: "022-space-invaders" },
+            { num: "023", name: "Galaga Clone", emoji: "🚀", category: "shooter", difficulty: 3, folder: "023-galaga-clone" },
+            { num: "024", name: "Asteroid Shooter", emoji: "☄️", category: "shooter", difficulty: 3, folder: "024-asteroid-shooter" },
+            { num: "025", name: "Tower Defense Lite", emoji: "🏰", category: "shooter", difficulty: 4, folder: "025-tower-defense-lite" },
+            { num: "026", name: "Duck Hunt", emoji: "🦆", category: "shooter", difficulty: 3, folder: "026-duck-hunt" },
+            { num: "027", name: "Zombie Wave", emoji: "🧟", category: "shooter", difficulty: 3, folder: "027-zombie-wave" },
+            { num: "028", name: "Flappy Bird", emoji: "🐦", category: "arcade", difficulty: 3, folder: "028-flappy-bird" },
+            { num: "029", name: "Tetris", emoji: "🧱", category: "puzzle", difficulty: 3, folder: "029-tetris" },
+            { num: "030", name: "Memory Match", emoji: "🧠", category: "puzzle", difficulty: 2, folder: "030-memory-match" },
+            { num: "031", name: "2048", emoji: "🔢", category: "puzzle", difficulty: 3, folder: "031-2048" },
         ];
 
-        function renderGames(filter = 'all') {
+        let currentCategory = 'all';
+        let searchQuery = '';
+
+        function getDifficultyStars(difficulty) {
+            let stars = '';
+            for (let i = 0; i < 4; i++) {
+                stars += `<span class="difficulty-star ${i < difficulty ? '' : 'empty'}">★</span>`;
+            }
+            return stars;
+        }
+
+        function filterGames() {
+            const filtered = games.filter(game => {
+                const matchesCategory = currentCategory === 'all' || game.category === currentCategory;
+                const matchesSearch = searchQuery === '' || 
+                    game.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    game.category.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesCategory && matchesSearch;
+            });
+            return filtered;
+        }
+
+        function renderGames() {
             const grid = document.getElementById('gamesGrid');
-            const filtered = filter === 'all' ? games : games.filter(g => g.category === filter);
+            const noResults = document.getElementById('noResults');
+            const filtered = filterGames();
+            
+            if (filtered.length === 0) {
+                grid.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                grid.style.display = 'grid';
+                noResults.style.display = 'none';
+            }
             
             grid.innerHTML = filtered.map(game => `
                 <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}">
                     <span class="game-number">GAME ${game.num}</span>
                     <span class="game-emoji">${game.emoji}</span>
                     <h3 class="game-title">${game.name}</h3>
-                    <span class="game-category">${game.category}</span>
+                    <div class="game-meta">
+                        <span class="game-category">${game.category}</span>
+                        <div class="game-difficulty" title="Difficulty: ${game.difficulty}/4">
+                            ${getDifficultyStars(game.difficulty)}
+                        </div>
+                    </div>
                 </a>
             `).join('');
+            
+            document.getElementById('visibleCount').textContent = filtered.length;
         }
 
+        // Category filter buttons
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                renderGames(btn.dataset.category);
+                currentCategory = btn.dataset.category;
+                renderGames();
             });
         });
 
+        // Search input
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderGames();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Focus search with /
+            if (e.key === '/' && document.activeElement !== searchInput) {
+                e.preventDefault();
+                searchInput.focus();
+            }
+            // Escape to blur search
+            if (e.key === 'Escape') {
+                searchInput.blur();
+            }
+            // R for random game
+            if (e.key === 'r' && document.activeElement !== searchInput) {
+                playRandomGame();
+            }
+        });
+
+        // Random game button
+        function playRandomGame() {
+            const filtered = filterGames();
+            if (filtered.length > 0) {
+                const random = filtered[Math.floor(Math.random() * filtered.length)];
+                window.location.href = random.folder + '/index.html';
+            }
+        }
+        
+        document.getElementById('randomGame').addEventListener('click', playRandomGame);
+
+        // Update progress bar
+        function updateProgress() {
+            const total = games.length;
+            const percent = (total / 100) * 100;
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressFill').textContent = `${total} / 100`;
+            document.getElementById('totalGames').textContent = total;
+        }
+
+        // Initial render
         renderGames();
+        updateProgress();
     </script>
 </body>
 </html>
