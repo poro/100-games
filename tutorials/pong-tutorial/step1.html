@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - Step 1: Canvas & Paddles</title>
+    <style>
+        /* 
+         * STEP 1: CANVAS & PADDLES
+         * ========================
+         * Before anything moves, we need to draw the playing field.
+         * Pong is one of the simplest games visually - just rectangles!
+         */
+        
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        
+        h1 {
+            color: #4ecca3;
+            margin-bottom: 20px;
+        }
+        
+        canvas {
+            border: 3px solid #4ecca3;
+        }
+        
+        .info {
+            margin-top: 20px;
+            color: #888;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Step 1: Canvas & Paddles</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p class="info">This step: We draw the playing field and two paddles (static for now)</p>
+    
+    <script>
+        // ============================================================
+        // STEP 1: SETTING UP THE GAME CANVAS
+        // ============================================================
+        // Pong needs:
+        // - A playing field (the canvas)
+        // - Two paddles (rectangles on left and right)
+        // - A center line (optional, but classic look)
+        // - Later: a ball!
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // GAME CONSTANTS
+        // ============================================================
+        // Good practice: Define sizes/colors at the top so they're easy to change
+        
+        const PADDLE_WIDTH = 10;
+        const PADDLE_HEIGHT = 80;
+        const PADDLE_OFFSET = 20;  // Distance from edge of screen
+        
+        // ============================================================
+        // PADDLE OBJECTS
+        // ============================================================
+        // Each paddle has an x, y position. We'll use objects to keep
+        // all paddle info together.
+        
+        // Left paddle (player 1 / or AI)
+        const leftPaddle = {
+            x: PADDLE_OFFSET,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,  // Centered vertically
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#4ecca3'  // Teal color
+        };
+        
+        // Right paddle (player 2 / or AI)
+        const rightPaddle = {
+            x: canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#e94560'  // Red color
+        };
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        // It's good practice to create functions for each thing we draw
+        
+        function drawPaddle(paddle) {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        function drawCenterLine() {
+            // Classic Pong has a dashed line down the middle
+            ctx.setLineDash([10, 10]);  // 10px dash, 10px gap
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);  // Reset to solid line
+        }
+        
+        function draw() {
+            // Clear the canvas (important for animation later!)
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw game elements
+            drawCenterLine();
+            drawPaddle(leftPaddle);
+            drawPaddle(rightPaddle);
+        }
+        
+        // ============================================================
+        // INITIAL DRAW
+        // ============================================================
+        // For now, just draw once. Later we'll call this in a loop.
+        
+        draw();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Canvas setup with getContext('2d')
+        // 2. Using objects to group related data (paddle properties)
+        // 3. Positioning with x, y coordinates
+        // 4. fillRect() for drawing solid rectangles
+        // 5. setLineDash() for dashed lines (classic Pong look!)
+        //
+        // NEXT STEP: Make the player paddle move with keyboard controls
+        // ============================================================
+        
+        console.log('Step 1 Complete! Paddles are drawn.');
+        console.log('Left paddle position:', leftPaddle.x, leftPaddle.y);
+        console.log('Right paddle position:', rightPaddle.x, rightPaddle.y);
+    </script>
+</body>
+</html>

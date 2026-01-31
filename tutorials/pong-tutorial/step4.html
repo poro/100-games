@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - Step 4: Wall Bounce</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #4ecca3; margin-bottom: 20px; }
+        canvas { border: 3px solid #4ecca3; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #4ecca3; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 4: Wall Bounce</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p class="controls">W/S or Arrow Keys to move</p>
+    <p class="info">This step: Ball bounces off top and bottom walls</p>
+    
+    <script>
+        // ============================================================
+        // STEP 4: WALL BOUNCE
+        // ============================================================
+        // The ball should bounce off the top and bottom walls.
+        // When it hits a horizontal surface, we reverse the vertical
+        // velocity (dy = -dy).
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const PADDLE_WIDTH = 10;
+        const PADDLE_HEIGHT = 80;
+        const PADDLE_OFFSET = 20;
+        const PADDLE_SPEED = 6;
+        const BALL_RADIUS = 8;
+        const BALL_SPEED = 5;
+        
+        const leftPaddle = {
+            x: PADDLE_OFFSET,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#4ecca3',
+            dy: 0
+        };
+        
+        const rightPaddle = {
+            x: canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#e94560',
+            dy: 0
+        };
+        
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: BALL_RADIUS,
+            dx: BALL_SPEED,
+            dy: BALL_SPEED * 0.7,
+            color: '#fff'
+        };
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            ball.dy = BALL_SPEED * 0.7 * (Math.random() > 0.5 ? 1 : -1);
+        }
+        
+        const keys = { w: false, s: false, ArrowUp: false, ArrowDown: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) { keys[e.key] = false; }
+        });
+        
+        function update() {
+            // Player paddle movement
+            if (keys.w || keys.ArrowUp) {
+                leftPaddle.dy = -PADDLE_SPEED;
+            } else if (keys.s || keys.ArrowDown) {
+                leftPaddle.dy = PADDLE_SPEED;
+            } else {
+                leftPaddle.dy = 0;
+            }
+            leftPaddle.y += leftPaddle.dy;
+            leftPaddle.y = Math.max(0, Math.min(canvas.height - leftPaddle.height, leftPaddle.y));
+            
+            // Ball movement
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // ========================================================
+            // WALL BOUNCE - NEW!
+            // ========================================================
+            // Check if ball hits top or bottom wall
+            // If so, reverse vertical velocity (bounce!)
+            //
+            // Top wall: ball.y - radius < 0
+            // Bottom wall: ball.y + radius > canvas.height
+            
+            // Top wall
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;  // Prevent sticking inside wall
+                ball.dy = -ball.dy;    // Reverse vertical direction
+            }
+            
+            // Bottom wall
+            if (ball.y + ball.radius > canvas.height) {
+                ball.y = canvas.height - ball.radius;
+                ball.dy = -ball.dy;
+            }
+            
+            // ========================================================
+            // SIDE WALLS (SCORING ZONES)
+            // ========================================================
+            // For now, just reset. Later we'll add scoring here.
+            
+            if (ball.x < 0 || ball.x > canvas.width) {
+                resetBall();
+            }
+        }
+        
+        function drawPaddle(paddle) {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        function drawCenterLine() {
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = ball.color;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawCenterLine();
+            drawPaddle(leftPaddle);
+            drawPaddle(rightPaddle);
+            drawBall();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Wall collision detection (comparing position to boundaries)
+        // 2. Bouncing by reversing velocity (dy = -dy)
+        // 3. Preventing "sticking" by correcting position
+        // 4. Thinking about boundaries (top, bottom, left, right)
+        //
+        // NEXT STEP: Ball bounces off paddles!
+        // ============================================================
+        
+        console.log('Step 4 Complete! Ball bounces off top and bottom walls.');
+    </script>
+</body>
+</html>

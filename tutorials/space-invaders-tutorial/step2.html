@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders - Step 2: Shooting</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #0f0; margin-bottom: 20px; }
+        canvas { border: 2px solid #0f0; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #0f0; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 2: Shooting</h1>
+    <canvas id="gameCanvas" width="480" height="520"></canvas>
+    <p class="controls">← → to move | SPACE to shoot</p>
+    <p class="info">This step: Fire bullets that travel upward</p>
+    
+    <script>
+        // ============================================================
+        // STEP 2: SHOOTING
+        // ============================================================
+        // When the player presses SPACE, we create a bullet.
+        // Bullets move upward and are removed when off-screen.
+        // We'll store bullets in an array.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 40,
+            width: 40,
+            height: 20,
+            speed: 5,
+            color: '#0f0'
+        };
+        
+        // ============================================================
+        // BULLETS ARRAY
+        // ============================================================
+        // Each bullet is an object with position and speed
+        
+        const bullets = [];
+        const BULLET_SPEED = 8;
+        const BULLET_WIDTH = 4;
+        const BULLET_HEIGHT = 12;
+        
+        // Limit fire rate (can't hold down space for machine gun)
+        let canShoot = true;
+        const SHOOT_COOLDOWN = 200;  // milliseconds between shots
+        
+        // ============================================================
+        // CREATE BULLET
+        // ============================================================
+        
+        function shoot() {
+            if (!canShoot) return;
+            
+            bullets.push({
+                x: player.x - BULLET_WIDTH / 2,  // Center on player
+                y: player.y - BULLET_HEIGHT,     // Start above player
+                width: BULLET_WIDTH,
+                height: BULLET_HEIGHT,
+                speed: BULLET_SPEED
+            });
+            
+            // Start cooldown
+            canShoot = false;
+            setTimeout(() => { canShoot = true; }, SHOOT_COOLDOWN);
+        }
+        
+        // ============================================================
+        // KEYBOARD INPUT
+        // ============================================================
+        
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            a: false,
+            d: false,
+            ' ': false  // Space key
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+                e.preventDefault();
+            }
+            // Shoot on keydown (not held)
+            if (e.key === ' ') {
+                shoot();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+        
+        // ============================================================
+        // UPDATE FUNCTION
+        // ============================================================
+        
+        function update() {
+            // Player movement
+            if (keys.ArrowLeft || keys.a) player.x -= player.speed;
+            if (keys.ArrowRight || keys.d) player.x += player.speed;
+            
+            const halfWidth = player.width / 2;
+            player.x = Math.max(halfWidth, Math.min(canvas.width - halfWidth, player.x));
+            
+            // ========================================================
+            // UPDATE BULLETS
+            // ========================================================
+            // Move each bullet upward (negative Y)
+            
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                
+                // Remove bullets that go off-screen
+                if (bullets[i].y + bullets[i].height < 0) {
+                    bullets.splice(i, 1);
+                }
+            }
+            
+            // Note: We iterate backwards (i--) so that removing items
+            // doesn't mess up our loop index!
+        }
+        
+        // ============================================================
+        // DRAW FUNCTIONS
+        // ============================================================
+        
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x - player.width / 2, player.y, player.width, player.height);
+            ctx.fillRect(player.x - 3, player.y - 10, 6, 10);
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#fff';
+            for (const bullet of bullets) {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawBullets();  // Draw bullets behind player
+            drawPlayer();
+            
+            // Ground line
+            ctx.strokeStyle = '#0f0';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 10);
+            ctx.lineTo(canvas.width, canvas.height - 10);
+            ctx.stroke();
+            
+            // Show bullet count (for debugging)
+            ctx.fillStyle = '#888';
+            ctx.font = '12px Courier New';
+            ctx.fillText(`Bullets: ${bullets.length}`, 10, 20);
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED:
+        // ============================================================
+        // 1. Managing an array of bullets (spawning, updating, removing)
+        // 2. Fire rate limiting with cooldown
+        // 3. Iterating backwards when removing items from an array
+        // 4. Bullets as simple objects with position and velocity
+        //
+        // NEXT STEP: Add aliens to shoot at!
+        // ============================================================
+        
+        console.log('Step 2: Press SPACE to shoot!');
+    </script>
+</body>
+</html>

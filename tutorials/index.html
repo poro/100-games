@@ -31,16 +31,26 @@
         }
         .back-link:hover { text-decoration: underline; }
         
+        .section-title {
+            text-align: center;
+            color: #4ecdc4;
+            font-size: 1.3rem;
+            margin: 30px 0 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
         .tutorials {
             max-width: 900px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 20px 20px 40px;
         }
+        
         .tutorial-card {
             background: rgba(255,255,255,0.05);
             border-radius: 15px;
             padding: 30px;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
             border: 2px solid transparent;
             transition: all 0.3s;
         }
@@ -95,6 +105,49 @@
             font-size: 0.8rem;
             color: #ccc;
         }
+        
+        /* Guide card special styling */
+        .guide-card {
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(233, 69, 96, 0.1));
+            border: 2px solid #e94560;
+        }
+        .guide-card:hover {
+            border-color: #ff6b6b;
+            background: linear-gradient(135deg, rgba(78, 205, 196, 0.15), rgba(233, 69, 96, 0.15));
+        }
+        .guide-link {
+            display: inline-block;
+            margin-top: 15px;
+            background: #e94560;
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .guide-link:hover {
+            background: #ff6b6b;
+            transform: translateY(-2px);
+        }
+        
+        .badge {
+            display: inline-block;
+            background: #4ecdc4;
+            color: #1a1a2e;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .tutorial-header { flex-direction: column; text-align: center; gap: 10px; }
+            .steps { justify-content: center; }
+        }
     </style>
 </head>
 <body>
@@ -105,12 +158,40 @@
     </header>
     
     <div class="tutorials">
+        
+        <!-- Process Guide -->
+        <h2 class="section-title">📖 Start Here</h2>
+        
+        <div class="tutorial-card guide-card">
+            <div class="tutorial-header">
+                <span class="tutorial-emoji">🎯</span>
+                <div>
+                    <h2 class="tutorial-title">How to Prompt AI for Games</h2>
+                    <p class="tutorial-desc">The meta-guide: learn to create ANY game with AI assistance</p>
+                </div>
+            </div>
+            <p style="color: #ccc; line-height: 1.6;">
+                Master the art of prompting AI to build browser games. Covers prompt templates, 
+                common pitfalls, the iterative approach, and tips for specific game genres.
+            </p>
+            <div class="concepts">
+                <span class="concept">Prompt Engineering</span>
+                <span class="concept">Game Design</span>
+                <span class="concept">Iteration</span>
+                <span class="concept">Polish & Juice</span>
+            </div>
+            <a href="PROCESS-GUIDE.md" class="guide-link">Read the Guide →</a>
+        </div>
+        
+        <!-- Step-by-Step Tutorials -->
+        <h2 class="section-title">🎮 Step-by-Step Tutorials</h2>
+        
         <div class="tutorial-card">
             <div class="tutorial-header">
                 <span class="tutorial-emoji">🐍</span>
                 <div>
-                    <h2 class="tutorial-title">Snake</h2>
-                    <p class="tutorial-desc">The classic game, built in 8 progressive steps</p>
+                    <h2 class="tutorial-title">Snake <span class="badge">8 STEPS</span></h2>
+                    <p class="tutorial-desc">The classic game, built progressively from scratch</p>
                 </div>
             </div>
             <div class="concepts">
@@ -136,7 +217,7 @@
             <div class="tutorial-header">
                 <span class="tutorial-emoji">🧱</span>
                 <div>
-                    <h2 class="tutorial-title">Breakout</h2>
+                    <h2 class="tutorial-title">Breakout <span class="badge">6 STEPS</span></h2>
                     <p class="tutorial-desc">Paddle, ball, and bricks — classic arcade physics</p>
                 </div>
             </div>
@@ -157,37 +238,58 @@
             </div>
         </div>
         
-        <div class="tutorial-card" style="opacity: 0.5;">
+        <div class="tutorial-card">
             <div class="tutorial-header">
                 <span class="tutorial-emoji">🏓</span>
                 <div>
-                    <h2 class="tutorial-title">Pong</h2>
-                    <p class="tutorial-desc">Two-player classic with AI opponent — <em>Coming soon</em></p>
+                    <h2 class="tutorial-title">Pong <span class="badge">7 STEPS</span></h2>
+                    <p class="tutorial-desc">Two-player classic with AI opponent</p>
                 </div>
             </div>
             <div class="concepts">
-                <span class="concept">Two-Player Input</span>
-                <span class="concept">AI Paddle</span>
-                <span class="concept">Score Tracking</span>
-                <span class="concept">Serve System</span>
+                <span class="concept">Two Paddles</span>
+                <span class="concept">Ball Velocity</span>
+                <span class="concept">AI Tracking</span>
+                <span class="concept">Angle Bouncing</span>
+                <span class="concept">Score System</span>
+            </div>
+            <div class="steps">
+                <a href="pong-tutorial/step1.html" class="step"><span class="step-num">1</span> Canvas & Paddles</a>
+                <a href="pong-tutorial/step2.html" class="step"><span class="step-num">2</span> Player Control</a>
+                <a href="pong-tutorial/step3.html" class="step"><span class="step-num">3</span> Ball Movement</a>
+                <a href="pong-tutorial/step4.html" class="step"><span class="step-num">4</span> Wall Bounce</a>
+                <a href="pong-tutorial/step5.html" class="step"><span class="step-num">5</span> Paddle Collision</a>
+                <a href="pong-tutorial/step6.html" class="step"><span class="step-num">6</span> AI Opponent</a>
+                <a href="pong-tutorial/step7.html" class="step"><span class="step-num">7</span> Complete Game</a>
             </div>
         </div>
         
-        <div class="tutorial-card" style="opacity: 0.5;">
+        <div class="tutorial-card">
             <div class="tutorial-header">
                 <span class="tutorial-emoji">👾</span>
                 <div>
-                    <h2 class="tutorial-title">Space Invaders</h2>
-                    <p class="tutorial-desc">Alien formations, shooting, and waves — <em>Coming soon</em></p>
+                    <h2 class="tutorial-title">Space Invaders <span class="badge">7 STEPS</span></h2>
+                    <p class="tutorial-desc">Alien formations, shooting, and waves</p>
                 </div>
             </div>
             <div class="concepts">
                 <span class="concept">Grid Formations</span>
                 <span class="concept">Projectiles</span>
+                <span class="concept">Group Movement</span>
                 <span class="concept">Wave System</span>
                 <span class="concept">Enemy AI</span>
             </div>
+            <div class="steps">
+                <a href="space-invaders-tutorial/step1.html" class="step"><span class="step-num">1</span> Player Ship</a>
+                <a href="space-invaders-tutorial/step2.html" class="step"><span class="step-num">2</span> Shooting</a>
+                <a href="space-invaders-tutorial/step3.html" class="step"><span class="step-num">3</span> Alien Grid</a>
+                <a href="space-invaders-tutorial/step4.html" class="step"><span class="step-num">4</span> Alien Movement</a>
+                <a href="space-invaders-tutorial/step5.html" class="step"><span class="step-num">5</span> Collision</a>
+                <a href="space-invaders-tutorial/step6.html" class="step"><span class="step-num">6</span> Alien Attack</a>
+                <a href="space-invaders-tutorial/step7.html" class="step"><span class="step-num">7</span> Complete Game</a>
+            </div>
         </div>
+        
     </div>
 </body>
 </html>

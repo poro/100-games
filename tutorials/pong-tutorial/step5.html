@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - Step 5: Paddle Collision</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #4ecca3; margin-bottom: 20px; }
+        canvas { border: 3px solid #4ecca3; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #4ecca3; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 5: Paddle Collision</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p class="controls">W/S or Arrow Keys - Try to hit the ball!</p>
+    <p class="info">This step: Ball bounces off paddles with angle control</p>
+    
+    <script>
+        // ============================================================
+        // STEP 5: PADDLE COLLISION
+        // ============================================================
+        // This is the core of Pong gameplay!
+        // - Detect when ball overlaps with paddle
+        // - Bounce the ball back
+        // - Add angle based on where on the paddle it hits
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const PADDLE_WIDTH = 10;
+        const PADDLE_HEIGHT = 80;
+        const PADDLE_OFFSET = 20;
+        const PADDLE_SPEED = 6;
+        const BALL_RADIUS = 8;
+        const BALL_SPEED = 5;
+        
+        const leftPaddle = {
+            x: PADDLE_OFFSET,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#4ecca3',
+            dy: 0
+        };
+        
+        const rightPaddle = {
+            x: canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#e94560',
+            dy: 0
+        };
+        
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            radius: BALL_RADIUS,
+            dx: BALL_SPEED,
+            dy: BALL_SPEED * 0.5,
+            color: '#fff'
+        };
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            ball.dx = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            ball.dy = BALL_SPEED * 0.5 * (Math.random() > 0.5 ? 1 : -1);
+        }
+        
+        // ============================================================
+        // CIRCLE-RECTANGLE COLLISION
+        // ============================================================
+        // Check if a circle (ball) overlaps with a rectangle (paddle)
+        
+        function circleRectCollision(circle, rect) {
+            // Find the closest point on the rectangle to the circle
+            const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.width));
+            const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.height));
+            
+            // Calculate distance from circle center to closest point
+            const distanceX = circle.x - closestX;
+            const distanceY = circle.y - closestY;
+            const distanceSquared = distanceX * distanceX + distanceY * distanceY;
+            
+            // If distance is less than radius, they're colliding
+            return distanceSquared < circle.radius * circle.radius;
+        }
+        
+        // ============================================================
+        // PADDLE BOUNCE WITH ANGLE
+        // ============================================================
+        // Where the ball hits the paddle affects the bounce angle
+        // - Hit center: ball goes mostly straight
+        // - Hit edge: ball goes at a steep angle
+        
+        function bounceBallOffPaddle(paddle) {
+            // Calculate where on the paddle the ball hit (0 to 1)
+            const hitPosition = (ball.y - paddle.y) / paddle.height;
+            
+            // Convert to angle: -0.5 to 0.5, then multiply for steeper angles
+            const angle = (hitPosition - 0.5) * Math.PI * 0.5;  // Max 45 degrees
+            
+            // Calculate new velocity
+            const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+            
+            // Direction depends on which paddle (left goes right, right goes left)
+            const direction = paddle === leftPaddle ? 1 : -1;
+            
+            ball.dx = speed * Math.cos(angle) * direction;
+            ball.dy = speed * Math.sin(angle);
+        }
+        
+        const keys = { w: false, s: false, ArrowUp: false, ArrowDown: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) { keys[e.key] = false; }
+        });
+        
+        function update() {
+            // Player paddle
+            if (keys.w || keys.ArrowUp) leftPaddle.dy = -PADDLE_SPEED;
+            else if (keys.s || keys.ArrowDown) leftPaddle.dy = PADDLE_SPEED;
+            else leftPaddle.dy = 0;
+            
+            leftPaddle.y += leftPaddle.dy;
+            leftPaddle.y = Math.max(0, Math.min(canvas.height - leftPaddle.height, leftPaddle.y));
+            
+            // Ball movement
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // Wall bounce
+            if (ball.y - ball.radius < 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;
+            }
+            if (ball.y + ball.radius > canvas.height) {
+                ball.y = canvas.height - ball.radius;
+                ball.dy = -ball.dy;
+            }
+            
+            // ========================================================
+            // PADDLE COLLISION - NEW!
+            // ========================================================
+            
+            // Left paddle collision
+            if (ball.dx < 0 && circleRectCollision(ball, leftPaddle)) {
+                // Push ball out of paddle to prevent multiple collisions
+                ball.x = leftPaddle.x + leftPaddle.width + ball.radius;
+                bounceBallOffPaddle(leftPaddle);
+            }
+            
+            // Right paddle collision
+            if (ball.dx > 0 && circleRectCollision(ball, rightPaddle)) {
+                ball.x = rightPaddle.x - ball.radius;
+                bounceBallOffPaddle(rightPaddle);
+            }
+            
+            // Score zones (reset for now)
+            if (ball.x < 0 || ball.x > canvas.width) {
+                resetBall();
+            }
+        }
+        
+        function drawPaddle(paddle) {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        function drawCenterLine() {
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function drawBall() {
+            ctx.fillStyle = ball.color;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawCenterLine();
+            drawPaddle(leftPaddle);
+            drawPaddle(rightPaddle);
+            drawBall();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Circle-rectangle collision detection
+        // 2. Angle-based bouncing (adds skill to the game!)
+        // 3. Using trigonometry (sin, cos) for realistic physics
+        // 4. Checking ball direction before collision (prevents bugs)
+        //
+        // NEXT STEP: Add AI to control the right paddle!
+        // ============================================================
+        
+        console.log('Step 5 Complete! Hit the ball with your paddle!');
+    </script>
+</body>
+</html>

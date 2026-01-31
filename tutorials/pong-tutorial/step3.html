@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong - Step 3: Ball Movement</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #0a0a0a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #4ecca3; margin-bottom: 20px; }
+        canvas { border: 3px solid #4ecca3; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #4ecca3; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 3: Ball Movement</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <p class="controls">The ball moves! (It goes through everything for now)</p>
+    <p class="info">This step: Add a ball with velocity (dx, dy)</p>
+    
+    <script>
+        // ============================================================
+        // STEP 3: BALL MOVEMENT
+        // ============================================================
+        // The ball is the star of Pong! It has:
+        // - Position (x, y) - where it is
+        // - Velocity (dx, dy) - how fast and which direction it moves
+        // - Radius - for drawing and collision
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const PADDLE_WIDTH = 10;
+        const PADDLE_HEIGHT = 80;
+        const PADDLE_OFFSET = 20;
+        const PADDLE_SPEED = 6;
+        
+        // NEW: Ball constants
+        const BALL_RADIUS = 8;
+        const BALL_SPEED = 5;
+        
+        // Paddles
+        const leftPaddle = {
+            x: PADDLE_OFFSET,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#4ecca3',
+            dy: 0
+        };
+        
+        const rightPaddle = {
+            x: canvas.width - PADDLE_OFFSET - PADDLE_WIDTH,
+            y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+            width: PADDLE_WIDTH,
+            height: PADDLE_HEIGHT,
+            color: '#e94560',
+            dy: 0
+        };
+        
+        // ============================================================
+        // THE BALL OBJECT
+        // ============================================================
+        // dx = "delta x" = change in x per frame (horizontal velocity)
+        // dy = "delta y" = change in y per frame (vertical velocity)
+        
+        const ball = {
+            x: canvas.width / 2,      // Start in center
+            y: canvas.height / 2,
+            radius: BALL_RADIUS,
+            dx: BALL_SPEED,           // Moving right initially
+            dy: BALL_SPEED * 0.7,     // Moving down at an angle
+            color: '#fff'
+        };
+        
+        // ============================================================
+        // RESET BALL FUNCTION
+        // ============================================================
+        // Useful when someone scores - reset to center with new direction
+        
+        function resetBall() {
+            ball.x = canvas.width / 2;
+            ball.y = canvas.height / 2;
+            // Random direction: either left or right
+            ball.dx = BALL_SPEED * (Math.random() > 0.5 ? 1 : -1);
+            // Random vertical angle
+            ball.dy = BALL_SPEED * 0.7 * (Math.random() > 0.5 ? 1 : -1);
+        }
+        
+        // Keyboard tracking
+        const keys = { w: false, s: false, ArrowUp: false, ArrowDown: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) { keys[e.key] = false; }
+        });
+        
+        // ============================================================
+        // UPDATE FUNCTION
+        // ============================================================
+        
+        function update() {
+            // Player paddle movement
+            if (keys.w || keys.ArrowUp) {
+                leftPaddle.dy = -PADDLE_SPEED;
+            } else if (keys.s || keys.ArrowDown) {
+                leftPaddle.dy = PADDLE_SPEED;
+            } else {
+                leftPaddle.dy = 0;
+            }
+            leftPaddle.y += leftPaddle.dy;
+            leftPaddle.y = Math.max(0, Math.min(canvas.height - leftPaddle.height, leftPaddle.y));
+            
+            // ========================================================
+            // BALL MOVEMENT - NEW!
+            // ========================================================
+            // Every frame, add velocity to position
+            // This is the fundamental formula: position += velocity
+            
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+            
+            // For now, if ball goes off screen, reset it
+            // (We'll add proper collision next!)
+            if (ball.x < 0 || ball.x > canvas.width) {
+                resetBall();
+            }
+        }
+        
+        // ============================================================
+        // DRAWING FUNCTIONS
+        // ============================================================
+        
+        function drawPaddle(paddle) {
+            ctx.fillStyle = paddle.color;
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        function drawCenterLine() {
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = '#333';
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // NEW: Draw the ball as a circle
+        function drawBall() {
+            ctx.fillStyle = ball.color;
+            ctx.beginPath();
+            // arc(x, y, radius, startAngle, endAngle)
+            // 0 to 2*PI radians = full circle
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawCenterLine();
+            drawPaddle(leftPaddle);
+            drawPaddle(rightPaddle);
+            drawBall();  // NEW!
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED IN THIS STEP:
+        // ============================================================
+        // 1. Ball object with position (x, y) and velocity (dx, dy)
+        // 2. Movement formula: position += velocity (every frame)
+        // 3. Drawing circles with ctx.arc()
+        // 4. Resetting the ball when it goes off screen
+        //
+        // NEXT STEP: Make the ball bounce off walls!
+        // ============================================================
+        
+        console.log('Step 3 Complete! The ball moves across the screen.');
+    </script>
+</body>
+</html>

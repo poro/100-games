@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders - Step 1: Player Ship</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #0f0; margin-bottom: 20px; }
+        canvas { border: 2px solid #0f0; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #0f0; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 1: Player Ship</h1>
+    <canvas id="gameCanvas" width="480" height="520"></canvas>
+    <p class="controls">← → Arrow Keys or A/D to move</p>
+    <p class="info">This step: A movable player ship at the bottom</p>
+    
+    <script>
+        // ============================================================
+        // STEP 1: PLAYER SHIP
+        // ============================================================
+        // The player's ship sits at the bottom and moves left/right.
+        // We'll draw it as a simple triangle/shape and handle keyboard input.
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ============================================================
+        // PLAYER OBJECT
+        // ============================================================
+        
+        const player = {
+            x: canvas.width / 2,    // Center of the ship (not left edge)
+            y: canvas.height - 40,  // Near bottom
+            width: 40,
+            height: 20,
+            speed: 5,
+            color: '#0f0'
+        };
+        
+        // ============================================================
+        // DRAWING THE SHIP
+        // ============================================================
+        // We'll draw a classic "cannon" shape using paths
+        
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            
+            // Main body (rectangle)
+            ctx.fillRect(
+                player.x - player.width / 2,
+                player.y,
+                player.width,
+                player.height
+            );
+            
+            // Cannon (small rectangle on top, centered)
+            ctx.fillRect(
+                player.x - 3,
+                player.y - 10,
+                6,
+                10
+            );
+        }
+        
+        // ============================================================
+        // KEYBOARD INPUT
+        // ============================================================
+        
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            a: false,
+            d: false
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = true;
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) {
+                keys[e.key] = false;
+            }
+        });
+        
+        // ============================================================
+        // UPDATE FUNCTION
+        // ============================================================
+        
+        function update() {
+            // Move left
+            if (keys.ArrowLeft || keys.a) {
+                player.x -= player.speed;
+            }
+            // Move right
+            if (keys.ArrowRight || keys.d) {
+                player.x += player.speed;
+            }
+            
+            // Keep player on screen
+            const halfWidth = player.width / 2;
+            player.x = Math.max(halfWidth, Math.min(canvas.width - halfWidth, player.x));
+        }
+        
+        // ============================================================
+        // DRAW FUNCTION
+        // ============================================================
+        
+        function draw() {
+            // Clear screen (black background like the arcade)
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw the player
+            drawPlayer();
+            
+            // Draw a "ground" line
+            ctx.strokeStyle = '#0f0';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 10);
+            ctx.lineTo(canvas.width, canvas.height - 10);
+            ctx.stroke();
+        }
+        
+        // ============================================================
+        // GAME LOOP
+        // ============================================================
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED:
+        // ============================================================
+        // 1. Drawing a player ship using rectangles
+        // 2. Centering the ship on player.x (not left-aligned)
+        // 3. Handling keyboard input for left/right movement
+        // 4. Keeping the player within screen bounds
+        //
+        // NEXT STEP: Add shooting!
+        // ============================================================
+        
+        console.log('Step 1: Player ship ready! Use arrow keys to move.');
+    </script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders - Step 4: Alien Movement</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #000;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        h1 { color: #0f0; margin-bottom: 20px; }
+        canvas { border: 2px solid #0f0; }
+        .info { margin-top: 20px; color: #888; font-size: 14px; }
+        .controls { color: #0f0; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Step 4: Alien Movement</h1>
+    <canvas id="gameCanvas" width="480" height="520"></canvas>
+    <p class="controls">← → to move | SPACE to shoot</p>
+    <p class="info">This step: Aliens move side-to-side and descend!</p>
+    
+    <script>
+        // ============================================================
+        // STEP 4: ALIEN MOVEMENT
+        // ============================================================
+        // The classic Space Invaders pattern:
+        // 1. All aliens move right
+        // 2. When ANY alien hits the right edge, ALL aliens:
+        //    - Move down
+        //    - Start moving left
+        // 3. When ANY alien hits the left edge, reverse again
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const ALIEN_ROWS = 5;
+        const ALIEN_COLS = 11;
+        const ALIEN_WIDTH = 30;
+        const ALIEN_HEIGHT = 24;
+        const ALIEN_PADDING = 10;
+        const ALIEN_TOP_OFFSET = 50;
+        const totalWidth = ALIEN_COLS * (ALIEN_WIDTH + ALIEN_PADDING) - ALIEN_PADDING;
+        const ALIEN_LEFT_OFFSET = (canvas.width - totalWidth) / 2;
+        
+        // ============================================================
+        // FORMATION MOVEMENT VARIABLES
+        // ============================================================
+        
+        let alienDirection = 1;        // 1 = right, -1 = left
+        let alienSpeed = 1;            // Pixels per update
+        let alienDropAmount = 20;      // Pixels to drop when changing direction
+        let moveTimer = 0;
+        let moveInterval = 30;         // Frames between moves (lower = faster)
+        
+        const aliens = [];
+        
+        function createAliens() {
+            aliens.length = 0;
+            for (let row = 0; row < ALIEN_ROWS; row++) {
+                aliens[row] = [];
+                for (let col = 0; col < ALIEN_COLS; col++) {
+                    aliens[row][col] = {
+                        x: ALIEN_LEFT_OFFSET + col * (ALIEN_WIDTH + ALIEN_PADDING),
+                        y: ALIEN_TOP_OFFSET + row * (ALIEN_HEIGHT + ALIEN_PADDING),
+                        width: ALIEN_WIDTH,
+                        height: ALIEN_HEIGHT,
+                        alive: true,
+                        type: row < 1 ? 3 : row < 3 ? 2 : 1
+                    };
+                }
+            }
+        }
+        
+        // ============================================================
+        // UPDATE ALIENS
+        // ============================================================
+        
+        function updateAliens() {
+            moveTimer++;
+            if (moveTimer < moveInterval) return;
+            moveTimer = 0;
+            
+            // Find the leftmost and rightmost ALIVE aliens
+            let leftmost = canvas.width;
+            let rightmost = 0;
+            
+            for (let row of aliens) {
+                for (let alien of row) {
+                    if (alien.alive) {
+                        leftmost = Math.min(leftmost, alien.x);
+                        rightmost = Math.max(rightmost, alien.x + alien.width);
+                    }
+                }
+            }
+            
+            // Check if we need to change direction
+            let shouldDrop = false;
+            
+            if (alienDirection === 1 && rightmost >= canvas.width - 10) {
+                alienDirection = -1;
+                shouldDrop = true;
+            } else if (alienDirection === -1 && leftmost <= 10) {
+                alienDirection = 1;
+                shouldDrop = true;
+            }
+            
+            // Move all aliens
+            for (let row of aliens) {
+                for (let alien of row) {
+                    if (alien.alive) {
+                        if (shouldDrop) {
+                            alien.y += alienDropAmount;
+                        } else {
+                            alien.x += alienSpeed * alienDirection;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ============================================================
+        // DRAW ALIEN (same as before)
+        // ============================================================
+        
+        function drawAlien(alien) {
+            if (!alien.alive) return;
+            const colors = { 1: '#0f0', 2: '#ff0', 3: '#f0f' };
+            ctx.fillStyle = colors[alien.type];
+            ctx.fillRect(alien.x + 6, alien.y, 18, alien.height - 6);
+            ctx.fillRect(alien.x, alien.y + 6, 6, 10);
+            ctx.fillRect(alien.x + ALIEN_WIDTH - 6, alien.y + 6, 6, 10);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(alien.x + 10, alien.y + 4, 4, 4);
+            ctx.fillRect(alien.x + 16, alien.y + 4, 4, 4);
+        }
+        
+        function drawAllAliens() {
+            for (let row of aliens) {
+                for (let alien of row) {
+                    drawAlien(alien);
+                }
+            }
+        }
+        
+        // Player and bullets (same as before)
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 40,
+            width: 40,
+            height: 20,
+            speed: 5,
+            color: '#0f0'
+        };
+        
+        const bullets = [];
+        let canShoot = true;
+        
+        function shoot() {
+            if (!canShoot) return;
+            bullets.push({
+                x: player.x - 2,
+                y: player.y - 12,
+                width: 4,
+                height: 12,
+                speed: 8
+            });
+            canShoot = false;
+            setTimeout(() => { canShoot = true; }, 200);
+        }
+        
+        const keys = { ArrowLeft: false, ArrowRight: false, a: false, d: false };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
+            if (e.key === ' ') { shoot(); e.preventDefault(); }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) keys[e.key] = false;
+        });
+        
+        function update() {
+            if (keys.ArrowLeft || keys.a) player.x -= player.speed;
+            if (keys.ArrowRight || keys.d) player.x += player.speed;
+            player.x = Math.max(player.width/2, Math.min(canvas.width - player.width/2, player.x));
+            
+            // Update bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                bullets[i].y -= bullets[i].speed;
+                if (bullets[i].y < 0) bullets.splice(i, 1);
+            }
+            
+            // Update aliens!
+            updateAliens();
+        }
+        
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x - player.width / 2, player.y, player.width, player.height);
+            ctx.fillRect(player.x - 3, player.y - 10, 6, 10);
+        }
+        
+        function drawBullets() {
+            ctx.fillStyle = '#fff';
+            for (const bullet of bullets) {
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawAllAliens();
+            drawBullets();
+            drawPlayer();
+            
+            ctx.strokeStyle = '#0f0';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 10);
+            ctx.lineTo(canvas.width, canvas.height - 10);
+            ctx.stroke();
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        createAliens();
+        gameLoop();
+        
+        // ============================================================
+        // WHAT WE LEARNED:
+        // ============================================================
+        // 1. Finding leftmost/rightmost alive entities for edge detection
+        // 2. Coordinated group movement (all aliens move together)
+        // 3. Two-step movement: horizontal OR vertical, not both
+        // 4. Using timers/intervals for stepped animation
+        //
+        // NEXT STEP: Bullets destroy aliens!
+        // ============================================================
+        
+        console.log('Step 4: Aliens are marching!');
+    </script>
+</body>
+</html>
