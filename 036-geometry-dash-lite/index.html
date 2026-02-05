@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Geometry Dash Lite - 100 Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+        }
+        h1 {
+            color: #00ffff;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        .stats {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .stats span {
+            color: #ffff00;
+            font-weight: bold;
+        }
+        canvas {
+            border: 3px solid #00ffff;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            display: block;
+            margin: 0 auto;
+            touch-action: none;
+        }
+        .controls {
+            margin-top: 15px;
+            color: #888;
+            font-size: 14px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #00ffff, #00d4ff);
+            border: none;
+            padding: 12px 30px;
+            margin: 5px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔷 Geometry Dash Lite</h1>
+        <div class="stats">
+            Progress: <span id="progress">0%</span> | 
+            Attempts: <span id="attempts">0</span> | 
+            Best: <span id="best">0%</span>
+        </div>
+        <canvas id="game"></canvas>
+        <div class="controls">
+            <p>Tap / Click / Space to JUMP</p>
+            <button class="btn" id="restartBtn" style="display: none;">Try Again</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive sizing
+        function resize() {
+            const maxW = Math.min(window.innerWidth - 20, 600);
+            canvas.width = maxW;
+            canvas.height = maxW * 0.5;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+        
+        // Game state
+        let gameState = 'playing';
+        let attempts = parseInt(localStorage.getItem('gd-attempts') || '0');
+        let bestProgress = parseInt(localStorage.getItem('gd-best') || '0');
+        
+        // Player
+        const player = {
+            x: 80,
+            y: 0,
+            size: 30,
+            vy: 0,
+            rotation: 0,
+            grounded: false
+        };
+        
+        // Physics
+        const gravity = 0.8;
+        const jumpForce = -14;
+        const groundY = canvas.height - 50;
+        const speed = 6;
+        
+        // Level obstacles (position, type)
+        // Types: spike, block, double-spike, platform
+        const level = [
+            { x: 300, type: 'spike' },
+            { x: 450, type: 'spike' },
+            { x: 480, type: 'spike' },
+            { x: 600, type: 'block' },
+            { x: 750, type: 'spike' },
+            { x: 820, type: 'double-spike' },
+            { x: 950, type: 'block' },
+            { x: 1000, type: 'block' },
+            { x: 1150, type: 'spike' },
+            { x: 1200, type: 'spike' },
+            { x: 1250, type: 'spike' },
+            { x: 1400, type: 'platform', y: groundY - 70, width: 100 },
+            { x: 1550, type: 'spike' },
+            { x: 1700, type: 'block' },
+            { x: 1750, type: 'spike' },
+            { x: 1900, type: 'double-spike' },
+            { x: 2050, type: 'block' },
+            { x: 2100, type: 'block' },
+            { x: 2150, type: 'block' },
+            { x: 2300, type: 'spike' },
+            { x: 2350, type: 'spike' },
+            { x: 2400, type: 'spike' },
+            { x: 2450, type: 'spike' },
+        ];
+        
+        const levelLength = 2700;
+        let cameraX = 0;
+        
+        // Background elements
+        const bgElements = [];
+        for (let i = 0; i < 50; i++) {
+            bgElements.push({
+                x: Math.random() * levelLength,
+                y: Math.random() * (groundY - 100) + 50,
+                size: Math.random() * 20 + 10,
+                speed: Math.random() * 0.5 + 0.2,
+                color: `hsla(${Math.random() * 60 + 160}, 100%, 50%, ${Math.random() * 0.3 + 0.1})`
+            });
+        }
+        
+        function init() {
+            player.y = groundY - player.size;
+            player.vy = 0;
+            player.rotation = 0;
+            player.grounded = true;
+            cameraX = 0;
+            gameState = 'playing';
+            document.getElementById('restartBtn').style.display = 'none';
+        }
+        
+        function jump() {
+            if (player.grounded && gameState === 'playing') {
+                player.vy = jumpForce;
+                player.grounded = false;
+            }
+        }
+        
+        // Input handlers
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (gameState === 'playing') jump();
+                else init();
+            }
+        });
+        
+        canvas.addEventListener('click', () => {
+            if (gameState === 'playing') jump();
+            else init();
+        });
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'playing') jump();
+            else init();
+        });
+        
+        document.getElementById('restartBtn').addEventListener('click', init);
+        
+        function checkCollision(obstacle) {
+            const px = player.x;
+            const py = player.y;
+            const ps = player.size;
+            
+            if (obstacle.type === 'spike') {
+                // Triangle collision (simplified)
+                const ox = obstacle.x - cameraX;
+                const oy = groundY - 35;
+                const size = 35;
+                
+                // Simple box check for spike
+                if (px + ps > ox && px < ox + size &&
+                    py + ps > oy && py < groundY) {
+                    // More precise triangle check
+                    const centerX = ox + size / 2;
+                    const bottom = groundY;
+                    const top = oy;
+                    
+                    // Check if player center is inside triangle area
+                    const playerCX = px + ps / 2;
+                    const playerCY = py + ps / 2;
+                    
+                    if (playerCY > top && playerCX > ox + 5 && playerCX < ox + size - 5) {
+                        return true;
+                    }
+                }
+            } else if (obstacle.type === 'double-spike') {
+                const ox = obstacle.x - cameraX;
+                const oy = groundY - 35;
+                const size = 35;
+                
+                // Check both spikes
+                for (let i = 0; i < 2; i++) {
+                    const spikeX = ox + i * size;
+                    if (px + ps > spikeX && px < spikeX + size &&
+                        py + ps > oy && py < groundY) {
+                        const playerCX = px + ps / 2;
+                        if (playerCX > spikeX + 5 && playerCX < spikeX + size - 5) {
+                            return true;
+                        }
+                    }
+                }
+            } else if (obstacle.type === 'block') {
+                const ox = obstacle.x - cameraX;
+                const oy = groundY - 35;
+                const size = 35;
+                
+                if (px + ps > ox && px < ox + size &&
+                    py + ps > oy && py < groundY) {
+                    // Side collision = death
+                    if (px + ps - ox < 8) {
+                        return true;
+                    }
+                    // Top collision = land on block
+                    if (player.vy > 0 && py + ps - oy < 15) {
+                        player.y = oy - ps;
+                        player.vy = 0;
+                        player.grounded = true;
+                    }
+                }
+            } else if (obstacle.type === 'platform') {
+                const ox = obstacle.x - cameraX;
+                const oy = obstacle.y;
+                const width = obstacle.width;
+                
+                if (px + ps > ox && px < ox + width) {
+                    if (player.vy > 0 && py + ps > oy && py + ps < oy + 15) {
+                        player.y = oy - ps;
+                        player.vy = 0;
+                        player.grounded = true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // Move camera (player moves with world)
+            cameraX += speed;
+            
+            // Apply gravity
+            player.vy += gravity;
+            player.y += player.vy;
+            
+            // Ground collision
+            if (player.y >= groundY - player.size) {
+                player.y = groundY - player.size;
+                player.vy = 0;
+                player.grounded = true;
+            }
+            
+            // Rotation
+            if (!player.grounded) {
+                player.rotation += 6;
+            } else {
+                // Snap rotation to 90 degrees
+                player.rotation = Math.round(player.rotation / 90) * 90;
+            }
+            
+            // Check collisions
+            for (const obs of level) {
+                if (obs.x - cameraX > canvas.width) continue;
+                if (obs.x - cameraX < -100) continue;
+                
+                if (checkCollision(obs)) {
+                    gameState = 'dead';
+                    attempts++;
+                    localStorage.setItem('gd-attempts', attempts);
+                    document.getElementById('restartBtn').style.display = 'inline-block';
+                    
+                    const progress = Math.floor((cameraX / levelLength) * 100);
+                    if (progress > bestProgress) {
+                        bestProgress = progress;
+                        localStorage.setItem('gd-best', bestProgress);
+                    }
+                    return;
+                }
+            }
+            
+            // Win condition
+            if (cameraX >= levelLength) {
+                gameState = 'win';
+                bestProgress = 100;
+                localStorage.setItem('gd-best', '100');
+                document.getElementById('restartBtn').style.display = 'inline-block';
+            }
+            
+            // Update stats
+            const progress = Math.min(100, Math.floor((cameraX / levelLength) * 100));
+            document.getElementById('progress').textContent = progress + '%';
+            document.getElementById('attempts').textContent = attempts;
+            document.getElementById('best').textContent = bestProgress + '%';
+        }
+        
+        function drawSpike(x, y, size) {
+            ctx.beginPath();
+            ctx.moveTo(x, y + size);
+            ctx.lineTo(x + size / 2, y);
+            ctx.lineTo(x + size, y + size);
+            ctx.closePath();
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        function render() {
+            // Background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#0f0f23');
+            gradient.addColorStop(1, '#1a1a3e');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Background elements
+            ctx.globalAlpha = 0.5;
+            for (const elem of bgElements) {
+                const x = elem.x - cameraX * elem.speed;
+                const wrappedX = ((x % canvas.width) + canvas.width) % canvas.width;
+                ctx.fillStyle = elem.color;
+                ctx.fillRect(wrappedX, elem.y, elem.size, elem.size);
+            }
+            ctx.globalAlpha = 1;
+            
+            // Ground
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+            ctx.fillStyle = '#008888';
+            ctx.fillRect(0, groundY, canvas.width, 3);
+            
+            // Draw obstacles
+            for (const obs of level) {
+                const screenX = obs.x - cameraX;
+                if (screenX > canvas.width + 50 || screenX < -100) continue;
+                
+                if (obs.type === 'spike') {
+                    drawSpike(screenX, groundY - 35, 35);
+                } else if (obs.type === 'double-spike') {
+                    drawSpike(screenX, groundY - 35, 35);
+                    drawSpike(screenX + 35, groundY - 35, 35);
+                } else if (obs.type === 'block') {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(screenX, groundY - 35, 35, 35);
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(screenX, groundY - 35, 35, 35);
+                } else if (obs.type === 'platform') {
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(screenX, obs.y, obs.width, 10);
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(screenX, obs.y, obs.width, 10);
+                }
+            }
+            
+            // Draw player (rotating cube)
+            ctx.save();
+            ctx.translate(player.x + player.size / 2, player.y + player.size / 2);
+            ctx.rotate(player.rotation * Math.PI / 180);
+            
+            // Cube body
+            ctx.fillStyle = '#ffff00';
+            ctx.fillRect(-player.size / 2, -player.size / 2, player.size, player.size);
+            ctx.strokeStyle = '#ff8800';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-player.size / 2, -player.size / 2, player.size, player.size);
+            
+            // Face
+            ctx.fillStyle = '#ff8800';
+            ctx.beginPath();
+            ctx.arc(-5, -2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(5, -2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // Death effect
+            if (gameState === 'dead') {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 32px "Segoe UI", system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('💥 CRASH!', canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = '18px "Segoe UI", system-ui';
+                ctx.fillText('Tap to retry', canvas.width / 2, canvas.height / 2 + 20);
+            }
+            
+            // Win screen
+            if (gameState === 'win') {
+                ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 32px "Segoe UI", system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('🎉 LEVEL COMPLETE!', canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = '18px "Segoe UI", system-ui';
+                ctx.fillText(`Attempts: ${attempts}`, canvas.width / 2, canvas.height / 2 + 20);
+            }
+            
+            // Progress bar
+            const progress = Math.min(1, cameraX / levelLength);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(10, 10, canvas.width - 20, 8);
+            ctx.fillStyle = '#00ffff';
+            ctx.fillRect(10, 10, (canvas.width - 20) * progress, 8);
+        }
+        
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>

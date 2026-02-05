@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Crossy Road - 100 Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+        }
+        .container { text-align: center; }
+        h1 {
+            color: #90EE90;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .stats {
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        .stats span { color: #FFD700; font-weight: bold; }
+        canvas {
+            border: 4px solid #8B4513;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: block;
+            margin: 0 auto;
+            touch-action: none;
+        }
+        .controls {
+            margin-top: 15px;
+            color: #aaa;
+            font-size: 14px;
+        }
+        .mobile-controls {
+            display: none;
+            margin-top: 10px;
+            gap: 10px;
+            justify-content: center;
+        }
+        .ctrl-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+        }
+        .ctrl-btn:active { background: rgba(255,255,255,0.4); }
+        @media (hover: none) and (pointer: coarse) {
+            .mobile-controls { display: flex; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐔 Crossy Road</h1>
+        <div class="stats">Score: <span id="score">0</span> | High Score: <span id="highScore">0</span></div>
+        <canvas id="game"></canvas>
+        <div class="controls">Arrow Keys / WASD to Move</div>
+        <div class="mobile-controls">
+            <button class="ctrl-btn" id="leftBtn">⬅️</button>
+            <button class="ctrl-btn" id="upBtn">⬆️</button>
+            <button class="ctrl-btn" id="downBtn">⬇️</button>
+            <button class="ctrl-btn" id="rightBtn">➡️</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive sizing
+        const TILE = 40;
+        const COLS = 11;
+        const ROWS = 13;
+        canvas.width = COLS * TILE;
+        canvas.height = ROWS * TILE;
+        
+        // Game state
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('crossy-high') || '0');
+        let gameOver = false;
+        let furthestRow = 0;
+        
+        // Player
+        const player = {
+            x: Math.floor(COLS / 2),
+            y: ROWS - 2,
+            targetX: Math.floor(COLS / 2),
+            targetY: ROWS - 2,
+            hopping: false,
+            hopProgress: 0
+        };
+        
+        // Lane types: grass, road, water, safe
+        // Generate lanes
+        const lanes = [];
+        
+        function generateLane(index) {
+            const types = ['grass', 'road', 'road', 'water', 'grass', 'road', 'safe'];
+            const type = index === 0 ? 'safe' : types[Math.floor(Math.random() * types.length)];
+            
+            const lane = {
+                type,
+                y: index,
+                obstacles: [],
+                speed: (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1),
+                color: type === 'grass' ? '#4a7c23' : 
+                       type === 'road' ? '#444' : 
+                       type === 'water' ? '#4488cc' : '#5a8c33'
+            };
+            
+            // Add obstacles based on lane type
+            if (type === 'road') {
+                const carCount = Math.floor(Math.random() * 3) + 1;
+                for (let i = 0; i < carCount; i++) {
+                    lane.obstacles.push({
+                        x: Math.random() * COLS * TILE,
+                        width: TILE * (1 + Math.random()),
+                        color: `hsl(${Math.random() * 360}, 70%, 50%)`
+                    });
+                }
+            } else if (type === 'water') {
+                const logCount = Math.floor(Math.random() * 3) + 2;
+                for (let i = 0; i < logCount; i++) {
+                    lane.obstacles.push({
+                        x: Math.random() * COLS * TILE,
+                        width: TILE * (2 + Math.random() * 2),
+                        isLog: true
+                    });
+                }
+            }
+            
+            return lane;
+        }
+        
+        // Initialize lanes
+        for (let i = 0; i < ROWS + 10; i++) {
+            lanes.push(generateLane(i));
+        }
+        
+        let cameraY = 0;
+        
+        function move(dx, dy) {
+            if (gameOver || player.hopping) return;
+            
+            const newX = player.x + dx;
+            const newY = player.y + dy;
+            
+            // Bounds check
+            if (newX < 0 || newX >= COLS) return;
+            
+            player.targetX = newX;
+            player.targetY = newY;
+            player.hopping = true;
+            player.hopProgress = 0;
+            
+            // Update score if moving forward
+            if (dy < 0 && newY < furthestRow) {
+                furthestRow = newY;
+                score++;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('crossy-high', highScore);
+                }
+            }
+        }
+        
+        // Input handlers
+        document.addEventListener('keydown', (e) => {
+            if (gameOver) {
+                if (e.code === 'Space') restart();
+                return;
+            }
+            switch(e.code) {
+                case 'ArrowUp': case 'KeyW': move(0, -1); break;
+                case 'ArrowDown': case 'KeyS': move(0, 1); break;
+                case 'ArrowLeft': case 'KeyA': move(-1, 0); break;
+                case 'ArrowRight': case 'KeyD': move(1, 0); break;
+            }
+        });
+        
+        // Mobile controls
+        document.getElementById('upBtn').addEventListener('touchstart', (e) => { e.preventDefault(); move(0, -1); });
+        document.getElementById('downBtn').addEventListener('touchstart', (e) => { e.preventDefault(); move(0, 1); });
+        document.getElementById('leftBtn').addEventListener('touchstart', (e) => { e.preventDefault(); move(-1, 0); });
+        document.getElementById('rightBtn').addEventListener('touchstart', (e) => { e.preventDefault(); move(1, 0); });
+        
+        // Swipe controls
+        let touchStartX, touchStartY;
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        });
+        canvas.addEventListener('touchend', (e) => {
+            if (!touchStartX) return;
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            
+            if (gameOver) {
+                restart();
+                return;
+            }
+            
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (Math.abs(dx) > 30) move(dx > 0 ? 1 : -1, 0);
+            } else {
+                if (Math.abs(dy) > 30) move(0, dy > 0 ? 1 : -1);
+            }
+            touchStartX = touchStartY = null;
+        });
+        
+        function restart() {
+            player.x = Math.floor(COLS / 2);
+            player.y = ROWS - 2;
+            player.targetX = player.x;
+            player.targetY = player.y;
+            player.hopping = false;
+            score = 0;
+            furthestRow = ROWS;
+            cameraY = 0;
+            gameOver = false;
+            
+            lanes.length = 0;
+            for (let i = 0; i < ROWS + 10; i++) {
+                lanes.push(generateLane(i));
+            }
+        }
+        
+        function update() {
+            // Update hop animation
+            if (player.hopping) {
+                player.hopProgress += 0.15;
+                if (player.hopProgress >= 1) {
+                    player.x = player.targetX;
+                    player.y = player.targetY;
+                    player.hopping = false;
+                    player.hopProgress = 0;
+                }
+            }
+            
+            // Smooth camera follow
+            const targetCameraY = Math.min(0, -(player.y - ROWS + 4) * TILE);
+            cameraY += (targetCameraY - cameraY) * 0.1;
+            
+            // Generate new lanes
+            while (lanes.length < player.y + ROWS + 5) {
+                lanes.push(generateLane(lanes.length));
+            }
+            
+            // Update obstacles
+            for (const lane of lanes) {
+                for (const obs of lane.obstacles) {
+                    obs.x += lane.speed;
+                    // Wrap around
+                    if (lane.speed > 0 && obs.x > COLS * TILE + obs.width) {
+                        obs.x = -obs.width;
+                    } else if (lane.speed < 0 && obs.x + obs.width < 0) {
+                        obs.x = COLS * TILE;
+                    }
+                }
+            }
+            
+            if (gameOver) return;
+            
+            // Collision detection
+            const currentLane = lanes[Math.round(player.y)];
+            const playerScreenX = player.x * TILE;
+            
+            if (currentLane) {
+                if (currentLane.type === 'road') {
+                    for (const car of currentLane.obstacles) {
+                        if (playerScreenX + TILE * 0.8 > car.x && 
+                            playerScreenX + TILE * 0.2 < car.x + car.width) {
+                            gameOver = true;
+                            return;
+                        }
+                    }
+                } else if (currentLane.type === 'water') {
+                    let onLog = false;
+                    for (const log of currentLane.obstacles) {
+                        if (playerScreenX + TILE * 0.5 > log.x && 
+                            playerScreenX + TILE * 0.5 < log.x + log.width) {
+                            onLog = true;
+                            // Move with log
+                            if (!player.hopping) {
+                                player.x += currentLane.speed / TILE;
+                            }
+                            break;
+                        }
+                    }
+                    if (!onLog && !player.hopping) {
+                        gameOver = true;
+                        return;
+                    }
+                }
+            }
+            
+            // Check if player went off screen
+            if (player.x < 0 || player.x >= COLS) {
+                gameOver = true;
+            }
+            
+            // Update UI
+            document.getElementById('score').textContent = score;
+            document.getElementById('highScore').textContent = highScore;
+        }
+        
+        function render() {
+            ctx.fillStyle = '#4a7c23';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.save();
+            ctx.translate(0, cameraY);
+            
+            // Draw lanes
+            for (let i = Math.max(0, Math.floor(-cameraY / TILE) - 2); i < lanes.length; i++) {
+                const lane = lanes[i];
+                const screenY = i * TILE;
+                
+                if (screenY + cameraY > canvas.height + TILE) break;
+                if (screenY + cameraY < -TILE * 2) continue;
+                
+                // Lane background
+                ctx.fillStyle = lane.color;
+                ctx.fillRect(0, screenY, canvas.width, TILE);
+                
+                // Lane details
+                if (lane.type === 'road') {
+                    // Road markings
+                    ctx.strokeStyle = '#fff';
+                    ctx.setLineDash([20, 20]);
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, screenY + TILE / 2);
+                    ctx.lineTo(canvas.width, screenY + TILE / 2);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                } else if (lane.type === 'grass' || lane.type === 'safe') {
+                    // Grass tufts
+                    ctx.fillStyle = '#5a8c33';
+                    for (let x = 0; x < COLS; x++) {
+                        if (Math.random() > 0.7) {
+                            ctx.fillRect(x * TILE + 10, screenY + 5, 8, 15);
+                            ctx.fillRect(x * TILE + 25, screenY + 8, 6, 12);
+                        }
+                    }
+                }
+                
+                // Draw obstacles
+                for (const obs of lane.obstacles) {
+                    if (lane.type === 'road') {
+                        // Car
+                        ctx.fillStyle = obs.color;
+                        ctx.fillRect(obs.x, screenY + 5, obs.width, TILE - 10);
+                        // Windows
+                        ctx.fillStyle = '#87CEEB';
+                        ctx.fillRect(obs.x + obs.width * 0.2, screenY + 8, obs.width * 0.25, TILE - 16);
+                        ctx.fillRect(obs.x + obs.width * 0.55, screenY + 8, obs.width * 0.25, TILE - 16);
+                    } else if (lane.type === 'water') {
+                        // Log
+                        ctx.fillStyle = '#8B4513';
+                        ctx.fillRect(obs.x, screenY + 5, obs.width, TILE - 10);
+                        ctx.fillStyle = '#A0522D';
+                        ctx.fillRect(obs.x + 5, screenY + 10, obs.width - 10, TILE - 20);
+                        // Log rings
+                        ctx.strokeStyle = '#654321';
+                        ctx.lineWidth = 2;
+                        for (let ring = 0; ring < obs.width / 30; ring++) {
+                            ctx.beginPath();
+                            ctx.arc(obs.x + 15 + ring * 30, screenY + TILE / 2, 8, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            
+            // Draw player (chicken)
+            let drawX = player.x * TILE;
+            let drawY = player.y * TILE;
+            
+            if (player.hopping) {
+                const t = player.hopProgress;
+                drawX = (player.x + (player.targetX - player.x) * t) * TILE;
+                drawY = (player.y + (player.targetY - player.y) * t) * TILE;
+                // Jump arc
+                drawY -= Math.sin(t * Math.PI) * 15;
+            }
+            
+            // Chicken body
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.ellipse(drawX + TILE/2, drawY + TILE/2 + 5, 15, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Chicken head
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(drawX + TILE/2, drawY + 10, 10, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Comb
+            ctx.fillStyle = '#ff4444';
+            ctx.beginPath();
+            ctx.arc(drawX + TILE/2 - 5, drawY + 2, 4, 0, Math.PI * 2);
+            ctx.arc(drawX + TILE/2, drawY, 4, 0, Math.PI * 2);
+            ctx.arc(drawX + TILE/2 + 5, drawY + 2, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Beak
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.moveTo(drawX + TILE/2, drawY + 10);
+            ctx.lineTo(drawX + TILE/2 + 8, drawY + 13);
+            ctx.lineTo(drawX + TILE/2, drawY + 16);
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(drawX + TILE/2 - 3, drawY + 8, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+            
+            // Game over overlay
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 36px "Segoe UI", system-ui';
+                ctx.textAlign = 'center';
+                ctx.fillText('💀 GAME OVER', canvas.width/2, canvas.height/2 - 30);
+                
+                ctx.font = '24px "Segoe UI", system-ui';
+                ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+                
+                ctx.font = '18px "Segoe UI", system-ui';
+                ctx.fillStyle = '#aaa';
+                ctx.fillText('Tap or Space to restart', canvas.width/2, canvas.height/2 + 50);
+            }
+        }
+        
+        function gameLoop() {
+            update();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        gameLoop();
+    </script>
+</body>
+</html>

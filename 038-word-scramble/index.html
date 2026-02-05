@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Scramble - 100 Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        h1 {
+            color: #64ffda;
+            font-size: 32px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.3);
+        }
+        .stats {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .stats span { color: #ffff00; font-weight: bold; }
+        .category {
+            background: rgba(100, 255, 218, 0.1);
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: #64ffda;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .scrambled-word {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+        .letter-tile {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #64ffda, #00d4aa);
+            border: none;
+            border-radius: 8px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1a1a2e;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .letter-tile:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+        }
+        .letter-tile.selected {
+            background: linear-gradient(135deg, #ff6b6b, #ff4757);
+            transform: scale(0.95);
+        }
+        .letter-tile.correct {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            animation: pulse 0.5s;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .answer-area {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 30px 0;
+            min-height: 60px;
+            flex-wrap: wrap;
+        }
+        .answer-slot {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        .answer-slot.filled {
+            background: rgba(100, 255, 218, 0.2);
+            border: 2px solid #64ffda;
+        }
+        .hint {
+            color: #888;
+            font-size: 16px;
+            margin: 20px 0;
+            font-style: italic;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #64ffda, #00d4aa);
+            color: #1a1a2e;
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(100, 255, 218, 0.3);
+        }
+        .message {
+            font-size: 24px;
+            margin: 20px 0;
+            min-height: 40px;
+        }
+        .message.correct { color: #00ff00; }
+        .message.wrong { color: #ff4757; }
+        .timer {
+            font-size: 48px;
+            color: #64ffda;
+            margin: 20px 0;
+        }
+        .timer.warning { color: #ffff00; }
+        .timer.danger { color: #ff4757; animation: blink 0.5s infinite; }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .game-over {
+            background: rgba(0, 0, 0, 0.9);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+        }
+        .game-over h2 {
+            color: #64ffda;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .game-over p {
+            color: #fff;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔤 Word Scramble</h1>
+        <div class="stats">
+            Score: <span id="score">0</span> | 
+            Streak: <span id="streak">0</span> | 
+            High Score: <span id="highScore">0</span>
+        </div>
+        
+        <div class="timer" id="timer">60</div>
+        <div class="category" id="category">Category: Loading...</div>
+        
+        <div class="hint" id="hint"></div>
+        
+        <div class="answer-area" id="answerArea"></div>
+        
+        <div class="scrambled-word" id="scrambledWord"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="buttons">
+            <button class="btn btn-secondary" onclick="clearAnswer()">Clear</button>
+            <button class="btn btn-primary" onclick="submitAnswer()">Submit</button>
+            <button class="btn btn-secondary" onclick="skipWord()">Skip (-5s)</button>
+        </div>
+    </div>
+    
+    <div class="game-over hidden" id="gameOver">
+        <h2>⏰ Time's Up!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <p>Words Solved: <span id="wordsSolved">0</span></p>
+        <p>Best Streak: <span id="bestStreak">0</span></p>
+        <button class="btn btn-primary" onclick="startGame()" style="margin-top: 30px; font-size: 20px; padding: 15px 40px;">Play Again</button>
+    </div>
+
+    <script>
+        // Word lists by category
+        const wordLists = {
+            'Animals': ['elephant', 'giraffe', 'penguin', 'dolphin', 'kangaroo', 'butterfly', 'crocodile', 'octopus', 'squirrel', 'cheetah'],
+            'Food': ['chocolate', 'hamburger', 'spaghetti', 'avocado', 'blueberry', 'pineapple', 'sandwich', 'broccoli', 'strawberry', 'mushroom'],
+            'Countries': ['australia', 'canada', 'germany', 'brazil', 'japan', 'portugal', 'sweden', 'mexico', 'thailand', 'argentina'],
+            'Technology': ['computer', 'keyboard', 'software', 'internet', 'bluetooth', 'algorithm', 'database', 'wireless', 'download', 'network'],
+            'Sports': ['basketball', 'football', 'swimming', 'volleyball', 'baseball', 'gymnastics', 'marathon', 'wrestling', 'snowboard', 'archery'],
+            'Nature': ['mountain', 'waterfall', 'hurricane', 'sunshine', 'rainbow', 'lightning', 'volcano', 'glacier', 'tsunami', 'earthquake']
+        };
+        
+        const hints = {
+            'elephant': 'Largest land animal',
+            'giraffe': 'Tallest animal',
+            'penguin': 'Flightless bird from Antarctica',
+            'dolphin': 'Intelligent marine mammal',
+            'kangaroo': 'Hops and has a pouch',
+            'butterfly': 'Insect with colorful wings',
+            'crocodile': 'Large reptile, loves water',
+            'octopus': 'Eight arms, lives in ocean',
+            'squirrel': 'Collects and stores nuts',
+            'cheetah': 'Fastest land animal',
+            'chocolate': 'Sweet treat from cacao',
+            'hamburger': 'Popular fast food sandwich',
+            'spaghetti': 'Long Italian pasta',
+            'avocado': 'Green fruit for guacamole',
+            'blueberry': 'Small blue fruit',
+            'pineapple': 'Tropical fruit with spiky skin',
+            'sandwich': 'Filling between bread',
+            'broccoli': 'Green tree-like vegetable',
+            'strawberry': 'Red berry with seeds outside',
+            'mushroom': 'Fungus, often on pizza',
+            'australia': 'Land down under',
+            'canada': 'Maple leaf country',
+            'germany': 'Land of Oktoberfest',
+            'brazil': 'Largest South American country',
+            'japan': 'Land of the rising sun',
+            'portugal': 'Western European country',
+            'sweden': 'IKEA\'s home country',
+            'mexico': 'Land of tacos',
+            'thailand': 'Land of smiles',
+            'argentina': 'Tango\'s birthplace',
+            'computer': 'Electronic processing device',
+            'keyboard': 'Input device with keys',
+            'software': 'Programs and apps',
+            'internet': 'Global network',
+            'bluetooth': 'Wireless technology',
+            'algorithm': 'Step-by-step procedure',
+            'database': 'Organized data storage',
+            'wireless': 'No cables needed',
+            'download': 'Get from the internet',
+            'network': 'Connected systems',
+            'basketball': 'Hoops and dribbling',
+            'football': 'Touchdowns and field goals',
+            'swimming': 'In the pool',
+            'volleyball': 'Net and spike',
+            'baseball': 'Bat and ball, home runs',
+            'gymnastics': 'Flips and balance beam',
+            'marathon': '26.2 miles',
+            'wrestling': 'Grappling sport',
+            'snowboard': 'Winter mountain sport',
+            'archery': 'Bow and arrow',
+            'mountain': 'Tall rocky peak',
+            'waterfall': 'Water cascading down',
+            'hurricane': 'Massive rotating storm',
+            'sunshine': 'Light from the sun',
+            'rainbow': 'Arc of colors after rain',
+            'lightning': 'Electric bolt in sky',
+            'volcano': 'Mountain that erupts',
+            'glacier': 'Massive ice sheet',
+            'tsunami': 'Giant ocean wave',
+            'earthquake': 'Ground shaking violently'
+        };
+        
+        // Game state
+        let currentWord = '';
+        let currentCategory = '';
+        let selectedLetters = [];
+        let usedIndices = [];
+        let score = 0;
+        let streak = 0;
+        let bestStreak = 0;
+        let wordsSolved = 0;
+        let timeLeft = 60;
+        let timerInterval = null;
+        let highScore = parseInt(localStorage.getItem('scramble-high') || '0');
+        
+        function scrambleWord(word) {
+            const arr = word.split('');
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            // Make sure it's actually scrambled
+            if (arr.join('') === word) {
+                return scrambleWord(word);
+            }
+            return arr;
+        }
+        
+        function selectLetter(index) {
+            if (usedIndices.includes(index)) return;
+            
+            const tiles = document.querySelectorAll('.letter-tile');
+            tiles[index].classList.add('selected');
+            usedIndices.push(index);
+            selectedLetters.push(tiles[index].textContent);
+            
+            updateAnswerArea();
+        }
+        
+        function updateAnswerArea() {
+            const answerArea = document.getElementById('answerArea');
+            answerArea.innerHTML = '';
+            
+            for (let i = 0; i < currentWord.length; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'answer-slot' + (selectedLetters[i] ? ' filled' : '');
+                slot.textContent = selectedLetters[i] || '';
+                answerArea.appendChild(slot);
+            }
+        }
+        
+        function clearAnswer() {
+            selectedLetters = [];
+            usedIndices = [];
+            document.querySelectorAll('.letter-tile').forEach(tile => {
+                tile.classList.remove('selected');
+            });
+            updateAnswerArea();
+            document.getElementById('message').textContent = '';
+        }
+        
+        function submitAnswer() {
+            const answer = selectedLetters.join('').toLowerCase();
+            const messageEl = document.getElementById('message');
+            
+            if (answer.length < currentWord.length) {
+                messageEl.textContent = 'Fill all letters!';
+                messageEl.className = 'message wrong';
+                return;
+            }
+            
+            if (answer === currentWord) {
+                // Correct!
+                const points = Math.ceil(currentWord.length * (1 + streak * 0.1));
+                score += points;
+                streak++;
+                wordsSolved++;
+                
+                if (streak > bestStreak) bestStreak = streak;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('scramble-high', highScore);
+                }
+                
+                messageEl.textContent = `✅ Correct! +${points} points`;
+                messageEl.className = 'message correct';
+                
+                // Animate correct tiles
+                document.querySelectorAll('.letter-tile').forEach(tile => {
+                    tile.classList.add('correct');
+                });
+                
+                updateStats();
+                
+                // Next word after delay
+                setTimeout(loadNewWord, 1000);
+            } else {
+                // Wrong!
+                streak = 0;
+                messageEl.textContent = '❌ Wrong! Try again';
+                messageEl.className = 'message wrong';
+                updateStats();
+                clearAnswer();
+            }
+        }
+        
+        function skipWord() {
+            timeLeft = Math.max(0, timeLeft - 5);
+            streak = 0;
+            updateStats();
+            loadNewWord();
+        }
+        
+        function loadNewWord() {
+            // Pick random category and word
+            const categories = Object.keys(wordLists);
+            currentCategory = categories[Math.floor(Math.random() * categories.length)];
+            const words = wordLists[currentCategory];
+            currentWord = words[Math.floor(Math.random() * words.length)];
+            
+            selectedLetters = [];
+            usedIndices = [];
+            
+            document.getElementById('category').textContent = `Category: ${currentCategory}`;
+            document.getElementById('hint').textContent = `Hint: ${hints[currentWord] || ''}`;
+            document.getElementById('message').textContent = '';
+            
+            // Display scrambled letters
+            const scrambled = scrambleWord(currentWord);
+            const container = document.getElementById('scrambledWord');
+            container.innerHTML = '';
+            
+            scrambled.forEach((letter, index) => {
+                const tile = document.createElement('button');
+                tile.className = 'letter-tile';
+                tile.textContent = letter.toUpperCase();
+                tile.onclick = () => selectLetter(index);
+                container.appendChild(tile);
+            });
+            
+            updateAnswerArea();
+        }
+        
+        function updateStats() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('streak').textContent = streak;
+            document.getElementById('highScore').textContent = highScore;
+        }
+        
+        function updateTimer() {
+            const timerEl = document.getElementById('timer');
+            timerEl.textContent = timeLeft;
+            
+            if (timeLeft <= 10) {
+                timerEl.className = 'timer danger';
+            } else if (timeLeft <= 20) {
+                timerEl.className = 'timer warning';
+            } else {
+                timerEl.className = 'timer';
+            }
+            
+            timeLeft--;
+            
+            if (timeLeft < 0) {
+                endGame();
+            }
+        }
+        
+        function endGame() {
+            clearInterval(timerInterval);
+            
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('wordsSolved').textContent = wordsSolved;
+            document.getElementById('bestStreak').textContent = bestStreak;
+            document.getElementById('gameOver').classList.remove('hidden');
+        }
+        
+        function startGame() {
+            document.getElementById('gameOver').classList.add('hidden');
+            
+            score = 0;
+            streak = 0;
+            bestStreak = 0;
+            wordsSolved = 0;
+            timeLeft = 60;
+            
+            updateStats();
+            loadNewWord();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+        
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                submitAnswer();
+            } else if (e.key === 'Backspace') {
+                if (selectedLetters.length > 0) {
+                    const lastIndex = usedIndices.pop();
+                    selectedLetters.pop();
+                    document.querySelectorAll('.letter-tile')[lastIndex].classList.remove('selected');
+                    updateAnswerArea();
+                }
+            } else if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+                // Find matching unselected tile
+                const tiles = document.querySelectorAll('.letter-tile');
+                for (let i = 0; i < tiles.length; i++) {
+                    if (!usedIndices.includes(i) && tiles[i].textContent.toLowerCase() === e.key.toLowerCase()) {
+                        selectLetter(i);
+                        break;
+                    }
+                }
+            }
+        });
+        
+        // Start the game
+        startGame();
+    </script>
+</body>
+</html>
