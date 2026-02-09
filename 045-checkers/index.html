@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Checkers | 100 Games</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+        }
+        .status {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #64ffda;
+            min-height: 30px;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 2px;
+            background: #333;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 100%;
+            aspect-ratio: 1;
+        }
+        .cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        .cell.light { background: #f0d9b5; }
+        .cell.dark { background: #b58863; }
+        .cell.selected { box-shadow: inset 0 0 0 3px #64ffda; }
+        .cell.valid-move { 
+            box-shadow: inset 0 0 0 3px rgba(100, 255, 218, 0.5);
+            background: rgba(100, 255, 218, 0.2);
+        }
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            position: relative;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .piece:hover { transform: scale(1.1); }
+        .piece.red {
+            background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.2);
+        }
+        .piece.black {
+            background: radial-gradient(circle at 30% 30%, #555, #222);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.2);
+        }
+        .piece.king::after {
+            content: '♔';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5em;
+            color: gold;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            background: linear-gradient(135deg, #64ffda, #00bfa5);
+            border: none;
+            border-radius: 25px;
+            color: #1a1a2e;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(100, 255, 218, 0.4);
+        }
+        .score {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .score span { color: #aaa; }
+        .score .red-score { color: #ff6b6b; }
+        .score .black-score { color: #888; }
+    </style>
+</head>
+<body>
+    <h1>♟️ Checkers</h1>
+    <div class="score">
+        <span>Red: <span class="red-score" id="redScore">12</span></span>
+        <span>Black: <span class="black-score" id="blackScore">12</span></span>
+    </div>
+    <div class="status" id="status">Red's turn</div>
+    <div id="board"></div>
+    <div class="controls">
+        <button onclick="resetGame()">New Game</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const statusEl = document.getElementById('status');
+        const redScoreEl = document.getElementById('redScore');
+        const blackScoreEl = document.getElementById('blackScore');
+
+        let gameState = [];
+        let selectedPiece = null;
+        let currentPlayer = 'red';
+        let validMoves = [];
+        let mustCapture = false;
+
+        function initGame() {
+            gameState = [];
+            for (let row = 0; row < 8; row++) {
+                gameState[row] = [];
+                for (let col = 0; col < 8; col++) {
+                    if ((row + col) % 2 === 1) {
+                        if (row < 3) {
+                            gameState[row][col] = { color: 'black', king: false };
+                        } else if (row > 4) {
+                            gameState[row][col] = { color: 'red', king: false };
+                        } else {
+                            gameState[row][col] = null;
+                        }
+                    } else {
+                        gameState[row][col] = null;
+                    }
+                }
+            }
+            currentPlayer = 'red';
+            selectedPiece = null;
+            validMoves = [];
+            mustCapture = false;
+            render();
+            updateStatus();
+        }
+
+        function render() {
+            board.innerHTML = '';
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+
+                    if (selectedPiece && selectedPiece.row === row && selectedPiece.col === col) {
+                        cell.classList.add('selected');
+                    }
+
+                    if (validMoves.some(m => m.row === row && m.col === col)) {
+                        cell.classList.add('valid-move');
+                    }
+
+                    const piece = gameState[row][col];
+                    if (piece) {
+                        const pieceEl = document.createElement('div');
+                        pieceEl.className = `piece ${piece.color}${piece.king ? ' king' : ''}`;
+                        cell.appendChild(pieceEl);
+                    }
+
+                    cell.addEventListener('click', () => handleClick(row, col));
+                    board.appendChild(cell);
+                }
+            }
+            updateScore();
+        }
+
+        function handleClick(row, col) {
+            const piece = gameState[row][col];
+
+            // Check if clicking on a valid move
+            const move = validMoves.find(m => m.row === row && m.col === col);
+            if (move) {
+                executeMove(move);
+                return;
+            }
+
+            // Select a piece
+            if (piece && piece.color === currentPlayer) {
+                const moves = getValidMoves(row, col);
+                const allCaptures = getAllCaptures(currentPlayer);
+                
+                // If there are captures available, must capture
+                if (allCaptures.length > 0) {
+                    const pieceCaptures = moves.filter(m => m.captures);
+                    if (pieceCaptures.length > 0) {
+                        selectedPiece = { row, col };
+                        validMoves = pieceCaptures;
+                        mustCapture = true;
+                    } else {
+                        statusEl.textContent = 'Must capture!';
+                        selectedPiece = null;
+                        validMoves = [];
+                    }
+                } else {
+                    selectedPiece = { row, col };
+                    validMoves = moves;
+                    mustCapture = false;
+                }
+                render();
+            }
+        }
+
+        function getValidMoves(row, col) {
+            const piece = gameState[row][col];
+            if (!piece) return [];
+
+            const moves = [];
+            const directions = piece.king 
+                ? [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+                : piece.color === 'red' 
+                    ? [[-1, -1], [-1, 1]]
+                    : [[1, -1], [1, 1]];
+
+            // Regular moves
+            for (const [dr, dc] of directions) {
+                const newRow = row + dr;
+                const newCol = col + dc;
+                if (isValidCell(newRow, newCol) && !gameState[newRow][newCol]) {
+                    moves.push({ row: newRow, col: newCol, captures: null });
+                }
+            }
+
+            // Captures (all directions for captures)
+            const captureDirs = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+            for (const [dr, dc] of captureDirs) {
+                const midRow = row + dr;
+                const midCol = col + dc;
+                const newRow = row + dr * 2;
+                const newCol = col + dc * 2;
+                
+                if (isValidCell(newRow, newCol) && 
+                    gameState[midRow]?.[midCol]?.color && 
+                    gameState[midRow][midCol].color !== piece.color &&
+                    !gameState[newRow][newCol]) {
+                    moves.push({ 
+                        row: newRow, 
+                        col: newCol, 
+                        captures: { row: midRow, col: midCol }
+                    });
+                }
+            }
+
+            return moves;
+        }
+
+        function getAllCaptures(color) {
+            const captures = [];
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = gameState[row][col];
+                    if (piece && piece.color === color) {
+                        const moves = getValidMoves(row, col).filter(m => m.captures);
+                        captures.push(...moves.map(m => ({ ...m, from: { row, col } })));
+                    }
+                }
+            }
+            return captures;
+        }
+
+        function isValidCell(row, col) {
+            return row >= 0 && row < 8 && col >= 0 && col < 8;
+        }
+
+        function executeMove(move) {
+            const piece = gameState[selectedPiece.row][selectedPiece.col];
+            gameState[selectedPiece.row][selectedPiece.col] = null;
+            gameState[move.row][move.col] = piece;
+
+            // Check for king promotion
+            if ((piece.color === 'red' && move.row === 0) || 
+                (piece.color === 'black' && move.row === 7)) {
+                piece.king = true;
+            }
+
+            // Handle capture
+            if (move.captures) {
+                gameState[move.captures.row][move.captures.col] = null;
+                
+                // Check for multi-capture
+                const moreCaptures = getValidMoves(move.row, move.col).filter(m => m.captures);
+                if (moreCaptures.length > 0) {
+                    selectedPiece = { row: move.row, col: move.col };
+                    validMoves = moreCaptures;
+                    render();
+                    statusEl.textContent = `${capitalize(currentPlayer)} must continue capturing!`;
+                    return;
+                }
+            }
+
+            // Switch turns
+            selectedPiece = null;
+            validMoves = [];
+            currentPlayer = currentPlayer === 'red' ? 'black' : 'red';
+            
+            render();
+            updateStatus();
+            checkWinner();
+        }
+
+        function updateStatus() {
+            statusEl.textContent = `${capitalize(currentPlayer)}'s turn`;
+        }
+
+        function updateScore() {
+            let red = 0, black = 0;
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = gameState[row][col];
+                    if (piece) {
+                        if (piece.color === 'red') red++;
+                        else black++;
+                    }
+                }
+            }
+            redScoreEl.textContent = red;
+            blackScoreEl.textContent = black;
+        }
+
+        function checkWinner() {
+            let red = 0, black = 0;
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const piece = gameState[row][col];
+                    if (piece) {
+                        if (piece.color === 'red') red++;
+                        else black++;
+                    }
+                }
+            }
+
+            if (red === 0) {
+                statusEl.textContent = '🎉 Black wins!';
+            } else if (black === 0) {
+                statusEl.textContent = '🎉 Red wins!';
+            } else {
+                // Check if current player has any valid moves
+                let hasValidMove = false;
+                outer: for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const piece = gameState[row][col];
+                        if (piece && piece.color === currentPlayer) {
+                            if (getValidMoves(row, col).length > 0) {
+                                hasValidMove = true;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+                if (!hasValidMove) {
+                    const winner = currentPlayer === 'red' ? 'Black' : 'Red';
+                    statusEl.textContent = `🎉 ${winner} wins! (No moves left)`;
+                }
+            }
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function resetGame() {
+            initGame();
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
