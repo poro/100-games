@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Typing Speed Test - 100 Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #64ffda, #00d4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 30px;
+            border-radius: 10px;
+            min-width: 120px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        .text-display {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            line-height: 1.8;
+            text-align: left;
+            min-height: 150px;
+        }
+        
+        .text-display .correct {
+            color: #64ffda;
+        }
+        
+        .text-display .incorrect {
+            color: #ff6b6b;
+            text-decoration: underline;
+        }
+        
+        .text-display .current {
+            background: rgba(100, 255, 218, 0.3);
+            border-radius: 3px;
+        }
+        
+        .text-display .remaining {
+            color: #666;
+        }
+        
+        .input-area {
+            margin-bottom: 30px;
+        }
+        
+        #typing-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.2rem;
+            border: 2px solid rgba(100, 255, 218, 0.3);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #typing-input:focus {
+            border-color: #64ffda;
+        }
+        
+        #typing-input:disabled {
+            opacity: 0.5;
+        }
+        
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #64ffda, #00d4ff);
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(100, 255, 218, 0.4);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #64ffda;
+            color: #64ffda;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(100, 255, 218, 0.1);
+        }
+        
+        .difficulty-selector {
+            margin-bottom: 20px;
+        }
+        
+        .difficulty-selector label {
+            margin-right: 15px;
+            cursor: pointer;
+        }
+        
+        .difficulty-selector input[type="radio"] {
+            margin-right: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64ffda, #00d4ff);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .high-score {
+            margin-top: 20px;
+            color: #888;
+        }
+        
+        .high-score span {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .result-screen {
+            display: none;
+        }
+        
+        .result-screen.active {
+            display: block;
+        }
+        
+        .result-title {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            color: #64ffda;
+        }
+        
+        .result-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .result-stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .result-stat .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        
+        .result-stat .label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #64ffda;
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .stats {
+                gap: 15px;
+            }
+            
+            .stat {
+                padding: 10px 20px;
+                min-width: 90px;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+            
+            .text-display {
+                font-size: 1.1rem;
+                padding: 20px;
+            }
+            
+            .result-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⌨️ Typing Speed</h1>
+        <p class="subtitle">Test your typing speed and accuracy</p>
+        
+        <div id="game-screen">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="wpm">0</div>
+                    <div class="stat-label">WPM</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="accuracy">100%</div>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="time">60</div>
+                    <div class="stat-label">Seconds</div>
+                </div>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+            
+            <div class="text-display" id="text-display">
+                Click "Start Test" to begin...
+            </div>
+            
+            <div class="input-area">
+                <input type="text" id="typing-input" placeholder="Start typing here..." disabled autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            </div>
+            
+            <div class="difficulty-selector">
+                <label>
+                    <input type="radio" name="difficulty" value="easy" checked> Easy
+                </label>
+                <label>
+                    <input type="radio" name="difficulty" value="medium"> Medium
+                </label>
+                <label>
+                    <input type="radio" name="difficulty" value="hard"> Hard
+                </label>
+            </div>
+            
+            <button class="btn btn-primary" id="start-btn">Start Test</button>
+            
+            <div class="high-score">
+                Best WPM: <span id="high-score">0</span>
+            </div>
+        </div>
+        
+        <div id="result-screen" class="result-screen">
+            <div class="result-title">🏆 Test Complete!</div>
+            
+            <div class="result-stats">
+                <div class="result-stat">
+                    <div class="value" id="final-wpm">0</div>
+                    <div class="label">Words Per Minute</div>
+                </div>
+                <div class="result-stat">
+                    <div class="value" id="final-accuracy">0%</div>
+                    <div class="label">Accuracy</div>
+                </div>
+                <div class="result-stat">
+                    <div class="value" id="final-chars">0</div>
+                    <div class="label">Characters Typed</div>
+                </div>
+                <div class="result-stat">
+                    <div class="value" id="final-errors">0</div>
+                    <div class="label">Errors Made</div>
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" id="retry-btn">Try Again</button>
+            <button class="btn btn-secondary" id="change-diff-btn">Change Difficulty</button>
+        </div>
+        
+        <a href="../index.html" class="back-link">← Back to Games</a>
+    </div>
+    
+    <script>
+        // Word lists by difficulty
+        const wordLists = {
+            easy: [
+                "the", "be", "to", "of", "and", "a", "in", "that", "have", "I",
+                "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
+                "this", "but", "his", "by", "from", "they", "we", "say", "her", "she",
+                "or", "an", "will", "my", "one", "all", "would", "there", "their", "what",
+                "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+                "when", "make", "can", "like", "time", "no", "just", "him", "know", "take",
+                "people", "into", "year", "your", "good", "some", "could", "them", "see", "other",
+                "than", "then", "now", "look", "only", "come", "its", "over", "think", "also"
+            ],
+            medium: [
+                "because", "through", "between", "different", "another", "something", "important",
+                "children", "development", "government", "community", "experience", "education",
+                "information", "business", "research", "technology", "management", "performance",
+                "environment", "organization", "international", "professional", "opportunity",
+                "relationship", "significant", "understanding", "communication", "everything",
+                "knowledge", "beautiful", "practice", "situation", "structure", "necessary",
+                "challenge", "decision", "character", "continue", "increase", "establish",
+                "consider", "remember", "determine", "generally", "certainly", "potential"
+            ],
+            hard: [
+                "simultaneously", "sophisticated", "comprehensive", "representative", "characteristic",
+                "accomplishment", "acknowledgement", "circumstances", "discrimination", "predominantly",
+                "infrastructure", "implementation", "recommendation", "responsibility", "administrative",
+                "extraordinary", "pharmaceutical", "entrepreneurship", "counterproductive", "electromagnetic",
+                "interdisciplinary", "revolutionize", "unprecedented", "authentication", "consequences",
+                "questionnaire", "misconception", "breakthrough", "consciousness", "visualization",
+                "collaboration", "cryptocurrency", "microprocessor", "neurological", "psychological"
+            ]
+        };
+        
+        let currentText = '';
+        let currentIndex = 0;
+        let errors = 0;
+        let totalChars = 0;
+        let correctChars = 0;
+        let startTime = null;
+        let timerInterval = null;
+        let timeLeft = 60;
+        let isRunning = false;
+        let difficulty = 'easy';
+        
+        const textDisplay = document.getElementById('text-display');
+        const typingInput = document.getElementById('typing-input');
+        const startBtn = document.getElementById('start-btn');
+        const retryBtn = document.getElementById('retry-btn');
+        const changeDiffBtn = document.getElementById('change-diff-btn');
+        const gameScreen = document.getElementById('game-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const progressBar = document.getElementById('progress');
+        
+        // Load high score
+        let highScore = parseInt(localStorage.getItem('typing-speed-high') || '0');
+        document.getElementById('high-score').textContent = highScore;
+        
+        function generateText() {
+            const words = wordLists[difficulty];
+            const textWords = [];
+            for (let i = 0; i < 80; i++) {
+                textWords.push(words[Math.floor(Math.random() * words.length)]);
+            }
+            return textWords.join(' ');
+        }
+        
+        function updateDisplay() {
+            let html = '';
+            for (let i = 0; i < currentText.length; i++) {
+                const char = currentText[i];
+                if (i < currentIndex) {
+                    // Check if this character was correct
+                    html += `<span class="correct">${char}</span>`;
+                } else if (i === currentIndex) {
+                    html += `<span class="current">${char}</span>`;
+                } else {
+                    html += `<span class="remaining">${char}</span>`;
+                }
+            }
+            textDisplay.innerHTML = html;
+        }
+        
+        function updateStats() {
+            if (!startTime) return;
+            
+            const elapsed = (Date.now() - startTime) / 1000 / 60; // minutes
+            const wordsTyped = correctChars / 5; // standard: 5 chars = 1 word
+            const wpm = Math.round(wordsTyped / elapsed) || 0;
+            const accuracy = totalChars > 0 ? Math.round((correctChars / totalChars) * 100) : 100;
+            
+            document.getElementById('wpm').textContent = wpm;
+            document.getElementById('accuracy').textContent = accuracy + '%';
+            
+            // Update progress
+            const progress = (currentIndex / currentText.length) * 100;
+            progressBar.style.width = progress + '%';
+        }
+        
+        function startGame() {
+            difficulty = document.querySelector('input[name="difficulty"]:checked').value;
+            currentText = generateText();
+            currentIndex = 0;
+            errors = 0;
+            totalChars = 0;
+            correctChars = 0;
+            timeLeft = 60;
+            isRunning = true;
+            startTime = Date.now();
+            
+            updateDisplay();
+            typingInput.disabled = false;
+            typingInput.value = '';
+            typingInput.focus();
+            startBtn.style.display = 'none';
+            document.querySelector('.difficulty-selector').style.display = 'none';
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('time').textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+        
+        function endGame() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            typingInput.disabled = true;
+            
+            const elapsed = (Date.now() - startTime) / 1000 / 60;
+            const wordsTyped = correctChars / 5;
+            const finalWpm = Math.round(wordsTyped / elapsed) || 0;
+            const finalAccuracy = totalChars > 0 ? Math.round((correctChars / totalChars) * 100) : 100;
+            
+            // Update high score
+            if (finalWpm > highScore) {
+                highScore = finalWpm;
+                localStorage.setItem('typing-speed-high', highScore.toString());
+                document.getElementById('high-score').textContent = highScore;
+            }
+            
+            // Show results
+            document.getElementById('final-wpm').textContent = finalWpm;
+            document.getElementById('final-accuracy').textContent = finalAccuracy + '%';
+            document.getElementById('final-chars').textContent = correctChars;
+            document.getElementById('final-errors').textContent = errors;
+            
+            gameScreen.style.display = 'none';
+            resultScreen.classList.add('active');
+        }
+        
+        function resetGame() {
+            resultScreen.classList.remove('active');
+            gameScreen.style.display = 'block';
+            startBtn.style.display = 'inline-block';
+            document.querySelector('.difficulty-selector').style.display = 'block';
+            textDisplay.innerHTML = 'Click "Start Test" to begin...';
+            document.getElementById('wpm').textContent = '0';
+            document.getElementById('accuracy').textContent = '100%';
+            document.getElementById('time').textContent = '60';
+            progressBar.style.width = '0%';
+        }
+        
+        typingInput.addEventListener('input', (e) => {
+            if (!isRunning) return;
+            
+            const typed = e.target.value;
+            const expectedChar = currentText[currentIndex];
+            
+            if (typed.length > 0) {
+                const lastChar = typed[typed.length - 1];
+                totalChars++;
+                
+                if (lastChar === expectedChar) {
+                    correctChars++;
+                    currentIndex++;
+                    
+                    // Check if completed
+                    if (currentIndex >= currentText.length) {
+                        // Generate more text
+                        currentText += ' ' + generateText();
+                    }
+                } else {
+                    errors++;
+                }
+                
+                typingInput.value = '';
+                updateDisplay();
+                updateStats();
+            }
+        });
+        
+        // Handle backspace (show error visually but don't penalize)
+        typingInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+            }
+        });
+        
+        startBtn.addEventListener('click', startGame);
+        retryBtn.addEventListener('click', () => {
+            resetGame();
+            startGame();
+        });
+        changeDiffBtn.addEventListener('click', resetGame);
+        
+        // Prevent paste
+        typingInput.addEventListener('paste', (e) => e.preventDefault());
+    </script>
+</body>
+</html>

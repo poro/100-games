@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Color Flood - 100 Games</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #9b59b6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .stat {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 25px;
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        #game-board {
+            display: grid;
+            gap: 2px;
+            margin: 0 auto 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 10px;
+            width: fit-content;
+        }
+        
+        .cell {
+            width: 25px;
+            height: 25px;
+            border-radius: 3px;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        
+        .cell.flooding {
+            animation: pulse 0.3s ease-out;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .color-picker {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .color-btn {
+            width: 50px;
+            height: 50px;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .color-btn:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-btn.selected {
+            border-color: #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+        }
+        
+        .color-btn.current {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn {
+            padding: 12px 35px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #64ffda, #00d4ff);
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(100, 255, 218, 0.4);
+        }
+        
+        .difficulty-btns {
+            margin-bottom: 15px;
+        }
+        
+        .diff-btn {
+            padding: 8px 20px;
+            margin: 5px;
+            border: 2px solid #64ffda;
+            background: transparent;
+            color: #64ffda;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .diff-btn.active {
+            background: #64ffda;
+            color: #1a1a2e;
+        }
+        
+        .diff-btn:hover {
+            background: rgba(100, 255, 218, 0.2);
+        }
+        
+        .message {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            min-height: 40px;
+        }
+        
+        .message.win {
+            color: #6bcb77;
+        }
+        
+        .message.lose {
+            color: #ff6b6b;
+        }
+        
+        .high-score {
+            margin-top: 15px;
+            color: #888;
+        }
+        
+        .high-score span {
+            color: #ffd700;
+            font-weight: bold;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #64ffda;
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        
+        @media (max-width: 450px) {
+            .cell {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .color-btn {
+                width: 40px;
+                height: 40px;
+            }
+            
+            h1 {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Color Flood</h1>
+        <p class="subtitle">Fill the board with one color</p>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="moves">0</div>
+                <div class="stat-label">Moves</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="max-moves">25</div>
+                <div class="stat-label">Max</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="filled">0%</div>
+                <div class="stat-label">Filled</div>
+            </div>
+        </div>
+        
+        <div id="game-board"></div>
+        
+        <div class="color-picker" id="color-picker"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="difficulty-btns">
+            <button class="diff-btn active" data-size="10" data-moves="20">Easy</button>
+            <button class="diff-btn" data-size="14" data-moves="25">Medium</button>
+            <button class="diff-btn" data-size="18" data-moves="30">Hard</button>
+        </div>
+        
+        <button class="btn btn-primary" id="new-game-btn">New Game</button>
+        
+        <div class="instructions">
+            Start from top-left corner. Click colors to flood fill.<br>
+            Fill the entire board before running out of moves!
+        </div>
+        
+        <div class="high-score">
+            Best Score: <span id="high-score">-</span>
+        </div>
+        
+        <a href="../index.html" class="back-link">← Back to Games</a>
+    </div>
+    
+    <script>
+        const colors = [
+            '#ff6b6b', // Red
+            '#ffd93d', // Yellow
+            '#6bcb77', // Green
+            '#4d96ff', // Blue
+            '#9b59b6', // Purple
+            '#ff9f43'  // Orange
+        ];
+        
+        let boardSize = 10;
+        let maxMoves = 20;
+        let board = [];
+        let moves = 0;
+        let gameOver = false;
+        
+        const gameBoard = document.getElementById('game-board');
+        const colorPicker = document.getElementById('color-picker');
+        const movesEl = document.getElementById('moves');
+        const maxMovesEl = document.getElementById('max-moves');
+        const filledEl = document.getElementById('filled');
+        const messageEl = document.getElementById('message');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const highScoreEl = document.getElementById('high-score');
+        
+        // Load high score
+        function getHighScoreKey() {
+            return `color-flood-${boardSize}x${boardSize}`;
+        }
+        
+        function loadHighScore() {
+            const hs = localStorage.getItem(getHighScoreKey());
+            highScoreEl.textContent = hs ? `${hs} moves` : '-';
+        }
+        
+        function saveHighScore(moves) {
+            const key = getHighScoreKey();
+            const current = parseInt(localStorage.getItem(key) || '999');
+            if (moves < current) {
+                localStorage.setItem(key, moves.toString());
+                loadHighScore();
+                return true;
+            }
+            return false;
+        }
+        
+        function initBoard() {
+            board = [];
+            for (let y = 0; y < boardSize; y++) {
+                board[y] = [];
+                for (let x = 0; x < boardSize; x++) {
+                    board[y][x] = Math.floor(Math.random() * colors.length);
+                }
+            }
+        }
+        
+        function renderBoard() {
+            gameBoard.innerHTML = '';
+            gameBoard.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+            
+            for (let y = 0; y < boardSize; y++) {
+                for (let x = 0; x < boardSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.style.backgroundColor = colors[board[y][x]];
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    gameBoard.appendChild(cell);
+                }
+            }
+        }
+        
+        function renderColorPicker() {
+            colorPicker.innerHTML = '';
+            colors.forEach((color, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'color-btn';
+                btn.style.backgroundColor = color;
+                btn.dataset.color = index;
+                
+                // Mark current color
+                if (index === board[0][0]) {
+                    btn.classList.add('current');
+                }
+                
+                btn.addEventListener('click', () => selectColor(index));
+                colorPicker.appendChild(btn);
+            });
+        }
+        
+        function flood(startColor, newColor, visited = new Set()) {
+            const queue = [[0, 0]];
+            const cellsToFlood = [];
+            
+            while (queue.length > 0) {
+                const [x, y] = queue.shift();
+                const key = `${x},${y}`;
+                
+                if (visited.has(key)) continue;
+                if (x < 0 || x >= boardSize || y < 0 || y >= boardSize) continue;
+                if (board[y][x] !== startColor) continue;
+                
+                visited.add(key);
+                cellsToFlood.push([x, y]);
+                
+                queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+            }
+            
+            // Animate flooding
+            cellsToFlood.forEach(([x, y], i) => {
+                setTimeout(() => {
+                    board[y][x] = newColor;
+                    const cell = gameBoard.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                    if (cell) {
+                        cell.style.backgroundColor = colors[newColor];
+                        cell.classList.add('flooding');
+                        setTimeout(() => cell.classList.remove('flooding'), 300);
+                    }
+                }, i * 5);
+            });
+            
+            return cellsToFlood.length;
+        }
+        
+        function selectColor(colorIndex) {
+            if (gameOver) return;
+            if (colorIndex === board[0][0]) return; // Same color
+            
+            const startColor = board[0][0];
+            flood(startColor, colorIndex);
+            
+            moves++;
+            movesEl.textContent = moves;
+            
+            // Check progress
+            setTimeout(() => {
+                updateFilledPercentage();
+                renderColorPicker();
+                checkWin();
+            }, boardSize * 5 + 50);
+        }
+        
+        function updateFilledPercentage() {
+            const targetColor = board[0][0];
+            let count = 0;
+            for (let y = 0; y < boardSize; y++) {
+                for (let x = 0; x < boardSize; x++) {
+                    if (board[y][x] === targetColor) count++;
+                }
+            }
+            const percent = Math.round((count / (boardSize * boardSize)) * 100);
+            filledEl.textContent = percent + '%';
+            return percent;
+        }
+        
+        function checkWin() {
+            const percent = updateFilledPercentage();
+            
+            if (percent === 100) {
+                gameOver = true;
+                const isNewBest = saveHighScore(moves);
+                messageEl.className = 'message win';
+                messageEl.textContent = isNewBest 
+                    ? `🏆 New Best! ${moves} moves!`
+                    : `🎉 You won in ${moves} moves!`;
+                disableColorPicker();
+            } else if (moves >= maxMoves) {
+                gameOver = true;
+                messageEl.className = 'message lose';
+                messageEl.textContent = `💔 Out of moves! (${percent}% filled)`;
+                disableColorPicker();
+            }
+        }
+        
+        function disableColorPicker() {
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.style.pointerEvents = 'none';
+                btn.style.opacity = '0.5';
+            });
+        }
+        
+        function newGame() {
+            moves = 0;
+            gameOver = false;
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            movesEl.textContent = moves;
+            maxMovesEl.textContent = maxMoves;
+            
+            initBoard();
+            renderBoard();
+            renderColorPicker();
+            updateFilledPercentage();
+            loadHighScore();
+        }
+        
+        // Difficulty buttons
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                boardSize = parseInt(btn.dataset.size);
+                maxMoves = parseInt(btn.dataset.moves);
+                newGame();
+            });
+        });
+        
+        newGameBtn.addEventListener('click', newGame);
+        
+        // Start game
+        newGame();
+    </script>
+</body>
+</html>
