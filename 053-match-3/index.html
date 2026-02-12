@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>053 - Match 3 💎</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            user-select: none;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #e94560;
+        }
+        .game-container {
+            text-align: center;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 30px;
+            border-radius: 15px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        .stat-label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            gap: 4px;
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 15px;
+            margin: 20px auto;
+            touch-action: none;
+        }
+        .cell {
+            width: 50px;
+            height: 50px;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .cell:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .cell.selected {
+            background: rgba(233, 69, 96, 0.3);
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(233, 69, 96, 0.5);
+            z-index: 10;
+        }
+        .cell.matched {
+            animation: match 0.3s ease;
+        }
+        .cell.falling {
+            animation: fall 0.3s ease;
+        }
+        @keyframes match {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        @keyframes fall {
+            0% { transform: translateY(-50px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .combo-display {
+            font-size: 1.5rem;
+            color: #ffd93d;
+            min-height: 40px;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            max-width: 420px;
+            height: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px auto;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        .level-info {
+            color: #a0a0a0;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #e94560, #ff6b6b);
+            color: #fff;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: scale(1.05); }
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .game-over h2 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #64ffda;
+        }
+        .game-over p {
+            font-size: 1.5rem;
+            margin-bottom: 30px;
+        }
+        .hidden { display: none !important; }
+        @media (max-width: 500px) {
+            #board {
+                grid-template-columns: repeat(8, 40px);
+            }
+            .cell {
+                width: 40px;
+                height: 40px;
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>💎 Match 3</h1>
+    <div class="game-container">
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="score">0</div>
+                <div class="stat-label">Score</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="moves">30</div>
+                <div class="stat-label">Moves</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="level">1</div>
+                <div class="stat-label">Level</div>
+            </div>
+        </div>
+        
+        <div class="level-info">Target: <span id="target">1000</span> points</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress" style="width: 0%"></div>
+        </div>
+        
+        <div class="combo-display" id="combo"></div>
+        
+        <div id="board"></div>
+        
+        <button class="btn" id="hint">💡 Hint</button>
+    </div>
+    
+    <div class="game-over hidden" id="gameOver">
+        <h2 id="gameOverTitle">Level Complete!</h2>
+        <p id="gameOverText">Final Score: 0</p>
+        <button class="btn" id="playAgain">Play Again</button>
+    </div>
+
+    <script>
+        const GEMS = ['🔴', '🟡', '🟢', '🔵', '🟣', '🟠'];
+        const BOARD_SIZE = 8;
+        const BASE_TARGET = 1000;
+        const BASE_MOVES = 30;
+        
+        let board = [];
+        let selected = null;
+        let score = 0;
+        let moves = BASE_MOVES;
+        let level = 1;
+        let target = BASE_TARGET;
+        let combo = 0;
+        let isProcessing = false;
+        let highScore = parseInt(localStorage.getItem('match3-high') || '0');
+
+        const boardEl = document.getElementById('board');
+        const scoreEl = document.getElementById('score');
+        const movesEl = document.getElementById('moves');
+        const levelEl = document.getElementById('level');
+        const targetEl = document.getElementById('target');
+        const progressEl = document.getElementById('progress');
+        const comboEl = document.getElementById('combo');
+        const gameOverEl = document.getElementById('gameOver');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const gameOverText = document.getElementById('gameOverText');
+        const hintBtn = document.getElementById('hint');
+        const playAgainBtn = document.getElementById('playAgain');
+
+        function init() {
+            board = [];
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                board[row] = [];
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    board[row][col] = randomGem(row, col);
+                }
+            }
+            render();
+            
+            // Ensure no initial matches
+            while (findMatches().length > 0) {
+                init();
+            }
+        }
+
+        function randomGem(row, col) {
+            const available = [...GEMS];
+            
+            // Avoid creating matches on init
+            if (col >= 2 && board[row][col-1] === board[row][col-2]) {
+                const idx = available.indexOf(board[row][col-1]);
+                if (idx > -1) available.splice(idx, 1);
+            }
+            if (row >= 2 && board[row-1][col] === board[row-2][col]) {
+                const idx = available.indexOf(board[row-1][col]);
+                if (idx > -1) available.splice(idx, 1);
+            }
+            
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        function render() {
+            boardEl.innerHTML = '';
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.textContent = board[row][col];
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    if (selected && selected.row === row && selected.col === col) {
+                        cell.classList.add('selected');
+                    }
+                    
+                    cell.addEventListener('click', () => handleClick(row, col));
+                    cell.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        handleClick(row, col);
+                    });
+                    
+                    boardEl.appendChild(cell);
+                }
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            scoreEl.textContent = score;
+            movesEl.textContent = moves;
+            levelEl.textContent = level;
+            targetEl.textContent = target;
+            progressEl.style.width = Math.min(100, (score / target) * 100) + '%';
+        }
+
+        function handleClick(row, col) {
+            if (isProcessing) return;
+            
+            if (!selected) {
+                selected = { row, col };
+                render();
+            } else {
+                const { row: sRow, col: sCol } = selected;
+                
+                // Check if adjacent
+                const isAdjacent = (
+                    (Math.abs(sRow - row) === 1 && sCol === col) ||
+                    (Math.abs(sCol - col) === 1 && sRow === row)
+                );
+                
+                if (isAdjacent) {
+                    swap(sRow, sCol, row, col);
+                } else {
+                    selected = { row, col };
+                    render();
+                }
+            }
+        }
+
+        async function swap(r1, c1, r2, c2) {
+            isProcessing = true;
+            selected = null;
+            
+            // Swap
+            [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+            render();
+            
+            await delay(200);
+            
+            // Check for matches
+            const matches = findMatches();
+            
+            if (matches.length === 0) {
+                // Swap back
+                [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+                render();
+            } else {
+                moves--;
+                combo = 0;
+                await processMatches();
+                checkGameState();
+            }
+            
+            isProcessing = false;
+        }
+
+        function findMatches() {
+            const matches = new Set();
+            
+            // Horizontal
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE - 2; col++) {
+                    const gem = board[row][col];
+                    if (gem && gem === board[row][col+1] && gem === board[row][col+2]) {
+                        matches.add(`${row},${col}`);
+                        matches.add(`${row},${col+1}`);
+                        matches.add(`${row},${col+2}`);
+                        
+                        // Check for 4 or 5 in a row
+                        if (col + 3 < BOARD_SIZE && gem === board[row][col+3]) {
+                            matches.add(`${row},${col+3}`);
+                        }
+                        if (col + 4 < BOARD_SIZE && gem === board[row][col+4]) {
+                            matches.add(`${row},${col+4}`);
+                        }
+                    }
+                }
+            }
+            
+            // Vertical
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                for (let row = 0; row < BOARD_SIZE - 2; row++) {
+                    const gem = board[row][col];
+                    if (gem && gem === board[row+1][col] && gem === board[row+2][col]) {
+                        matches.add(`${row},${col}`);
+                        matches.add(`${row+1},${col}`);
+                        matches.add(`${row+2},${col}`);
+                        
+                        if (row + 3 < BOARD_SIZE && gem === board[row+3][col]) {
+                            matches.add(`${row+3},${col}`);
+                        }
+                        if (row + 4 < BOARD_SIZE && gem === board[row+4][col]) {
+                            matches.add(`${row+4},${col}`);
+                        }
+                    }
+                }
+            }
+            
+            return Array.from(matches).map(s => {
+                const [r, c] = s.split(',').map(Number);
+                return { row: r, col: c };
+            });
+        }
+
+        async function processMatches() {
+            let matches = findMatches();
+            
+            while (matches.length > 0) {
+                combo++;
+                
+                // Highlight matches
+                const cells = boardEl.querySelectorAll('.cell');
+                matches.forEach(({ row, col }) => {
+                    cells[row * BOARD_SIZE + col].classList.add('matched');
+                });
+                
+                // Score
+                const points = matches.length * 10 * combo;
+                score += points;
+                
+                comboEl.textContent = combo > 1 ? `${combo}x Combo! +${points}` : `+${points}`;
+                
+                await delay(300);
+                
+                // Remove matched
+                matches.forEach(({ row, col }) => {
+                    board[row][col] = null;
+                });
+                
+                // Drop gems
+                await dropGems();
+                
+                // Fill empty
+                await fillEmpty();
+                
+                render();
+                await delay(200);
+                
+                matches = findMatches();
+            }
+            
+            comboEl.textContent = '';
+        }
+
+        async function dropGems() {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                let emptyRow = BOARD_SIZE - 1;
+                
+                for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+                    if (board[row][col] !== null) {
+                        if (row !== emptyRow) {
+                            board[emptyRow][col] = board[row][col];
+                            board[row][col] = null;
+                        }
+                        emptyRow--;
+                    }
+                }
+            }
+        }
+
+        async function fillEmpty() {
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    if (board[row][col] === null) {
+                        board[row][col] = GEMS[Math.floor(Math.random() * GEMS.length)];
+                    }
+                }
+            }
+        }
+
+        function checkGameState() {
+            if (score >= target) {
+                // Level up
+                level++;
+                target = BASE_TARGET * level;
+                moves = BASE_MOVES;
+                
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('match3-high', highScore);
+                }
+                
+                comboEl.textContent = `🎉 Level ${level}!`;
+                setTimeout(() => comboEl.textContent = '', 2000);
+                
+            } else if (moves <= 0) {
+                // Game over
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('match3-high', highScore);
+                }
+                
+                gameOverTitle.textContent = 'Game Over!';
+                gameOverText.textContent = `Final Score: ${score} | High Score: ${highScore}`;
+                gameOverEl.classList.remove('hidden');
+            }
+            
+            updateUI();
+        }
+
+        function findHint() {
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    // Try swap right
+                    if (col + 1 < BOARD_SIZE) {
+                        [board[row][col], board[row][col+1]] = [board[row][col+1], board[row][col]];
+                        if (findMatches().length > 0) {
+                            [board[row][col], board[row][col+1]] = [board[row][col+1], board[row][col]];
+                            return { r1: row, c1: col, r2: row, c2: col+1 };
+                        }
+                        [board[row][col], board[row][col+1]] = [board[row][col+1], board[row][col]];
+                    }
+                    
+                    // Try swap down
+                    if (row + 1 < BOARD_SIZE) {
+                        [board[row][col], board[row+1][col]] = [board[row+1][col], board[row][col]];
+                        if (findMatches().length > 0) {
+                            [board[row][col], board[row+1][col]] = [board[row+1][col], board[row][col]];
+                            return { r1: row, c1: col, r2: row+1, c2: col };
+                        }
+                        [board[row][col], board[row+1][col]] = [board[row+1][col], board[row][col]];
+                    }
+                }
+            }
+            return null;
+        }
+
+        function showHint() {
+            const hint = findHint();
+            if (hint) {
+                const cells = boardEl.querySelectorAll('.cell');
+                cells[hint.r1 * BOARD_SIZE + hint.c1].classList.add('selected');
+                cells[hint.r2 * BOARD_SIZE + hint.c2].classList.add('selected');
+                
+                setTimeout(() => {
+                    cells[hint.r1 * BOARD_SIZE + hint.c1].classList.remove('selected');
+                    cells[hint.r2 * BOARD_SIZE + hint.c2].classList.remove('selected');
+                }, 1500);
+            } else {
+                comboEl.textContent = 'No moves! Shuffling...';
+                init();
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            moves = BASE_MOVES;
+            level = 1;
+            target = BASE_TARGET;
+            combo = 0;
+            gameOverEl.classList.add('hidden');
+            init();
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        hintBtn.addEventListener('click', showHint);
+        playAgainBtn.addEventListener('click', resetGame);
+
+        init();
+    </script>
+</body>
+</html>
