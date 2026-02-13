@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>056 - Rhythm Tap 🎵</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #e94560;
+        }
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin: 10px 0;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 20px;
+            border-radius: 15px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        .stat-label {
+            color: #a0a0a0;
+            font-size: 0.8rem;
+        }
+        .game-container {
+            position: relative;
+            width: 90vw;
+            max-width: 360px;
+            height: 500px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .lanes {
+            display: flex;
+            height: 100%;
+            position: relative;
+        }
+        .lane {
+            flex: 1;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .lane:last-child {
+            border-right: none;
+        }
+        .hit-zone {
+            position: absolute;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: rgba(100, 255, 218, 0.1);
+            border-top: 2px solid rgba(100, 255, 218, 0.5);
+            border-bottom: 2px solid rgba(100, 255, 218, 0.5);
+        }
+        .tap-btn {
+            position: absolute;
+            bottom: 0;
+            left: 5%;
+            right: 5%;
+            height: 55px;
+            background: linear-gradient(180deg, rgba(100, 255, 218, 0.2) 0%, rgba(100, 255, 218, 0.05) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.1s;
+            user-select: none;
+        }
+        .tap-btn:active, .tap-btn.pressed {
+            background: linear-gradient(180deg, rgba(100, 255, 218, 0.5) 0%, rgba(100, 255, 218, 0.2) 100%);
+            transform: scale(0.95);
+        }
+        .note {
+            position: absolute;
+            width: 60%;
+            height: 30px;
+            left: 20%;
+            border-radius: 8px;
+            animation: fall linear;
+        }
+        @keyframes fall {
+            from { top: -30px; }
+            to { top: 100%; }
+        }
+        .note.lane-0 { background: linear-gradient(180deg, #ff6b6b, #ee5a5a); }
+        .note.lane-1 { background: linear-gradient(180deg, #ffd93d, #f4c430); }
+        .note.lane-2 { background: linear-gradient(180deg, #64ffda, #4dd8c0); }
+        .note.lane-3 { background: linear-gradient(180deg, #b388ff, #9c6eff); }
+        .feedback {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px currentColor;
+            animation: fadeUp 0.5s forwards;
+            pointer-events: none;
+        }
+        @keyframes fadeUp {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-30px); }
+        }
+        .feedback.perfect { color: #64ffda; }
+        .feedback.good { color: #ffd93d; }
+        .feedback.miss { color: #ff6b6b; }
+        .combo-display {
+            font-size: 1rem;
+            color: #ffd93d;
+            min-height: 25px;
+            margin: 5px 0;
+        }
+        .btn {
+            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        .game-over h2 {
+            font-size: 2rem;
+            color: #64ffda;
+            margin-bottom: 15px;
+        }
+        .final-score {
+            font-size: 3rem;
+            color: #ffd93d;
+            margin: 15px 0;
+        }
+        .accuracy {
+            font-size: 1.2rem;
+            color: #a0a0a0;
+            margin-bottom: 20px;
+        }
+        .song-progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin: 10px 0;
+        }
+        .song-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64ffda, #ffd93d);
+            border-radius: 2px;
+            transition: width 0.1s;
+        }
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .start-screen h2 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        .difficulty-btn {
+            margin: 5px;
+            padding: 10px 30px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Rhythm Tap</h1>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-value" id="score">0</div>
+            <div class="stat-label">Score</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="combo">0</div>
+            <div class="stat-label">Combo</div>
+        </div>
+        <div class="stat">
+            <div class="stat-value" id="accuracy">100%</div>
+            <div class="stat-label">Accuracy</div>
+        </div>
+    </div>
+
+    <div class="combo-display" id="comboDisplay"></div>
+
+    <div class="song-progress">
+        <div class="song-progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="game-container" id="gameContainer">
+        <div class="lanes">
+            <div class="lane" id="lane-0">
+                <div class="hit-zone"></div>
+                <div class="tap-btn" data-lane="0">⬅️</div>
+            </div>
+            <div class="lane" id="lane-1">
+                <div class="hit-zone"></div>
+                <div class="tap-btn" data-lane="1">⬆️</div>
+            </div>
+            <div class="lane" id="lane-2">
+                <div class="hit-zone"></div>
+                <div class="tap-btn" data-lane="2">⬇️</div>
+            </div>
+            <div class="lane" id="lane-3">
+                <div class="hit-zone"></div>
+                <div class="tap-btn" data-lane="3">➡️</div>
+            </div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <h2>Select Difficulty</h2>
+            <button class="btn difficulty-btn" onclick="startGame('easy')">Easy</button>
+            <button class="btn difficulty-btn" onclick="startGame('normal')">Normal</button>
+            <button class="btn difficulty-btn" onclick="startGame('hard')">Hard</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Song Complete!</h2>
+            <div class="final-score" id="finalScore">0</div>
+            <div class="accuracy" id="finalAccuracy">Accuracy: 100%</div>
+            <div id="perfectCount"></div>
+            <div id="goodCount"></div>
+            <div id="missCount"></div>
+            <button class="btn" onclick="showStartScreen()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let hits = { perfect: 0, good: 0, miss: 0 };
+        let totalNotes = 0;
+        let notesSpawned = 0;
+        let gameActive = false;
+        let difficulty = 'normal';
+        let noteInterval = null;
+        let gameStartTime = 0;
+        let gameDuration = 60000; // 60 seconds
+
+        const elements = {
+            score: document.getElementById('score'),
+            combo: document.getElementById('combo'),
+            accuracy: document.getElementById('accuracy'),
+            comboDisplay: document.getElementById('comboDisplay'),
+            progressFill: document.getElementById('progressFill'),
+            gameOver: document.getElementById('gameOver'),
+            startScreen: document.getElementById('startScreen'),
+            finalScore: document.getElementById('finalScore'),
+            finalAccuracy: document.getElementById('finalAccuracy'),
+            perfectCount: document.getElementById('perfectCount'),
+            goodCount: document.getElementById('goodCount'),
+            missCount: document.getElementById('missCount')
+        };
+
+        const settings = {
+            easy: { noteSpeed: 3000, spawnRate: 800, notes: 70 },
+            normal: { noteSpeed: 2000, spawnRate: 500, notes: 100 },
+            hard: { noteSpeed: 1500, spawnRate: 350, notes: 150 }
+        };
+
+        function updateDisplay() {
+            elements.score.textContent = score;
+            elements.combo.textContent = combo;
+
+            const total = hits.perfect + hits.good + hits.miss;
+            const acc = total > 0 ? Math.round(((hits.perfect + hits.good * 0.5) / total) * 100) : 100;
+            elements.accuracy.textContent = acc + '%';
+
+            if (combo >= 10) {
+                elements.comboDisplay.textContent = `🔥 ${combo} COMBO!`;
+            } else if (combo >= 5) {
+                elements.comboDisplay.textContent = `${combo} combo`;
+            } else {
+                elements.comboDisplay.textContent = '';
+            }
+        }
+
+        function showFeedback(lane, type, points) {
+            const laneEl = document.getElementById(`lane-${lane}`);
+            const feedback = document.createElement('div');
+            feedback.className = `feedback ${type}`;
+            feedback.textContent = type === 'perfect' ? `PERFECT +${points}` :
+                                   type === 'good' ? `GOOD +${points}` : 'MISS';
+            feedback.style.left = '50%';
+            feedback.style.bottom = '100px';
+            feedback.style.transform = 'translateX(-50%)';
+            laneEl.appendChild(feedback);
+            setTimeout(() => feedback.remove(), 500);
+        }
+
+        function spawnNote() {
+            if (!gameActive || notesSpawned >= settings[difficulty].notes) return;
+
+            const lane = Math.floor(Math.random() * 4);
+            const note = document.createElement('div');
+            note.className = `note lane-${lane}`;
+            note.dataset.lane = lane;
+            note.dataset.hit = 'false';
+            note.style.animationDuration = settings[difficulty].noteSpeed + 'ms';
+
+            document.getElementById(`lane-${lane}`).appendChild(note);
+            totalNotes++;
+            notesSpawned++;
+
+            // Remove note if not hit
+            setTimeout(() => {
+                if (note.dataset.hit === 'false' && note.parentElement) {
+                    hits.miss++;
+                    combo = 0;
+                    showFeedback(lane, 'miss', 0);
+                    updateDisplay();
+                    note.remove();
+                }
+            }, settings[difficulty].noteSpeed);
+
+            // Update progress
+            const progress = (notesSpawned / settings[difficulty].notes) * 100;
+            elements.progressFill.style.width = progress + '%';
+
+            // Check if song is complete
+            if (notesSpawned >= settings[difficulty].notes) {
+                setTimeout(endGame, settings[difficulty].noteSpeed + 500);
+            }
+        }
+
+        function hitNote(lane) {
+            const laneEl = document.getElementById(`lane-${lane}`);
+            const notes = laneEl.querySelectorAll('.note:not([data-hit="true"])');
+            const hitZoneTop = laneEl.offsetHeight - 100; // hit zone position
+            const hitZoneBottom = laneEl.offsetHeight - 60;
+
+            let closest = null;
+            let closestDist = Infinity;
+
+            notes.forEach(note => {
+                const rect = note.getBoundingClientRect();
+                const laneRect = laneEl.getBoundingClientRect();
+                const noteTop = rect.top - laneRect.top;
+                const noteCenter = noteTop + rect.height / 2;
+                const hitCenter = (hitZoneTop + hitZoneBottom) / 2;
+                const dist = Math.abs(noteCenter - hitCenter);
+
+                if (noteCenter >= hitZoneTop - 30 && noteCenter <= hitZoneBottom + 30) {
+                    if (dist < closestDist) {
+                        closest = note;
+                        closestDist = dist;
+                    }
+                }
+            });
+
+            if (closest) {
+                closest.dataset.hit = 'true';
+                closest.remove();
+
+                if (closestDist < 15) {
+                    // Perfect hit
+                    const points = 100 + combo * 10;
+                    score += points;
+                    combo++;
+                    hits.perfect++;
+                    showFeedback(lane, 'perfect', points);
+                } else {
+                    // Good hit
+                    const points = 50 + combo * 5;
+                    score += points;
+                    combo++;
+                    hits.good++;
+                    showFeedback(lane, 'good', points);
+                }
+
+                if (combo > maxCombo) maxCombo = combo;
+            }
+
+            updateDisplay();
+        }
+
+        function startGame(diff) {
+            difficulty = diff;
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            hits = { perfect: 0, good: 0, miss: 0 };
+            totalNotes = 0;
+            notesSpawned = 0;
+            gameActive = true;
+
+            elements.startScreen.style.display = 'none';
+            elements.gameOver.style.display = 'none';
+            elements.progressFill.style.width = '0%';
+
+            // Clear any existing notes
+            document.querySelectorAll('.note').forEach(n => n.remove());
+
+            updateDisplay();
+
+            // Start spawning notes
+            noteInterval = setInterval(spawnNote, settings[difficulty].spawnRate);
+            gameStartTime = Date.now();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(noteInterval);
+
+            const total = hits.perfect + hits.good + hits.miss;
+            const acc = total > 0 ? Math.round(((hits.perfect + hits.good * 0.5) / total) * 100) : 100;
+
+            elements.finalScore.textContent = score;
+            elements.finalAccuracy.textContent = `Accuracy: ${acc}%`;
+            elements.perfectCount.textContent = `Perfect: ${hits.perfect}`;
+            elements.goodCount.textContent = `Good: ${hits.good}`;
+            elements.missCount.textContent = `Miss: ${hits.miss}`;
+            elements.gameOver.style.display = 'block';
+        }
+
+        function showStartScreen() {
+            elements.startScreen.style.display = 'flex';
+            elements.gameOver.style.display = 'none';
+        }
+
+        // Touch and click handlers
+        document.querySelectorAll('.tap-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (!gameActive) return;
+                const lane = parseInt(btn.dataset.lane);
+                hitNote(lane);
+                btn.classList.add('pressed');
+                setTimeout(() => btn.classList.remove('pressed'), 100);
+            });
+
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (!gameActive) return;
+                const lane = parseInt(btn.dataset.lane);
+                hitNote(lane);
+                btn.classList.add('pressed');
+            });
+
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                btn.classList.remove('pressed');
+            });
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            let lane = -1;
+            switch (e.key.toLowerCase()) {
+                case 'a':
+                case 'arrowleft':
+                    lane = 0;
+                    break;
+                case 'w':
+                case 'arrowup':
+                    lane = 1;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    lane = 2;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    lane = 3;
+                    break;
+            }
+            if (lane >= 0) {
+                e.preventDefault();
+                hitNote(lane);
+                const btn = document.querySelector(`.tap-btn[data-lane="${lane}"]`);
+                btn.classList.add('pressed');
+                setTimeout(() => btn.classList.remove('pressed'), 100);
+            }
+        });
+    </script>
+</body>
+</html>

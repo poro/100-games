@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>054 - Word Chain 📝</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #64ffda;
+        }
+        .instructions {
+            color: #a0a0a0;
+            margin-bottom: 20px;
+            text-align: center;
+            max-width: 400px;
+        }
+        .game-container {
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            background: rgba(0,0,0,0.3);
+            padding: 15px 25px;
+            border-radius: 15px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        .stat-label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+        .current-word {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ffd93d;
+            background: rgba(0,0,0,0.4);
+            padding: 20px 40px;
+            border-radius: 15px;
+            margin: 20px 0;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+        }
+        .last-letter {
+            color: #ff6b6b;
+            font-size: 3.5rem;
+        }
+        .input-container {
+            margin: 20px 0;
+        }
+        #wordInput {
+            font-size: 1.5rem;
+            padding: 15px 20px;
+            width: 100%;
+            max-width: 300px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        #wordInput::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+        #wordInput:focus {
+            outline: none;
+            background: rgba(255,255,255,0.15);
+            box-shadow: 0 0 20px rgba(100, 255, 218, 0.3);
+        }
+        .message {
+            font-size: 1.2rem;
+            min-height: 30px;
+            margin: 15px 0;
+        }
+        .message.error {
+            color: #ff6b6b;
+        }
+        .message.success {
+            color: #64ffda;
+        }
+        .word-history {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0;
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .history-word {
+            background: rgba(100, 255, 218, 0.1);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #64ffda;
+        }
+        .timer {
+            font-size: 2.5rem;
+            color: #ffd93d;
+            font-weight: bold;
+        }
+        .timer.warning {
+            color: #ff9f43;
+            animation: pulse 0.5s infinite;
+        }
+        .timer.danger {
+            color: #ff6b6b;
+            animation: pulse 0.3s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .btn {
+            background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+        .game-over {
+            display: none;
+            background: rgba(0,0,0,0.5);
+            padding: 30px;
+            border-radius: 20px;
+            margin-top: 20px;
+        }
+        .game-over h2 {
+            font-size: 2rem;
+            color: #ff6b6b;
+            margin-bottom: 20px;
+        }
+        .final-score {
+            font-size: 3rem;
+            color: #64ffda;
+            margin: 20px 0;
+        }
+        .high-score {
+            color: #ffd93d;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📝 Word Chain</h1>
+    <p class="instructions">Type a word that starts with the last letter of the current word. Don't repeat words!</p>
+
+    <div class="game-container">
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="score">0</div>
+                <div class="stat-label">Score</div>
+            </div>
+            <div class="stat">
+                <div class="timer" id="timer">15</div>
+                <div class="stat-label">Time</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="chain">0</div>
+                <div class="stat-label">Chain</div>
+            </div>
+        </div>
+
+        <div class="current-word" id="currentWord">START</div>
+
+        <div class="input-container">
+            <input type="text" id="wordInput" placeholder="Type a word..." autocomplete="off" autocapitalize="none">
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="word-history" id="wordHistory"></div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <div class="final-score" id="finalScore">0</div>
+            <div class="high-score" id="highScore">High Score: 0</div>
+            <button class="btn" onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Word list (common English words, 3-8 letters)
+        const WORDS = [
+            "start", "apple", "eagle", "earth", "happy", "house", "image", "juice",
+            "knife", "lemon", "music", "night", "ocean", "peace", "queen", "river",
+            "snake", "table", "under", "video", "water", "youth", "zebra", "adapt",
+            "beach", "chair", "dance", "enjoy", "flame", "grape", "heart", "input",
+            "joint", "kiosk", "light", "mouse", "nurse", "olive", "plant", "quiet",
+            "radio", "smile", "trust", "unity", "value", "world", "extra", "young",
+            "above", "blend", "craft", "dream", "eight", "fresh", "grand", "humor",
+            "ideal", "judge", "karma", "learn", "match", "nerve", "opera", "print",
+            "quest", "reach", "share", "train", "urban", "voice", "wheat", "yield",
+            "angel", "blend", "crown", "depth", "event", "focus", "globe", "honor",
+            "issue", "jewel", "knock", "level", "minor", "noble", "ocean", "proof",
+            "quick", "rebel", "storm", "thing", "usual", "vital", "whale", "xenon",
+            "album", "brain", "cloud", "dwarf", "error", "fruit", "green", "hotel",
+            "index", "joker", "latte", "march", "north", "owner", "pizza", "quote",
+            "range", "skill", "tiger", "ultra", "virus", "witch", "laser", "arena",
+            "basic", "candy", "digit", "empty", "flame", "giant", "haste", "inbox",
+            "jelly", "kayak", "labor", "media", "novel", "orbit", "panel", "query",
+            "royal", "solar", "trend", "usage", "vivid", "waste", "yours", "zones"
+        ];
+
+        let currentWord = "";
+        let usedWords = new Set();
+        let score = 0;
+        let chain = 0;
+        let timeLeft = 15;
+        let timer = null;
+        let gameActive = false;
+        let highScore = parseInt(localStorage.getItem('wordChainHighScore')) || 0;
+
+        const elements = {
+            currentWord: document.getElementById('currentWord'),
+            wordInput: document.getElementById('wordInput'),
+            message: document.getElementById('message'),
+            wordHistory: document.getElementById('wordHistory'),
+            score: document.getElementById('score'),
+            chain: document.getElementById('chain'),
+            timer: document.getElementById('timer'),
+            gameOver: document.getElementById('gameOver'),
+            finalScore: document.getElementById('finalScore'),
+            highScore: document.getElementById('highScore')
+        };
+
+        function getRandomWord() {
+            const available = WORDS.filter(w => !usedWords.has(w.toLowerCase()));
+            if (available.length === 0) return WORDS[Math.floor(Math.random() * WORDS.length)];
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        function isValidWord(word) {
+            // Check if it's a real word (in our list or at least 3 letters)
+            word = word.toLowerCase();
+            return word.length >= 3 && /^[a-z]+$/.test(word);
+        }
+
+        function updateDisplay() {
+            elements.score.textContent = score;
+            elements.chain.textContent = chain;
+            elements.timer.textContent = timeLeft;
+
+            // Timer color
+            elements.timer.className = 'timer';
+            if (timeLeft <= 5) elements.timer.classList.add('danger');
+            else if (timeLeft <= 10) elements.timer.classList.add('warning');
+
+            // Current word with highlighted last letter
+            const word = currentWord.toUpperCase();
+            const lastLetter = word.slice(-1);
+            const rest = word.slice(0, -1);
+            elements.currentWord.innerHTML = rest + `<span class="last-letter">${lastLetter}</span>`;
+        }
+
+        function showMessage(text, type) {
+            elements.message.textContent = text;
+            elements.message.className = 'message ' + type;
+            setTimeout(() => {
+                elements.message.textContent = '';
+                elements.message.className = 'message';
+            }, 2000);
+        }
+
+        function addToHistory(word) {
+            const el = document.createElement('span');
+            el.className = 'history-word';
+            el.textContent = word;
+            elements.wordHistory.appendChild(el);
+            elements.wordHistory.scrollTop = elements.wordHistory.scrollHeight;
+        }
+
+        function submitWord() {
+            if (!gameActive) return;
+
+            const word = elements.wordInput.value.trim().toLowerCase();
+            elements.wordInput.value = '';
+
+            if (!word) return;
+
+            // Check if word starts with correct letter
+            const requiredLetter = currentWord.slice(-1).toLowerCase();
+            if (word[0] !== requiredLetter) {
+                showMessage(`Word must start with "${requiredLetter.toUpperCase()}"`, 'error');
+                chain = 0;
+                updateDisplay();
+                return;
+            }
+
+            // Check if already used
+            if (usedWords.has(word)) {
+                showMessage("You already used that word!", 'error');
+                chain = 0;
+                updateDisplay();
+                return;
+            }
+
+            // Check if valid word
+            if (!isValidWord(word)) {
+                showMessage("Not a valid word!", 'error');
+                chain = 0;
+                updateDisplay();
+                return;
+            }
+
+            // Success!
+            usedWords.add(word);
+            addToHistory(word);
+            currentWord = word;
+            chain++;
+
+            // Score: base points + chain bonus + length bonus
+            const points = 10 + (chain * 5) + (word.length * 2);
+            score += points;
+
+            showMessage(`+${points} points!`, 'success');
+
+            // Reset timer (bonus time for longer words)
+            timeLeft = Math.min(20, 10 + Math.floor(word.length / 2));
+
+            updateDisplay();
+        }
+
+        function gameLoop() {
+            timeLeft--;
+            updateDisplay();
+
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timer);
+            elements.wordInput.disabled = true;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('wordChainHighScore', highScore);
+            }
+
+            elements.finalScore.textContent = score;
+            elements.highScore.textContent = `High Score: ${highScore}`;
+            elements.gameOver.style.display = 'block';
+        }
+
+        function startGame() {
+            // Reset state
+            score = 0;
+            chain = 0;
+            timeLeft = 15;
+            usedWords.clear();
+            gameActive = true;
+
+            // Get starting word
+            currentWord = getRandomWord();
+            usedWords.add(currentWord.toLowerCase());
+
+            // Clear UI
+            elements.wordHistory.innerHTML = '';
+            elements.gameOver.style.display = 'none';
+            elements.wordInput.disabled = false;
+            elements.wordInput.value = '';
+            elements.wordInput.focus();
+            elements.message.textContent = '';
+
+            addToHistory(currentWord);
+            updateDisplay();
+
+            // Start timer
+            clearInterval(timer);
+            timer = setInterval(gameLoop, 1000);
+        }
+
+        // Event listeners
+        elements.wordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitWord();
+            }
+        });
+
+        // Start on load
+        startGame();
+    </script>
+</body>
+</html>
