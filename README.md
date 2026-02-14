@@ -4,7 +4,7 @@ One browser game per day, created entirely with AI assistance.
 
 **Tech Stack:** HTML5 Canvas + Vanilla JavaScript (no dependencies)
 
-## Games (27/100)
+## Games (36/100)
 
 | # | Game | Description | Play |
 |---|------|-------------|------|
@@ -35,6 +35,16 @@ One browser game per day, created entirely with AI assistance.
 | 025 | [Tower Defense Lite](./025-tower-defense-lite) | 3 tower types, 10 waves | ✅ |
 | 026 | [Duck Hunt](./026-duck-hunt) | Shoot flying ducks with sound effects | ✅ |
 | 027 | [Zombie Wave](./027-zombie-wave) | Survive waves of zombies | ✅ |
+| 028 | [Flappy Bird](./028-flappy-bird) | Tap to fly through pipes | ✅ |
+| 029 | [Tetris](./029-tetris) | Classic block stacking | ✅ |
+| 030 | [Memory Match](./030-memory-match) | Card matching memory game | ✅ |
+| 031 | [2048](./031-2048) | Slide tiles to combine numbers | ✅ |
+| 054 | [Word Chain](./054-word-chain) | Build words from letter chains | ✅ |
+| 055 | [Reaction Time](./055-reaction-time) | Test your reflexes | ✅ |
+| 056 | [Rhythm Tap](./056-rhythm-tap) | Tap to the beat | ✅ |
+| 057 | [Minesweeper](./057-minesweeper) | Classic mine-sweeping logic puzzle | ✅ |
+| 058 | [Tic-Tac-Toe AI](./058-tic-tac-toe-ai) | Play against unbeatable AI (minimax) | ✅ |
+| 059 | [Brick Fall](./059-brick-fall) | Stack falling bricks perfectly | ✅ |
 
 ## Features
 

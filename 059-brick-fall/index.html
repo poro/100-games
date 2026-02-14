@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>059 - Brick Fall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            position: relative;
+            touch-action: none;
+        }
+        
+        canvas {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(100, 255, 218, 0.2);
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+        
+        .overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .overlay h2 {
+            color: #64ffda;
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        
+        .overlay p {
+            color: #fff;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+        
+        .overlay .score-display {
+            color: #ffd93d;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+        }
+        
+        .overlay button {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #64ffda, #4fd1c5);
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .overlay button:hover {
+            transform: scale(1.05);
+        }
+        
+        .instructions {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9em;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            font-size: 1.2em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="canvas"></canvas>
+        <div class="hud">
+            <div>Score: <span id="score">0</span></div>
+            <div>Level: <span id="level">1</span></div>
+            <div>High: <span id="highScore">0</span></div>
+        </div>
+        <div class="overlay" id="overlay">
+            <h2 id="overlayTitle">Brick Fall</h2>
+            <p id="overlaySubtitle">Stack the falling bricks!</p>
+            <div class="score-display" id="overlayScore"></div>
+            <button id="startBtn">Play</button>
+            <p class="instructions">Tap or Space to drop brick<br>Stack them perfectly!</p>
+        </div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive sizing
+        const maxWidth = Math.min(400, window.innerWidth - 40);
+        const maxHeight = Math.min(600, window.innerHeight - 40);
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+        
+        const BRICK_HEIGHT = 30;
+        const INITIAL_WIDTH = 200;
+        const MIN_WIDTH = 20;
+        const SPEED_INITIAL = 3;
+        const SPEED_INCREMENT = 0.2;
+        const COLORS = [
+            '#64ffda', '#ff6b6b', '#ffd93d', '#a78bfa', 
+            '#34d399', '#f472b6', '#60a5fa', '#fbbf24'
+        ];
+        
+        let stack = [];
+        let currentBrick = null;
+        let score = 0;
+        let level = 1;
+        let highScore = parseInt(localStorage.getItem('brickfall-high')) || 0;
+        let gameRunning = false;
+        let speed = SPEED_INITIAL;
+        let direction = 1;
+        
+        const overlay = document.getElementById('overlay');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+        const highScoreEl = document.getElementById('highScore');
+        
+        highScoreEl.textContent = highScore;
+        
+        function getColor(index) {
+            return COLORS[index % COLORS.length];
+        }
+        
+        function initGame() {
+            stack = [];
+            score = 0;
+            level = 1;
+            speed = SPEED_INITIAL;
+            scoreEl.textContent = '0';
+            levelEl.textContent = '1';
+            
+            // Base brick
+            const baseWidth = INITIAL_WIDTH;
+            stack.push({
+                x: (canvas.width - baseWidth) / 2,
+                y: canvas.height - BRICK_HEIGHT,
+                width: baseWidth,
+                color: getColor(0)
+            });
+            
+            spawnBrick();
+        }
+        
+        function spawnBrick() {
+            const topBrick = stack[stack.length - 1];
+            const width = topBrick.width;
+            
+            // New brick starts from left or right
+            direction = Math.random() < 0.5 ? 1 : -1;
+            const startX = direction === 1 ? -width : canvas.width;
+            
+            currentBrick = {
+                x: startX,
+                y: topBrick.y - BRICK_HEIGHT,
+                width: width,
+                color: getColor(stack.length)
+            };
+        }
+        
+        function dropBrick() {
+            if (!currentBrick || !gameRunning) return;
+            
+            const topBrick = stack[stack.length - 1];
+            const current = currentBrick;
+            
+            // Calculate overlap
+            const overlapStart = Math.max(current.x, topBrick.x);
+            const overlapEnd = Math.min(current.x + current.width, topBrick.x + topBrick.width);
+            const overlapWidth = overlapEnd - overlapStart;
+            
+            if (overlapWidth <= 0) {
+                // Missed completely
+                gameOver();
+                return;
+            }
+            
+            // Perfect placement bonus
+            const isPerfect = Math.abs(current.x - topBrick.x) < 5;
+            
+            if (isPerfect) {
+                // Perfect stack - keep full width
+                stack.push({
+                    x: topBrick.x,
+                    y: current.y,
+                    width: topBrick.width,
+                    color: current.color
+                });
+                score += 20;
+                createParticles(topBrick.x + topBrick.width/2, current.y, '#ffd93d');
+            } else {
+                // Partial stack
+                stack.push({
+                    x: overlapStart,
+                    y: current.y,
+                    width: overlapWidth,
+                    color: current.color
+                });
+                score += 10;
+            }
+            
+            scoreEl.textContent = score;
+            
+            // Level up every 5 bricks
+            if (stack.length % 5 === 0) {
+                level++;
+                levelEl.textContent = level;
+                speed += SPEED_INCREMENT;
+            }
+            
+            // Check if brick is too small
+            if (overlapWidth < MIN_WIDTH) {
+                gameOver();
+                return;
+            }
+            
+            // Scroll view up if needed
+            if (current.y < canvas.height * 0.4) {
+                const scrollAmount = BRICK_HEIGHT * 2;
+                stack.forEach(brick => brick.y += scrollAmount);
+            }
+            
+            spawnBrick();
+        }
+        
+        let particles = [];
+        
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    life: 30,
+                    color
+                });
+            }
+        }
+        
+        function updateParticles() {
+            particles = particles.filter(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                return p.life > 0;
+            });
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('brickfall-high', highScore);
+                highScoreEl.textContent = highScore;
+            }
+            
+            document.getElementById('overlayTitle').textContent = 'Game Over';
+            document.getElementById('overlaySubtitle').textContent = 'Nice stacking!';
+            document.getElementById('overlayScore').textContent = `Score: ${score}`;
+            document.getElementById('startBtn').textContent = 'Play Again';
+            overlay.classList.remove('hidden');
+        }
+        
+        function update() {
+            if (!gameRunning || !currentBrick) return;
+            
+            currentBrick.x += speed * direction;
+            
+            // Bounce off walls
+            if (currentBrick.x + currentBrick.width > canvas.width) {
+                currentBrick.x = canvas.width - currentBrick.width;
+                direction = -1;
+            }
+            if (currentBrick.x < 0) {
+                currentBrick.x = 0;
+                direction = 1;
+            }
+            
+            updateParticles();
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(100, 255, 218, 0.05)';
+            ctx.lineWidth = 1;
+            for (let y = 0; y < canvas.height; y += BRICK_HEIGHT) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw stacked bricks
+            stack.forEach((brick, i) => {
+                const gradient = ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + BRICK_HEIGHT);
+                gradient.addColorStop(0, brick.color);
+                gradient.addColorStop(1, shadeColor(brick.color, -20));
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(brick.x, brick.y, brick.width, BRICK_HEIGHT);
+                
+                // Brick outline
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(brick.x, brick.y, brick.width, BRICK_HEIGHT);
+            });
+            
+            // Draw current brick
+            if (currentBrick) {
+                const gradient = ctx.createLinearGradient(currentBrick.x, currentBrick.y, currentBrick.x, currentBrick.y + BRICK_HEIGHT);
+                gradient.addColorStop(0, currentBrick.color);
+                gradient.addColorStop(1, shadeColor(currentBrick.color, -20));
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(currentBrick.x, currentBrick.y, currentBrick.width, BRICK_HEIGHT);
+                
+                // Glow effect for current brick
+                ctx.shadowColor = currentBrick.color;
+                ctx.shadowBlur = 15;
+                ctx.strokeStyle = currentBrick.color;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(currentBrick.x, currentBrick.y, currentBrick.width, BRICK_HEIGHT);
+                ctx.shadowBlur = 0;
+            }
+            
+            // Draw particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+            });
+            ctx.globalAlpha = 1;
+        }
+        
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = Math.min(255, Math.max(0, (num >> 16) + amt));
+            const G = Math.min(255, Math.max(0, (num >> 8 & 0x00FF) + amt));
+            const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
+            return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+        }
+        
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame() {
+            overlay.classList.add('hidden');
+            initGame();
+            gameRunning = true;
+        }
+        
+        // Controls
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+                if (!gameRunning && overlay.classList.contains('hidden') === false) {
+                    startGame();
+                } else {
+                    dropBrick();
+                }
+            }
+        });
+        
+        canvas.addEventListener('click', dropBrick);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            dropBrick();
+        });
+        
+        // Start game loop
+        gameLoop();
+    </script>
+</body>
+</html>
