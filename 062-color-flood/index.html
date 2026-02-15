@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>062 - Color Flood</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        h1 {
+            color: #64ffda;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .info span {
+            color: #ffd93d;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .board {
+            display: grid;
+            gap: 1px;
+            background: #16213e;
+            padding: 5px;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(100, 255, 218, 0.2);
+        }
+        
+        .cell {
+            width: 24px;
+            height: 24px;
+            border-radius: 3px;
+            transition: background-color 0.15s ease;
+        }
+        
+        .cell.captured {
+            box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.3);
+        }
+        
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .color-btn {
+            width: 50px;
+            height: 50px;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .color-btn:hover {
+            transform: scale(1.1);
+            border-color: white;
+        }
+        
+        .color-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .color-btn.current {
+            border-color: #64ffda;
+            box-shadow: 0 0 15px rgba(100, 255, 218, 0.5);
+        }
+        
+        .message {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+        
+        .message.win {
+            color: #64ffda;
+        }
+        
+        .message.lose {
+            color: #ff6b6b;
+        }
+        
+        .stats {
+            color: #888;
+            font-size: 1em;
+        }
+        
+        .stats span {
+            color: #ffd93d;
+        }
+        
+        .new-game {
+            padding: 12px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #64ffda, #4fd1c5);
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+        
+        .new-game:hover {
+            transform: scale(1.05);
+        }
+        
+        .instructions {
+            color: #888;
+            font-size: 0.9em;
+            text-align: center;
+            max-width: 350px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 400px) {
+            .cell {
+                width: 20px;
+                height: 20px;
+            }
+            .color-btn {
+                width: 40px;
+                height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Color Flood</h1>
+    
+    <div class="info">
+        Moves: <span id="moves">0</span> / <span id="maxMoves">25</span> | 
+        Captured: <span id="captured">0</span>%
+    </div>
+    
+    <div class="game-container">
+        <div class="board" id="board"></div>
+        
+        <div class="color-picker" id="colorPicker"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="stats">
+            Best: <span id="best">-</span> moves | 
+            Wins: <span id="wins">0</span>
+        </div>
+        
+        <button class="new-game" id="newGame">New Game</button>
+        
+        <p class="instructions">
+            Flood the board with one color! Start from the top-left corner and 
+            expand by picking colors. Fill the entire board in 25 moves or less!
+        </p>
+    </div>
+    
+    <script>
+        const COLORS = [
+            '#ff6b6b', // Red
+            '#ffd93d', // Yellow
+            '#6bcb77', // Green
+            '#4d96ff', // Blue
+            '#c44dff', // Purple
+            '#ff9f43'  // Orange
+        ];
+        
+        const GRID_SIZE = 14;
+        const MAX_MOVES = 25;
+        
+        let grid = [];
+        let moves = 0;
+        let gameOver = false;
+        let captured = new Set();
+        
+        // Stats
+        let best = parseInt(localStorage.getItem('flood-best') || '0');
+        let wins = parseInt(localStorage.getItem('flood-wins') || '0');
+        
+        const boardEl = document.getElementById('board');
+        const colorPicker = document.getElementById('colorPicker');
+        const messageEl = document.getElementById('message');
+        const newGameBtn = document.getElementById('newGame');
+        
+        function init() {
+            grid = [];
+            moves = 0;
+            gameOver = false;
+            captured = new Set();
+            
+            // Generate random grid
+            for (let y = 0; y < GRID_SIZE; y++) {
+                grid[y] = [];
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    grid[y][x] = Math.floor(Math.random() * COLORS.length);
+                }
+            }
+            
+            // Initialize captured from top-left
+            floodFill(0, 0, grid[0][0], new Set());
+            
+            createBoard();
+            createColorPicker();
+            updateUI();
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+        }
+        
+        function createBoard() {
+            boardEl.innerHTML = '';
+            boardEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+            
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${x}-${y}`;
+                    cell.style.backgroundColor = COLORS[grid[y][x]];
+                    boardEl.appendChild(cell);
+                }
+            }
+            
+            updateCapturedVisuals();
+        }
+        
+        function createColorPicker() {
+            colorPicker.innerHTML = '';
+            for (let i = 0; i < COLORS.length; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'color-btn';
+                btn.style.backgroundColor = COLORS[i];
+                btn.onclick = () => pickColor(i);
+                if (i === grid[0][0]) {
+                    btn.classList.add('current');
+                }
+                colorPicker.appendChild(btn);
+            }
+        }
+        
+        function pickColor(colorIndex) {
+            if (gameOver) return;
+            
+            const currentColor = grid[0][0];
+            if (colorIndex === currentColor) return; // Same color, no change
+            
+            moves++;
+            
+            // Change all captured cells to new color
+            for (const key of captured) {
+                const [x, y] = key.split(',').map(Number);
+                grid[y][x] = colorIndex;
+            }
+            
+            // Flood fill to capture new cells
+            const newCaptured = new Set(captured);
+            for (const key of captured) {
+                const [x, y] = key.split(',').map(Number);
+                floodFillExpand(x, y, colorIndex, newCaptured);
+            }
+            captured = newCaptured;
+            
+            // Update visuals
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.getElementById(`cell-${x}-${y}`);
+                    cell.style.backgroundColor = COLORS[grid[y][x]];
+                }
+            }
+            
+            updateCapturedVisuals();
+            updateUI();
+            
+            // Update current color indicator
+            const buttons = colorPicker.children;
+            for (let i = 0; i < buttons.length; i++) {
+                buttons[i].classList.toggle('current', i === colorIndex);
+            }
+            
+            checkGameState();
+        }
+        
+        function floodFill(x, y, targetColor, visited) {
+            const key = `${x},${y}`;
+            if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+            if (visited.has(key)) return;
+            if (grid[y][x] !== targetColor) return;
+            
+            visited.add(key);
+            captured.add(key);
+            
+            floodFill(x + 1, y, targetColor, visited);
+            floodFill(x - 1, y, targetColor, visited);
+            floodFill(x, y + 1, targetColor, visited);
+            floodFill(x, y - 1, targetColor, visited);
+        }
+        
+        function floodFillExpand(x, y, targetColor, newCaptured) {
+            const neighbors = [
+                [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]
+            ];
+            
+            for (const [nx, ny] of neighbors) {
+                const key = `${nx},${ny}`;
+                if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) continue;
+                if (newCaptured.has(key)) continue;
+                if (grid[ny][nx] !== targetColor) continue;
+                
+                newCaptured.add(key);
+                floodFillExpand(nx, ny, targetColor, newCaptured);
+            }
+        }
+        
+        function updateCapturedVisuals() {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const cell = document.getElementById(`cell-${x}-${y}`);
+                    cell.classList.toggle('captured', captured.has(`${x},${y}`));
+                }
+            }
+        }
+        
+        function updateUI() {
+            const totalCells = GRID_SIZE * GRID_SIZE;
+            const percentage = Math.round((captured.size / totalCells) * 100);
+            
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('maxMoves').textContent = MAX_MOVES;
+            document.getElementById('captured').textContent = percentage;
+            document.getElementById('best').textContent = best > 0 ? best : '-';
+            document.getElementById('wins').textContent = wins;
+        }
+        
+        function checkGameState() {
+            const totalCells = GRID_SIZE * GRID_SIZE;
+            
+            if (captured.size === totalCells) {
+                // Won!
+                gameOver = true;
+                wins++;
+                if (best === 0 || moves < best) {
+                    best = moves;
+                }
+                localStorage.setItem('flood-wins', wins);
+                localStorage.setItem('flood-best', best);
+                updateUI();
+                
+                messageEl.textContent = `🎉 You won in ${moves} moves!`;
+                messageEl.className = 'message win';
+            } else if (moves >= MAX_MOVES) {
+                // Lost
+                gameOver = true;
+                messageEl.textContent = `Game Over! ${Math.round((captured.size / totalCells) * 100)}% captured`;
+                messageEl.className = 'message lose';
+            }
+        }
+        
+        newGameBtn.onclick = init;
+        
+        init();
+    </script>
+</body>
+</html>

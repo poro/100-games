@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>061 - Hangman</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+        
+        h1 {
+            color: #64ffda;
+            font-size: 2em;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .hangman-drawing {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 0 30px rgba(100, 255, 218, 0.2);
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        .word-display {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .letter-slot {
+            width: 40px;
+            height: 50px;
+            border-bottom: 3px solid #64ffda;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .letter-slot.revealed {
+            color: #64ffda;
+            animation: reveal 0.3s ease;
+        }
+        
+        @keyframes reveal {
+            0% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        
+        .category {
+            color: #888;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .category span {
+            color: #ffd93d;
+        }
+        
+        .keyboard {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            max-width: 400px;
+        }
+        
+        .key {
+            width: 36px;
+            height: 44px;
+            border: none;
+            border-radius: 8px;
+            background: #818384;
+            color: white;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+        
+        .key:hover:not(.used) {
+            background: #64ffda;
+            color: #1a1a2e;
+            transform: scale(1.1);
+        }
+        
+        .key.correct {
+            background: #538d4e;
+            cursor: default;
+        }
+        
+        .key.wrong {
+            background: #ff6b6b;
+            cursor: default;
+            opacity: 0.5;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 30px;
+            font-size: 1em;
+            color: #888;
+        }
+        
+        .stats span {
+            color: #ffd93d;
+        }
+        
+        .message {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+        
+        .message.win {
+            color: #64ffda;
+        }
+        
+        .message.lose {
+            color: #ff6b6b;
+        }
+        
+        .new-game {
+            padding: 12px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #64ffda, #4fd1c5);
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: transform 0.2s;
+            display: none;
+        }
+        
+        .new-game:hover {
+            transform: scale(1.05);
+        }
+        
+        .new-game.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>🪢 Hangman</h1>
+    
+    <div class="game-container">
+        <div class="stats">
+            Wins: <span id="wins">0</span> | 
+            Games: <span id="games">0</span>
+        </div>
+        
+        <div class="hangman-drawing">
+            <canvas id="hangmanCanvas" width="200" height="220"></canvas>
+        </div>
+        
+        <div class="category">Category: <span id="category"></span></div>
+        
+        <div class="word-display" id="wordDisplay"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="keyboard" id="keyboard"></div>
+        
+        <button class="new-game" id="newGame">Play Again</button>
+    </div>
+    
+    <script>
+        const WORDS = {
+            'Animals': ['elephant', 'giraffe', 'penguin', 'dolphin', 'kangaroo', 'butterfly', 'crocodile', 'flamingo'],
+            'Countries': ['australia', 'brazil', 'canada', 'germany', 'iceland', 'japan', 'mexico', 'portugal'],
+            'Foods': ['chocolate', 'hamburger', 'spaghetti', 'pancakes', 'croissant', 'avocado', 'pineapple'],
+            'Movies': ['titanic', 'avatar', 'inception', 'gladiator', 'jurassic', 'frozen', 'matrix'],
+            'Sports': ['basketball', 'football', 'swimming', 'tennis', 'baseball', 'volleyball', 'gymnastics']
+        };
+        
+        const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+        const MAX_WRONG = 6;
+        
+        let category = '';
+        let word = '';
+        let guessed = new Set();
+        let wrongGuesses = 0;
+        let gameOver = false;
+        
+        // Stats
+        let wins = parseInt(localStorage.getItem('hangman-wins') || '0');
+        let games = parseInt(localStorage.getItem('hangman-games') || '0');
+        
+        const canvas = document.getElementById('hangmanCanvas');
+        const ctx = canvas.getContext('2d');
+        const wordDisplay = document.getElementById('wordDisplay');
+        const keyboard = document.getElementById('keyboard');
+        const messageEl = document.getElementById('message');
+        const newGameBtn = document.getElementById('newGame');
+        const categoryEl = document.getElementById('category');
+        
+        function init() {
+            // Pick random category and word
+            const categories = Object.keys(WORDS);
+            category = categories[Math.floor(Math.random() * categories.length)];
+            word = WORDS[category][Math.floor(Math.random() * WORDS[category].length)];
+            
+            guessed = new Set();
+            wrongGuesses = 0;
+            gameOver = false;
+            
+            categoryEl.textContent = category;
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            newGameBtn.classList.remove('visible');
+            
+            drawGallows();
+            createWordDisplay();
+            createKeyboard();
+            updateStats();
+        }
+        
+        function drawGallows() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#64ffda';
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            
+            // Base
+            ctx.beginPath();
+            ctx.moveTo(20, 200);
+            ctx.lineTo(100, 200);
+            ctx.stroke();
+            
+            // Pole
+            ctx.beginPath();
+            ctx.moveTo(60, 200);
+            ctx.lineTo(60, 20);
+            ctx.stroke();
+            
+            // Top
+            ctx.beginPath();
+            ctx.moveTo(60, 20);
+            ctx.lineTo(140, 20);
+            ctx.stroke();
+            
+            // Rope
+            ctx.beginPath();
+            ctx.moveTo(140, 20);
+            ctx.lineTo(140, 40);
+            ctx.stroke();
+        }
+        
+        function drawHangman(part) {
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.fillStyle = '#ff6b6b';
+            ctx.lineWidth = 3;
+            
+            switch(part) {
+                case 1: // Head
+                    ctx.beginPath();
+                    ctx.arc(140, 55, 15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    break;
+                case 2: // Body
+                    ctx.beginPath();
+                    ctx.moveTo(140, 70);
+                    ctx.lineTo(140, 120);
+                    ctx.stroke();
+                    break;
+                case 3: // Left arm
+                    ctx.beginPath();
+                    ctx.moveTo(140, 80);
+                    ctx.lineTo(115, 100);
+                    ctx.stroke();
+                    break;
+                case 4: // Right arm
+                    ctx.beginPath();
+                    ctx.moveTo(140, 80);
+                    ctx.lineTo(165, 100);
+                    ctx.stroke();
+                    break;
+                case 5: // Left leg
+                    ctx.beginPath();
+                    ctx.moveTo(140, 120);
+                    ctx.lineTo(115, 155);
+                    ctx.stroke();
+                    break;
+                case 6: // Right leg
+                    ctx.beginPath();
+                    ctx.moveTo(140, 120);
+                    ctx.lineTo(165, 155);
+                    ctx.stroke();
+                    break;
+            }
+        }
+        
+        function createWordDisplay() {
+            wordDisplay.innerHTML = '';
+            for (const letter of word) {
+                const slot = document.createElement('div');
+                slot.className = 'letter-slot';
+                slot.id = `slot-${letter}-${wordDisplay.children.length}`;
+                wordDisplay.appendChild(slot);
+            }
+        }
+        
+        function createKeyboard() {
+            keyboard.innerHTML = '';
+            for (const letter of LETTERS) {
+                const key = document.createElement('button');
+                key.className = 'key';
+                key.textContent = letter;
+                key.id = `key-${letter}`;
+                key.onclick = () => guessLetter(letter);
+                keyboard.appendChild(key);
+            }
+        }
+        
+        function guessLetter(letter) {
+            if (gameOver || guessed.has(letter)) return;
+            
+            guessed.add(letter);
+            const keyEl = document.getElementById(`key-${letter}`);
+            keyEl.classList.add('used');
+            
+            if (word.includes(letter)) {
+                keyEl.classList.add('correct');
+                revealLetter(letter);
+                checkWin();
+            } else {
+                keyEl.classList.add('wrong');
+                wrongGuesses++;
+                drawHangman(wrongGuesses);
+                checkLose();
+            }
+        }
+        
+        function revealLetter(letter) {
+            let index = 0;
+            for (const char of word) {
+                if (char === letter) {
+                    const slot = document.getElementById(`slot-${letter}-${index}`);
+                    slot.textContent = letter;
+                    slot.classList.add('revealed');
+                }
+                index++;
+            }
+        }
+        
+        function checkWin() {
+            const allRevealed = word.split('').every(letter => guessed.has(letter));
+            if (allRevealed) {
+                wins++;
+                games++;
+                localStorage.setItem('hangman-wins', wins);
+                localStorage.setItem('hangman-games', games);
+                updateStats();
+                messageEl.textContent = '🎉 You Won!';
+                messageEl.className = 'message win';
+                gameOver = true;
+                newGameBtn.classList.add('visible');
+            }
+        }
+        
+        function checkLose() {
+            if (wrongGuesses >= MAX_WRONG) {
+                games++;
+                localStorage.setItem('hangman-games', games);
+                updateStats();
+                
+                // Reveal the word
+                let index = 0;
+                for (const char of word) {
+                    const slot = document.getElementById(`slot-${char}-${index}`);
+                    slot.textContent = char;
+                    slot.classList.add('revealed');
+                    index++;
+                }
+                
+                messageEl.textContent = `Game Over! The word was: ${word.toUpperCase()}`;
+                messageEl.className = 'message lose';
+                gameOver = true;
+                newGameBtn.classList.add('visible');
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('wins').textContent = wins;
+            document.getElementById('games').textContent = games;
+        }
+        
+        // Physical keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (/^[a-zA-Z]$/.test(e.key)) {
+                guessLetter(e.key.toLowerCase());
+            }
+        });
+        
+        newGameBtn.onclick = init;
+        
+        init();
+    </script>
+</body>
+</html>
