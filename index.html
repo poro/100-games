@@ -113,12 +113,24 @@
         
         .game-category {
             display: inline-block;
-            background: rgba(255,255,255,0.1);
-            padding: 5px 12px;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 0.8rem;
-            color: #a0a0a0;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            color: #fff;
+            background: rgba(233, 69, 96, 0.3);
+            border: 1px solid rgba(233, 69, 96, 0.4);
         }
+        .game-card[data-category="clicker"] .game-category { background: rgba(255, 165, 0, 0.25); border-color: rgba(255, 165, 0, 0.4); color: #ffb347; }
+        .game-card[data-category="reflex"] .game-category { background: rgba(255, 255, 0, 0.15); border-color: rgba(255, 255, 0, 0.3); color: #ffe066; }
+        .game-card[data-category="puzzle"] .game-category { background: rgba(0, 200, 255, 0.2); border-color: rgba(0, 200, 255, 0.35); color: #5cd9ef; }
+        .game-card[data-category="arcade"] .game-category { background: rgba(150, 0, 255, 0.2); border-color: rgba(150, 0, 255, 0.35); color: #c084fc; }
+        .game-card[data-category="physics"] .game-category { background: rgba(0, 200, 100, 0.2); border-color: rgba(0, 200, 100, 0.35); color: #6ee7a0; }
+        .game-card[data-category="shooter"] .game-category { background: rgba(255, 50, 50, 0.2); border-color: rgba(255, 50, 50, 0.35); color: #ff6b6b; }
+        .game-card[data-category="word"] .game-category { background: rgba(0, 150, 255, 0.2); border-color: rgba(0, 150, 255, 0.35); color: #60a5fa; }
+        .game-card[data-category="board"] .game-category { background: rgba(200, 150, 50, 0.2); border-color: rgba(200, 150, 50, 0.35); color: #f0c040; }
         
         .category-filter {
             display: flex;
@@ -162,9 +174,24 @@
         <h1>🎮 100 Games Arcade</h1>
         <p class="subtitle">Browser games, pure JavaScript, zero dependencies</p>
         <div class="progress-bar">
-            <div class="progress-fill">31 / 100</div>
+            <div class="progress-fill" style="width: 37%;">37 / 100</div>
         </div>
     </header>
+    
+    <div style="text-align: center; padding: 20px 20px 0;">
+        <input type="text" id="searchInput" placeholder="🔍 Search games..." style="
+            background: rgba(255,255,255,0.08);
+            border: 2px solid rgba(255,255,255,0.15);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1rem;
+            width: 100%;
+            max-width: 400px;
+            outline: none;
+            transition: border-color 0.3s;
+        " onfocus="this.style.borderColor='#e94560'" onblur="this.style.borderColor='rgba(255,255,255,0.15)'">
+    </div>
     
     <div class="category-filter">
         <a href="tutorials/" class="filter-btn" style="background: #4ecdc4; color: #1a1a2e;">📚 Tutorials</a>
@@ -175,6 +202,8 @@
         <button class="filter-btn" data-category="arcade">👾 Arcade</button>
         <button class="filter-btn" data-category="physics">🎱 Physics</button>
         <button class="filter-btn" data-category="shooter">🔫 Shooter</button>
+        <button class="filter-btn" data-category="word">📝 Word</button>
+        <button class="filter-btn" data-category="board">♟️ Board</button>
     </div>
     
     <div class="games-grid" id="gamesGrid">
@@ -182,7 +211,7 @@
     </div>
     
     <footer>
-        Made with ❤️ and Claude • <span id="gameCount">27</span> games and counting!
+        Made with ❤️ and Claude • <span id="gameCount">37</span> games and counting!
     </footer>
 
     <script>
@@ -218,11 +247,24 @@
             { num: "029", name: "Tetris", emoji: "🧱", category: "puzzle", folder: "029-tetris" },
             { num: "030", name: "Memory Match", emoji: "🧠", category: "puzzle", folder: "030-memory-match" },
             { num: "031", name: "2048", emoji: "🔢", category: "puzzle", folder: "031-2048" },
+            { num: "060", name: "Wordle", emoji: "📖", category: "word", folder: "060-wordle" },
+            { num: "061", name: "Hangman", emoji: "🪢", category: "word", folder: "061-hangman" },
+            { num: "062", name: "Color Flood", emoji: "🌊", category: "puzzle", folder: "062-color-flood" },
+            { num: "063", name: "Rock Paper Scissors", emoji: "✊", category: "arcade", folder: "063-rock-paper-scissors" },
+            { num: "064", name: "Guess the Number", emoji: "🔮", category: "puzzle", folder: "064-guess-the-number" },
+            { num: "065", name: "Connect Four", emoji: "🔴", category: "board", folder: "065-connect-four" },
         ];
 
-        function renderGames(filter = 'all') {
+        let currentFilter = 'all';
+        let currentSearch = '';
+
+        function renderGames() {
             const grid = document.getElementById('gamesGrid');
-            const filtered = filter === 'all' ? games : games.filter(g => g.category === filter);
+            let filtered = currentFilter === 'all' ? games : games.filter(g => g.category === currentFilter);
+            if (currentSearch) {
+                const q = currentSearch.toLowerCase();
+                filtered = filtered.filter(g => g.name.toLowerCase().includes(q) || g.category.toLowerCase().includes(q));
+            }
             
             grid.innerHTML = filtered.map(game => `
                 <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}">
@@ -232,14 +274,22 @@
                     <span class="game-category">${game.category}</span>
                 </a>
             `).join('');
+            
+            document.getElementById('gameCount').textContent = games.length;
         }
 
         document.querySelectorAll('.filter-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                renderGames(btn.dataset.category);
+                currentFilter = btn.dataset.category;
+                renderGames();
             });
+        });
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            renderGames();
         });
 
         renderGames();
