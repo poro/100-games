@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>035 - Geometry Dash Lite</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #0a0a1a; overflow: hidden;
+        }
+        canvas { display: block; }
+        #ui {
+            position: absolute; top: 15px; left: 0; width: 100%;
+            text-align: center; color: #fff; font-size: 1.3rem; z-index: 10;
+            pointer-events: none;
+        }
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.75); z-index: 20; color: #fff;
+        }
+        #overlay.hidden { display: none; }
+        #overlay h1 { font-size: 2.2rem; color: #64ffda; margin-bottom: 10px; }
+        #overlay p { font-size: 1.2rem; margin-bottom: 5px; color: #ccc; }
+        #overlay button {
+            margin-top: 15px; padding: 12px 30px; border: none; border-radius: 8px;
+            background: #64ffda; color: #0a0a1a; font-size: 1.1rem; font-weight: bold; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span id="score">0%</span>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="overlay">
+        <h1>▲ Geometry Dash Lite</h1>
+        <p>Tap or click to jump!</p>
+        <p style="font-size:0.9rem; color:#888">Avoid spikes, ride platforms</p>
+        <button onclick="startGame()">Play</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let W, H;
+
+        function resize() {
+            W = canvas.width = window.innerWidth;
+            H = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const GRAVITY = 0.65;
+        const JUMP_FORCE = -11;
+        const SPEED = 5;
+        const GROUND_Y_OFFSET = 80;
+        const PLAYER_SIZE = 30;
+
+        let player, obstacles, groundTiles, distance, maxDistance, gameRunning, levelLength;
+        let bgStars = [];
+
+        // Generate stars
+        for (let i = 0; i < 100; i++) {
+            bgStars.push({ x: Math.random() * 2000, y: Math.random() * 500, s: 0.5 + Math.random() * 2, b: Math.random() });
+        }
+
+        function generateLevel() {
+            obstacles = [];
+            levelLength = 3000;
+            let x = 600;
+            while (x < levelLength) {
+                const type = Math.random();
+                if (type < 0.4) {
+                    // Spike
+                    obstacles.push({ type: 'spike', x, y: H - GROUND_Y_OFFSET, w: 30, h: 30 });
+                    x += 120 + Math.random() * 150;
+                } else if (type < 0.65) {
+                    // Double spike
+                    obstacles.push({ type: 'spike', x, y: H - GROUND_Y_OFFSET, w: 30, h: 30 });
+                    obstacles.push({ type: 'spike', x: x + 35, y: H - GROUND_Y_OFFSET, w: 30, h: 30 });
+                    x += 180 + Math.random() * 120;
+                } else if (type < 0.85) {
+                    // Platform
+                    const pw = 80 + Math.random() * 100;
+                    const py = H - GROUND_Y_OFFSET - 60 - Math.random() * 60;
+                    obstacles.push({ type: 'platform', x, y: py, w: pw, h: 15 });
+                    // Spike on platform sometimes
+                    if (Math.random() < 0.4) {
+                        obstacles.push({ type: 'spike', x: x + pw/2 - 15, y: py, w: 30, h: 30 });
+                    }
+                    x += pw + 150 + Math.random() * 100;
+                } else {
+                    // Gap (missing ground)
+                    obstacles.push({ type: 'gap', x, w: 80 + Math.random() * 60 });
+                    x += 200 + Math.random() * 150;
+                }
+            }
+        }
+
+        function startGame() {
+            player = { x: 100, y: H - GROUND_Y_OFFSET - PLAYER_SIZE, vy: 0, onGround: true, dead: false, rotation: 0 };
+            distance = 0;
+            gameRunning = true;
+            generateLevel();
+            document.getElementById('overlay').classList.add('hidden');
+            loop();
+        }
+
+        let jumpPressed = false;
+        function handleInput() { jumpPressed = true; }
+        function handleInputUp() { jumpPressed = false; }
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('mouseup', handleInputUp);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(); }, { passive: false });
+        canvas.addEventListener('touchend', handleInputUp);
+        document.addEventListener('keydown', (e) => { if (e.code === 'Space') handleInput(); });
+        document.addEventListener('keyup', (e) => { if (e.code === 'Space') handleInputUp(); });
+
+        function getGroundY(px) {
+            for (const o of obstacles) {
+                if (o.type === 'gap' && px > o.x - distance && px < o.x + o.w - distance) {
+                    return H + 200; // No ground
+                }
+            }
+            return H - GROUND_Y_OFFSET;
+        }
+
+        function update() {
+            if (player.dead) return;
+            distance += SPEED;
+
+            const groundY = getGroundY(player.x + PLAYER_SIZE/2);
+
+            // Jump
+            if (jumpPressed && player.onGround) {
+                player.vy = JUMP_FORCE;
+                player.onGround = false;
+            }
+
+            player.vy += GRAVITY;
+            player.y += player.vy;
+
+            // Ground collision
+            if (player.y + PLAYER_SIZE >= groundY) {
+                if (groundY > H + 100) {
+                    player.dead = true; endGame(); return;
+                }
+                player.y = groundY - PLAYER_SIZE;
+                player.vy = 0;
+                player.onGround = true;
+            } else {
+                player.onGround = false;
+            }
+
+            // Platform collision
+            for (const o of obstacles) {
+                const ox = o.x - distance;
+                if (o.type === 'platform') {
+                    if (player.x + PLAYER_SIZE > ox && player.x < ox + o.w &&
+                        player.y + PLAYER_SIZE >= o.y && player.y + PLAYER_SIZE <= o.y + o.h + 8 && player.vy >= 0) {
+                        player.y = o.y - PLAYER_SIZE;
+                        player.vy = 0;
+                        player.onGround = true;
+                    }
+                }
+                // Spike collision
+                if (o.type === 'spike') {
+                    const sx = ox + o.w/2, sy = o.y - o.h/2;
+                    const px = player.x + PLAYER_SIZE/2, py = player.y + PLAYER_SIZE/2;
+                    if (Math.abs(px - sx) < PLAYER_SIZE * 0.6 && Math.abs(py - (o.y - o.h * 0.4)) < PLAYER_SIZE * 0.6) {
+                        player.dead = true; endGame(); return;
+                    }
+                }
+            }
+
+            if (!player.onGround) player.rotation += 0.08;
+            else player.rotation = Math.round(player.rotation / (Math.PI/2)) * (Math.PI/2);
+
+            const pct = Math.min(100, Math.floor((distance / levelLength) * 100));
+            document.getElementById('score').textContent = pct + '%';
+
+            if (distance >= levelLength) {
+                player.dead = true;
+                const ov = document.getElementById('overlay');
+                ov.classList.remove('hidden');
+                ov.querySelector('h1').textContent = '🎉 Level Complete!';
+                ov.querySelector('p').textContent = 'You did it!';
+                gameRunning = false;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+
+            // BG
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#0a0a2e'); grad.addColorStop(1, '#1a0a3e');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+
+            // Stars
+            for (const s of bgStars) {
+                const sx = ((s.x - distance * 0.2) % 2000 + 2000) % 2000;
+                ctx.fillStyle = `rgba(255,255,255,${0.3 + s.b * 0.7})`;
+                ctx.fillRect(sx * W / 2000, s.y * H / 500, s.s, s.s);
+            }
+
+            // Ground
+            ctx.fillStyle = '#1a3a5c';
+            // Draw ground with gaps
+            let gx = 0;
+            while (gx < W) {
+                let isGap = false;
+                for (const o of obstacles) {
+                    if (o.type === 'gap') {
+                        const ox = o.x - distance;
+                        if (gx >= ox && gx < ox + o.w) { isGap = true; break; }
+                    }
+                }
+                if (!isGap) {
+                    ctx.fillRect(gx, H - GROUND_Y_OFFSET, 4, GROUND_Y_OFFSET);
+                }
+                gx += 3;
+            }
+            ctx.fillStyle = '#64ffda';
+            ctx.fillRect(0, H - GROUND_Y_OFFSET, W, 2);
+
+            // Obstacles
+            for (const o of obstacles) {
+                const ox = o.x - distance;
+                if (ox < -200 || ox > W + 100) continue;
+
+                if (o.type === 'spike') {
+                    ctx.fillStyle = '#ff6b6b';
+                    ctx.beginPath();
+                    ctx.moveTo(ox, o.y);
+                    ctx.lineTo(ox + o.w/2, o.y - o.h);
+                    ctx.lineTo(ox + o.w, o.y);
+                    ctx.fill();
+                } else if (o.type === 'platform') {
+                    ctx.fillStyle = '#4a6fa5';
+                    ctx.fillRect(ox, o.y, o.w, o.h);
+                    ctx.fillStyle = '#64ffda';
+                    ctx.fillRect(ox, o.y, o.w, 2);
+                }
+            }
+
+            // Player
+            ctx.save();
+            ctx.translate(player.x + PLAYER_SIZE/2, player.y + PLAYER_SIZE/2);
+            ctx.rotate(player.rotation);
+            ctx.fillStyle = player.dead ? '#ff6b6b' : '#64ffda';
+            ctx.fillRect(-PLAYER_SIZE/2, -PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-PLAYER_SIZE/2, -PLAYER_SIZE/2, PLAYER_SIZE, PLAYER_SIZE);
+            // Eye
+            ctx.fillStyle = '#1a1a2e';
+            ctx.fillRect(4, -6, 8, 8);
+            ctx.restore();
+
+            // Progress bar
+            const pct = Math.min(1, distance / levelLength);
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(W * 0.1, 50, W * 0.8, 6);
+            ctx.fillStyle = '#64ffda';
+            ctx.fillRect(W * 0.1, 50, W * 0.8 * pct, 6);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            const ov = document.getElementById('overlay');
+            ov.classList.remove('hidden');
+            ov.querySelector('h1').textContent = '💥 Crashed!';
+            const pct = Math.floor((distance / levelLength) * 100);
+            ov.querySelector('p').textContent = `Progress: ${pct}%`;
+            ov.querySelector('button').textContent = 'Retry';
+            const best = parseInt(localStorage.getItem('geodash-best') || '0');
+            if (pct > best) localStorage.setItem('geodash-best', pct);
+        }
+
+        function loop() {
+            if (!gameRunning) return;
+            update(); draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>

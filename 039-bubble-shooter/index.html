@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>039 - Bubble Shooter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0d1b2a 0%, #1b263b 100%);
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh; color: #fff;
+        }
+        h1 { font-size: 1.5rem; color: #64ffda; margin: 10px 0 5px; }
+        #info { display: flex; gap: 25px; margin-bottom: 8px; font-size: 1rem; }
+        canvas { border-radius: 8px; box-shadow: 0 0 25px rgba(100,255,218,0.15); touch-action: none; cursor: crosshair; }
+        #message { margin-top: 10px; font-size: 1.2rem; color: #64ffda; min-height: 28px; }
+        button {
+            margin-top: 8px; padding: 10px 24px; border: none; border-radius: 8px;
+            background: #64ffda; color: #0d1b2a; font-weight: bold; cursor: pointer; font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>🫧 Bubble Shooter</h1>
+    <div id="info">
+        <span>Score: <span id="score">0</span></span>
+        <span>Bubbles: <span id="bubbles">0</span></span>
+    </div>
+    <canvas id="canvas" width="390" height="600"></canvas>
+    <div id="message"></div>
+    <button onclick="startGame()">New Game</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const CW = 390, CH = 600;
+        const R = 18; // bubble radius
+        const COLS = 10;
+        const COLORS = ['#ff6b6b', '#4ecdc4', '#ffd93d', '#9b59b6', '#45b7d1', '#96ceb4'];
+
+        // Responsive
+        function fitCanvas() {
+            const maxW = Math.min(window.innerWidth - 20, 390);
+            const scale = maxW / 390;
+            canvas.style.width = maxW + 'px';
+            canvas.style.height = (600 * scale) + 'px';
+        }
+        window.addEventListener('resize', fitCanvas);
+        fitCanvas();
+
+        let grid, shooter, moving, score, gameOver, aimAngle;
+
+        function hexX(row, col) { return R + col * R * 2 + (row % 2 ? R : 0); }
+        function hexY(row) { return R + row * R * 1.73; }
+
+        function createGrid(rows) {
+            grid = [];
+            for (let r = 0; r < rows; r++) {
+                const maxCols = r % 2 ? COLS - 1 : COLS;
+                for (let c = 0; c < maxCols; c++) {
+                    grid.push({
+                        row: r, col: c,
+                        x: hexX(r, c), y: hexY(r),
+                        color: COLORS[Math.floor(Math.random() * 5)], // use fewer colors initially
+                        alive: true
+                    });
+                }
+            }
+        }
+
+        function getActiveColors() {
+            const colors = new Set(grid.filter(b => b.alive).map(b => b.color));
+            return colors.size > 0 ? [...colors] : COLORS.slice(0, 3);
+        }
+
+        function newShooter() {
+            const colors = getActiveColors();
+            shooter = {
+                x: CW / 2, y: CH - 40, color: colors[Math.floor(Math.random() * colors.length)],
+                nextColor: colors[Math.floor(Math.random() * colors.length)]
+            };
+        }
+
+        function startGame() {
+            createGrid(6);
+            score = 0; gameOver = false; moving = null; aimAngle = -Math.PI / 2;
+            newShooter();
+            document.getElementById('message').textContent = '';
+            updateUI();
+            loop();
+        }
+
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('bubbles').textContent = grid.filter(b => b.alive).length;
+        }
+
+        // Aim
+        function getAngle(clientX, clientY) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = CW / rect.width;
+            const scaleY = CH / rect.height;
+            const mx = (clientX - rect.left) * scaleX;
+            const my = (clientY - rect.top) * scaleY;
+            let angle = Math.atan2(my - shooter.y, mx - shooter.x);
+            angle = Math.max(-Math.PI + 0.15, Math.min(-0.15, angle));
+            return angle;
+        }
+
+        canvas.addEventListener('mousemove', (e) => { aimAngle = getAngle(e.clientX, e.clientY); });
+        canvas.addEventListener('click', (e) => { if (!moving && !gameOver) shoot(); });
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            aimAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            aimAngle = getAngle(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (!moving && !gameOver) shoot();
+        }, { passive: false });
+
+        function shoot() {
+            const speed = 10;
+            moving = {
+                x: shooter.x, y: shooter.y,
+                vx: Math.cos(aimAngle) * speed, vy: Math.sin(aimAngle) * speed,
+                color: shooter.color
+            };
+        }
+
+        function findNearest(x, y) {
+            let best = null, bestDist = Infinity;
+            // Find the grid position it should snap to
+            for (let r = 0; r < 20; r++) {
+                const maxCols = r % 2 ? COLS - 1 : COLS;
+                for (let c = 0; c < maxCols; c++) {
+                    const gx = hexX(r, c), gy = hexY(r);
+                    const d = Math.sqrt((x - gx) ** 2 + (y - gy) ** 2);
+                    if (d < bestDist && !grid.find(b => b.alive && b.row === r && b.col === c)) {
+                        bestDist = d; best = { row: r, col: c, x: gx, y: gy };
+                    }
+                }
+            }
+            return best;
+        }
+
+        function getNeighbors(row, col) {
+            const dirs = row % 2
+                ? [[-1,0],[-1,1],[0,-1],[0,1],[1,0],[1,1]]
+                : [[-1,-1],[-1,0],[0,-1],[0,1],[1,-1],[1,0]];
+            return dirs.map(([dr, dc]) => grid.find(b => b.alive && b.row === row + dr && b.col === col + dc)).filter(Boolean);
+        }
+
+        function findCluster(bubble) {
+            const visited = new Set();
+            const stack = [bubble];
+            const cluster = [];
+            while (stack.length) {
+                const b = stack.pop();
+                const key = `${b.row},${b.col}`;
+                if (visited.has(key)) continue;
+                visited.add(key);
+                cluster.push(b);
+                for (const n of getNeighbors(b.row, b.col)) {
+                    if (n.color === bubble.color && !visited.has(`${n.row},${n.col}`)) stack.push(n);
+                }
+            }
+            return cluster;
+        }
+
+        function removeFloating() {
+            // BFS from top row to find connected
+            const connected = new Set();
+            const queue = grid.filter(b => b.alive && b.row === 0);
+            queue.forEach(b => connected.add(`${b.row},${b.col}`));
+            let idx = 0;
+            while (idx < queue.length) {
+                const b = queue[idx++];
+                for (const n of getNeighbors(b.row, b.col)) {
+                    const key = `${n.row},${n.col}`;
+                    if (!connected.has(key)) { connected.add(key); queue.push(n); }
+                }
+            }
+            let removed = 0;
+            for (const b of grid) {
+                if (b.alive && !connected.has(`${b.row},${b.col}`)) {
+                    b.alive = false; removed++;
+                }
+            }
+            return removed;
+        }
+
+        function update() {
+            if (!moving || gameOver) return;
+
+            moving.x += moving.vx;
+            moving.y += moving.vy;
+
+            // Wall bounce
+            if (moving.x < R) { moving.x = R; moving.vx = Math.abs(moving.vx); }
+            if (moving.x > CW - R) { moving.x = CW - R; moving.vx = -Math.abs(moving.vx); }
+
+            // Check collision with grid bubbles
+            let collided = false;
+            for (const b of grid) {
+                if (!b.alive) continue;
+                const d = Math.sqrt((moving.x - b.x) ** 2 + (moving.y - b.y) ** 2);
+                if (d < R * 2) { collided = true; break; }
+            }
+
+            // Top wall
+            if (moving.y < R) collided = true;
+
+            if (collided) {
+                const snap = findNearest(moving.x, moving.y);
+                if (snap) {
+                    const newBubble = { row: snap.row, col: snap.col, x: snap.x, y: snap.y, color: moving.color, alive: true };
+                    grid.push(newBubble);
+
+                    // Check cluster
+                    const cluster = findCluster(newBubble);
+                    if (cluster.length >= 3) {
+                        cluster.forEach(b => b.alive = false);
+                        score += cluster.length * 10;
+                        const floatRemoved = removeFloating();
+                        score += floatRemoved * 15;
+                    }
+
+                    // Check game over (bubbles past danger line)
+                    if (grid.some(b => b.alive && b.y > CH - 100)) {
+                        gameOver = true;
+                        document.getElementById('message').textContent = `💥 Game Over! Score: ${score}`;
+                        const best = parseInt(localStorage.getItem('bubble-best') || '0');
+                        if (score > best) localStorage.setItem('bubble-best', score);
+                    }
+
+                    // Check win
+                    if (grid.filter(b => b.alive).length === 0) {
+                        gameOver = true;
+                        document.getElementById('message').textContent = `🎉 Cleared! Score: ${score}`;
+                    }
+                }
+
+                moving = null;
+                shooter.color = shooter.nextColor;
+                const colors = getActiveColors();
+                shooter.nextColor = colors[Math.floor(Math.random() * colors.length)];
+                updateUI();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, CW, CH);
+            ctx.fillStyle = '#0d1b2a'; ctx.fillRect(0, 0, CW, CH);
+
+            // Danger line
+            ctx.strokeStyle = 'rgba(255,107,107,0.3)'; ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath(); ctx.moveTo(0, CH - 100); ctx.lineTo(CW, CH - 100); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Grid bubbles
+            for (const b of grid) {
+                if (!b.alive) continue;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, R - 1, 0, Math.PI * 2);
+                ctx.fillStyle = b.color; ctx.fill();
+                // Shine
+                ctx.beginPath();
+                ctx.arc(b.x - 4, b.y - 4, R * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fill();
+            }
+
+            // Aim line
+            if (!moving && !gameOver) {
+                ctx.beginPath();
+                ctx.moveTo(shooter.x, shooter.y);
+                ctx.lineTo(shooter.x + Math.cos(aimAngle) * 80, shooter.y + Math.sin(aimAngle) * 80);
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+
+                // Dotted guide
+                for (let i = 1; i <= 5; i++) {
+                    const dx = shooter.x + Math.cos(aimAngle) * (80 + i * 30);
+                    const dy = shooter.y + Math.sin(aimAngle) * (80 + i * 30);
+                    ctx.beginPath(); ctx.arc(dx, dy, 2, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255,255,255,${0.3 - i * 0.05})`; ctx.fill();
+                }
+            }
+
+            // Shooter bubble
+            ctx.beginPath();
+            ctx.arc(shooter.x, shooter.y, R, 0, Math.PI * 2);
+            ctx.fillStyle = shooter.color; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+            // Next bubble preview
+            ctx.beginPath();
+            ctx.arc(50, CH - 40, R * 0.7, 0, Math.PI * 2);
+            ctx.fillStyle = shooter.nextColor; ctx.fill();
+            ctx.font = '11px sans-serif'; ctx.fillStyle = '#888'; ctx.textAlign = 'center';
+            ctx.fillText('next', 50, CH - 15);
+
+            // Moving bubble
+            if (moving) {
+                ctx.beginPath();
+                ctx.arc(moving.x, moving.y, R, 0, Math.PI * 2);
+                ctx.fillStyle = moving.color; ctx.fill();
+            }
+        }
+
+        function loop() {
+            update(); draw();
+            if (!gameOver) requestAnimationFrame(loop);
+        }
+
+        startGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>038 - Word Scramble</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; padding: 20px;
+        }
+        h1 { font-size: 2rem; color: #ffd93d; margin-bottom: 20px; text-shadow: 0 0 15px rgba(255,217,61,0.3); }
+        #info { display: flex; gap: 25px; margin-bottom: 20px; font-size: 1.1rem; }
+        .hint { color: #aaa; font-size: 0.95rem; margin-bottom: 15px; font-style: italic; }
+        #scrambled {
+            display: flex; gap: 8px; margin-bottom: 25px; flex-wrap: wrap; justify-content: center;
+        }
+        .letter-tile {
+            width: 48px; height: 56px; background: #2a2a4a; border: 2px solid #4a4a7a;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            user-select: none; color: #ffd93d;
+        }
+        .letter-tile:hover { background: #3a3a6a; transform: translateY(-3px); }
+        .letter-tile.used { opacity: 0.3; pointer-events: none; }
+        #answer {
+            display: flex; gap: 8px; margin-bottom: 20px; min-height: 60px; flex-wrap: wrap;
+            justify-content: center;
+        }
+        .answer-slot {
+            width: 48px; height: 56px; background: rgba(100,255,218,0.1); border: 2px dashed #64ffda;
+            border-radius: 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            color: #64ffda;
+        }
+        .answer-slot:hover { background: rgba(100,255,218,0.2); }
+        .controls { display: flex; gap: 12px; margin-bottom: 15px; }
+        button {
+            padding: 10px 24px; border: none; border-radius: 8px; font-weight: bold;
+            cursor: pointer; font-size: 1rem; transition: background 0.2s;
+        }
+        .btn-primary { background: #64ffda; color: #1a1a2e; }
+        .btn-secondary { background: #4a4a7a; color: #fff; }
+        .btn-primary:hover { background: #4de8c2; }
+        .btn-secondary:hover { background: #5a5a8a; }
+        #message { font-size: 1.3rem; min-height: 35px; margin-top: 10px; }
+        .correct { color: #64ffda; }
+        .wrong { color: #ff6b6b; }
+        #streak { color: #ffd93d; font-size: 0.95rem; margin-top: 5px; }
+        @media (max-width: 400px) {
+            .letter-tile, .answer-slot { width: 38px; height: 46px; font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔤 Word Scramble</h1>
+    <div id="info">
+        <span>Score: <span id="score">0</span></span>
+        <span>⏱ <span id="timer">30</span>s</span>
+        <span>Round: <span id="round">1</span>/10</span>
+    </div>
+    <div class="hint" id="hint"></div>
+    <div id="scrambled"></div>
+    <div id="answer"></div>
+    <div class="controls">
+        <button class="btn-primary" onclick="checkAnswer()">Submit</button>
+        <button class="btn-secondary" onclick="clearAnswer()">Clear</button>
+        <button class="btn-secondary" onclick="skipWord()">Skip</button>
+    </div>
+    <div id="message"></div>
+    <div id="streak"></div>
+
+    <script>
+        const WORDS = [
+            { word: 'PYTHON', hint: 'A popular programming language 🐍' },
+            { word: 'GALAXY', hint: 'A massive system of stars 🌌' },
+            { word: 'BREEZE', hint: 'A gentle wind 🌬️' },
+            { word: 'CASTLE', hint: 'A medieval fortress 🏰' },
+            { word: 'DRAGON', hint: 'A mythical fire-breathing creature 🐉' },
+            { word: 'FOREST', hint: 'A large area of trees 🌲' },
+            { word: 'GUITAR', hint: 'A stringed musical instrument 🎸' },
+            { word: 'HAMMER', hint: 'A tool for driving nails 🔨' },
+            { word: 'ISLAND', hint: 'Land surrounded by water 🏝️' },
+            { word: 'JUNGLE', hint: 'A dense tropical forest 🌴' },
+            { word: 'KNIGHT', hint: 'A medieval warrior ⚔️' },
+            { word: 'LAUNCH', hint: 'To send into the air 🚀' },
+            { word: 'MARBLE', hint: 'A small glass sphere or stone type' },
+            { word: 'PUZZLE', hint: 'Something to solve 🧩' },
+            { word: 'ROCKET', hint: 'A space vehicle 🚀' },
+            { word: 'SHADOW', hint: 'A dark shape cast by light' },
+            { word: 'TEMPLE', hint: 'A place of worship ⛩️' },
+            { word: 'VOYAGE', hint: 'A long journey ⛵' },
+            { word: 'WIZARD', hint: 'A magical person 🧙' },
+            { word: 'ZOMBIE', hint: 'The undead 🧟' },
+            { word: 'ANCHOR', hint: 'Keeps a ship in place ⚓' },
+            { word: 'BRIDGE', hint: 'Crosses over water or gaps 🌉' },
+            { word: 'CANDLE', hint: 'Provides light with flame 🕯️' },
+            { word: 'DESERT', hint: 'A dry sandy landscape 🏜️' },
+            { word: 'FLOWER', hint: 'A blooming plant 🌸' },
+            { word: 'FROZEN', hint: 'Turned to ice ❄️' },
+            { word: 'GARDEN', hint: 'A cultivated outdoor area 🌻' },
+            { word: 'PLANET', hint: 'An orbiting celestial body 🪐' },
+            { word: 'PIRATE', hint: 'A sea robber ☠️' },
+            { word: 'TROPHY', hint: 'An award for winning 🏆' },
+        ];
+
+        let currentWord, scrambled, answer, score, round, streak, timer, timerInterval, usedWords;
+
+        function shuffle(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        function scrambleWord(word) {
+            let s;
+            do { s = shuffle(word.split('')).join(''); } while (s === word);
+            return s;
+        }
+
+        function startGame() {
+            score = 0; round = 1; streak = 0;
+            usedWords = new Set();
+            document.getElementById('message').textContent = '';
+            nextWord();
+        }
+
+        function nextWord() {
+            if (round > 10) { endGame(); return; }
+
+            let available = WORDS.filter(w => !usedWords.has(w.word));
+            if (available.length === 0) { usedWords.clear(); available = WORDS; }
+            const pick = available[Math.floor(Math.random() * available.length)];
+            usedWords.add(pick.word);
+
+            currentWord = pick.word;
+            scrambled = scrambleWord(currentWord).split('');
+            answer = [];
+
+            document.getElementById('hint').textContent = pick.hint;
+            document.getElementById('round').textContent = round;
+            document.getElementById('score').textContent = score;
+            document.getElementById('message').textContent = '';
+            updateStreak();
+
+            timer = 30;
+            clearInterval(timerInterval);
+            document.getElementById('timer').textContent = timer;
+            timerInterval = setInterval(() => {
+                timer--;
+                document.getElementById('timer').textContent = timer;
+                if (timer <= 0) { clearInterval(timerInterval); skipWord(); }
+            }, 1000);
+
+            render();
+        }
+
+        function render() {
+            const scrambledDiv = document.getElementById('scrambled');
+            scrambledDiv.innerHTML = '';
+            scrambled.forEach((letter, i) => {
+                const tile = document.createElement('div');
+                tile.className = 'letter-tile' + (answer.some(a => a.idx === i) ? ' used' : '');
+                tile.textContent = letter;
+                tile.addEventListener('click', () => selectLetter(i));
+                scrambledDiv.appendChild(tile);
+            });
+
+            const answerDiv = document.getElementById('answer');
+            answerDiv.innerHTML = '';
+            for (let i = 0; i < currentWord.length; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'answer-slot';
+                if (answer[i]) {
+                    slot.textContent = answer[i].letter;
+                    slot.addEventListener('click', () => removeLetter(i));
+                }
+                answerDiv.appendChild(slot);
+            }
+        }
+
+        function selectLetter(idx) {
+            if (answer.length >= currentWord.length) return;
+            if (answer.some(a => a.idx === idx)) return;
+            answer.push({ letter: scrambled[idx], idx });
+            render();
+            if (answer.length === currentWord.length) {
+                setTimeout(checkAnswer, 300);
+            }
+        }
+
+        function removeLetter(answerIdx) {
+            if (!answer[answerIdx]) return;
+            answer.splice(answerIdx, 1);
+            render();
+        }
+
+        function clearAnswer() {
+            answer = [];
+            render();
+        }
+
+        function checkAnswer() {
+            const guess = answer.map(a => a.letter).join('');
+            const msg = document.getElementById('message');
+            if (guess === currentWord) {
+                const bonus = Math.max(1, Math.floor(timer / 3));
+                score += 10 + bonus;
+                streak++;
+                msg.className = 'correct';
+                msg.textContent = `✅ Correct! +${10 + bonus} points`;
+            } else {
+                streak = 0;
+                msg.className = 'wrong';
+                msg.textContent = `❌ It was: ${currentWord}`;
+            }
+            clearInterval(timerInterval);
+            round++;
+            updateStreak();
+            document.getElementById('score').textContent = score;
+            setTimeout(nextWord, 1500);
+        }
+
+        function skipWord() {
+            streak = 0;
+            document.getElementById('message').className = 'wrong';
+            document.getElementById('message').textContent = `⏭ Skipped: ${currentWord}`;
+            clearInterval(timerInterval);
+            round++;
+            updateStreak();
+            setTimeout(nextWord, 1500);
+        }
+
+        function updateStreak() {
+            document.getElementById('streak').textContent = streak > 1 ? `🔥 ${streak} streak!` : '';
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('message').className = 'correct';
+            document.getElementById('message').textContent = `🎉 Final Score: ${score}!`;
+            document.getElementById('hint').textContent = '';
+            document.getElementById('scrambled').innerHTML = '';
+            document.getElementById('answer').innerHTML = '';
+            const best = parseInt(localStorage.getItem('wordscramble-best') || '0');
+            if (score > best) localStorage.setItem('wordscramble-best', score);
+        }
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                if (answer.length > 0) { answer.pop(); render(); }
+            } else if (e.key === 'Enter') {
+                if (answer.length === currentWord.length) checkAnswer();
+            } else {
+                const letter = e.key.toUpperCase();
+                const idx = scrambled.findIndex((l, i) => l === letter && !answer.some(a => a.idx === i));
+                if (idx !== -1) selectLetter(idx);
+            }
+        });
+
+        startGame();
+    </script>
+</body>
+</html>

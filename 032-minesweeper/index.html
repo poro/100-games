@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>032 - Minesweeper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+        }
+        h1 { font-size: 1.8rem; margin-bottom: 10px; color: #64ffda; text-shadow: 0 0 20px rgba(100,255,218,0.3); }
+        .controls {
+            display: flex; gap: 15px; margin-bottom: 15px; align-items: center;
+        }
+        .controls span { font-size: 1.1rem; }
+        .controls select, .controls button {
+            padding: 6px 14px; border: none; border-radius: 6px;
+            background: #64ffda; color: #1a1a2e; font-weight: bold; cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .controls button:hover { background: #4de8c2; }
+        #info {
+            display: flex; gap: 30px; margin-bottom: 10px; font-size: 1.1rem;
+        }
+        #grid {
+            display: inline-grid; gap: 2px; background: #0f3460; padding: 4px; border-radius: 8px;
+            box-shadow: 0 0 30px rgba(100,255,218,0.15);
+        }
+        .cell {
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            background: #2a2a4a; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;
+            transition: background 0.15s; user-select: none;
+        }
+        .cell:hover:not(.revealed) { background: #3a3a6a; }
+        .cell.revealed { background: #1a1a2e; cursor: default; }
+        .cell.mine { background: #ff6b6b; }
+        .cell.flagged::after { content: '🚩'; }
+        .c1 { color: #64b5f6; } .c2 { color: #81c784; } .c3 { color: #ff8a65; }
+        .c4 { color: #ba68c8; } .c5 { color: #e57373; } .c6 { color: #4dd0e1; }
+        .c7 { color: #fff; } .c8 { color: #bbb; }
+        #message {
+            margin-top: 15px; font-size: 1.3rem; min-height: 30px; color: #64ffda;
+        }
+        @media (max-width: 500px) {
+            .cell { width: 28px; height: 28px; font-size: 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <h1>💣 Minesweeper</h1>
+    <div class="controls">
+        <select id="difficulty">
+            <option value="easy">Easy (9×9, 10)</option>
+            <option value="medium" selected>Medium (16×16, 40)</option>
+            <option value="hard">Hard (16×30, 99)</option>
+        </select>
+        <button onclick="newGame()">New Game</button>
+    </div>
+    <div id="info">
+        <span>💣 <span id="mineCount">0</span></span>
+        <span>⏱ <span id="timer">0</span>s</span>
+    </div>
+    <div id="grid"></div>
+    <div id="message"></div>
+
+    <script>
+        const configs = {
+            easy: { rows: 9, cols: 9, mines: 10 },
+            medium: { rows: 16, cols: 16, mines: 40 },
+            hard: { rows: 16, cols: 30, mines: 99 }
+        };
+        let board, revealed, flagged, rows, cols, mines, gameOver, firstClick, timerInterval, seconds;
+
+        function newGame() {
+            const cfg = configs[document.getElementById('difficulty').value];
+            rows = cfg.rows; cols = cfg.cols; mines = cfg.mines;
+            board = Array.from({ length: rows }, () => Array(cols).fill(0));
+            revealed = Array.from({ length: rows }, () => Array(cols).fill(false));
+            flagged = Array.from({ length: rows }, () => Array(cols).fill(false));
+            gameOver = false; firstClick = true; seconds = 0;
+            clearInterval(timerInterval);
+            document.getElementById('timer').textContent = '0';
+            document.getElementById('mineCount').textContent = mines;
+            document.getElementById('message').textContent = '';
+            render();
+        }
+
+        function placeMines(safeR, safeC) {
+            let placed = 0;
+            while (placed < mines) {
+                const r = Math.floor(Math.random() * rows);
+                const c = Math.floor(Math.random() * cols);
+                if (board[r][c] !== -1 && !(Math.abs(r - safeR) <= 1 && Math.abs(c - safeC) <= 1)) {
+                    board[r][c] = -1; placed++;
+                }
+            }
+            for (let r = 0; r < rows; r++)
+                for (let c = 0; c < cols; c++)
+                    if (board[r][c] !== -1) board[r][c] = countAdj(r, c);
+        }
+
+        function countAdj(r, c) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++)
+                for (let dc = -1; dc <= 1; dc++) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && board[nr][nc] === -1) count++;
+                }
+            return count;
+        }
+
+        function reveal(r, c) {
+            if (r < 0 || r >= rows || c < 0 || c >= cols || revealed[r][c] || flagged[r][c]) return;
+            revealed[r][c] = true;
+            if (board[r][c] === 0) {
+                for (let dr = -1; dr <= 1; dr++)
+                    for (let dc = -1; dc <= 1; dc++) reveal(r + dr, c + dc);
+            }
+        }
+
+        function checkWin() {
+            let unrevealed = 0;
+            for (let r = 0; r < rows; r++)
+                for (let c = 0; c < cols; c++)
+                    if (!revealed[r][c]) unrevealed++;
+            return unrevealed === mines;
+        }
+
+        function cellClick(r, c) {
+            if (gameOver || flagged[r][c] || revealed[r][c]) return;
+            if (firstClick) {
+                placeMines(r, c); firstClick = false;
+                timerInterval = setInterval(() => {
+                    seconds++; document.getElementById('timer').textContent = seconds;
+                }, 1000);
+            }
+            if (board[r][c] === -1) {
+                gameOver = true; clearInterval(timerInterval);
+                for (let rr = 0; rr < rows; rr++)
+                    for (let cc = 0; cc < cols; cc++)
+                        if (board[rr][cc] === -1) revealed[rr][cc] = true;
+                document.getElementById('message').textContent = '💥 Game Over!';
+                render(); return;
+            }
+            reveal(r, c);
+            if (checkWin()) {
+                gameOver = true; clearInterval(timerInterval);
+                document.getElementById('message').textContent = `🎉 You won in ${seconds}s!`;
+            }
+            render();
+        }
+
+        function cellRightClick(e, r, c) {
+            e.preventDefault();
+            if (gameOver || revealed[r][c]) return;
+            flagged[r][c] = !flagged[r][c];
+            const flagCount = flagged.flat().filter(Boolean).length;
+            document.getElementById('mineCount').textContent = mines - flagCount;
+            render();
+        }
+
+        function render() {
+            const grid = document.getElementById('grid');
+            grid.style.gridTemplateColumns = `repeat(${cols}, 32px)`;
+            grid.innerHTML = '';
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (revealed[r][c]) {
+                        cell.classList.add('revealed');
+                        if (board[r][c] === -1) { cell.classList.add('mine'); cell.textContent = '💣'; }
+                        else if (board[r][c] > 0) { cell.textContent = board[r][c]; cell.classList.add('c' + board[r][c]); }
+                    } else if (flagged[r][c]) {
+                        cell.classList.add('flagged');
+                    }
+                    cell.addEventListener('click', () => cellClick(r, c));
+                    cell.addEventListener('contextmenu', (e) => cellRightClick(e, r, c));
+                    // Long press for mobile flag
+                    let pressTimer;
+                    cell.addEventListener('touchstart', (e) => {
+                        pressTimer = setTimeout(() => { cellRightClick(e, r, c); }, 500);
+                    }, { passive: false });
+                    cell.addEventListener('touchend', () => clearTimeout(pressTimer));
+                    cell.addEventListener('touchmove', () => clearTimeout(pressTimer));
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        newGame();
+    </script>
+</body>
+</html>
