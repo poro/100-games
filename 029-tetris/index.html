@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="../analytics.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>029 - Tetris</title>
@@ -196,6 +197,10 @@
                 gameOver = true;
                 document.getElementById('gameOver').style.display = 'block';
                 document.getElementById('finalScore').textContent = score;
+                if (typeof GameAnalytics !== 'undefined') {
+                    GameAnalytics.trackScore(score);
+                    GameAnalytics.endSession();
+                }
             }
             
             lockDelay = 0;
@@ -476,6 +481,7 @@
         }
 
         function resetGame() {
+            if (typeof GameAnalytics !== 'undefined') GameAnalytics.startSession();
             createBoard();
             score = 0;
             level = 1;

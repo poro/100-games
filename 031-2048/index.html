@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="../analytics.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>031 - 2048</title>
@@ -176,6 +177,7 @@
         // INITIALIZATION
         // ===========================================
         function initGrid() {
+            if (typeof GameAnalytics !== 'undefined') GameAnalytics.startSession();
             const gridEl = document.getElementById('grid');
             gridEl.innerHTML = '';
             grid = [];
@@ -255,6 +257,7 @@
                     // Check for 2048
                     if (tiles[i] === 2048 && !won) {
                         won = true;
+                        if (typeof GameAnalytics !== 'undefined') GameAnalytics.trackComplete();
                         setTimeout(() => showMessage('win'), 200);
                     }
                 }
@@ -310,6 +313,10 @@
                 // Check for game over
                 if (!canMove()) {
                     gameOver = true;
+                    if (typeof GameAnalytics !== 'undefined') {
+                        GameAnalytics.trackScore(score);
+                        GameAnalytics.endSession();
+                    }
                     setTimeout(() => showMessage('lose'), 200);
                 }
             }

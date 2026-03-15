@@ -53,7 +53,7 @@
         }
         
         .progress-fill {
-            width: 31%;
+            width: 45%;
             height: 100%;
             background: linear-gradient(90deg, #e94560, #ff6b6b);
             border-radius: 20px;
@@ -111,6 +111,22 @@
             display: block;
         }
         
+        .play-badge {
+            background: rgba(233, 69, 96, 0.4);
+            color: #ff9eae;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+        
+        .high-score-badge {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #ffd700;
+        }
+        
         .game-category {
             display: inline-block;
             background: rgba(255,255,255,0.1);
@@ -143,6 +159,144 @@
             background: #e94560;
         }
         
+        /* Stats Dashboard */
+        .stats-section {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+        
+        .stats-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        
+        .stats-header h2 {
+            font-size: 1.5rem;
+            color: #e94560;
+        }
+        
+        .stats-toggle {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #aaa;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        
+        .stats-toggle:hover {
+            background: rgba(233, 69, 96, 0.3);
+            color: #fff;
+        }
+        
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e94560;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+        
+        .stats-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .stats-list-section h3 {
+            font-size: 1.1rem;
+            color: #ccc;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stats-list {
+            list-style: none;
+        }
+        
+        .stats-list li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+        
+        .stats-list li:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .stats-list .game-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stats-list .game-info .rank {
+            color: #e94560;
+            font-weight: bold;
+            font-size: 0.85rem;
+            width: 20px;
+        }
+        
+        .stats-list .game-info .rank:first-child { color: #ffd700; }
+        
+        .stats-list .game-meta {
+            color: #888;
+            font-size: 0.85rem;
+            text-align: right;
+        }
+        
+        .stats-list .game-meta .play-count {
+            color: #e94560;
+            font-weight: 600;
+        }
+        
+        .stats-empty {
+            color: #555;
+            text-align: center;
+            padding: 30px;
+            font-style: italic;
+        }
+        
+        .stats-hidden { display: none; }
+        
+        @media (max-width: 700px) {
+            .stats-columns { grid-template-columns: 1fr; }
+            .stats-section { padding: 0 20px; }
+        }
+        
         footer {
             text-align: center;
             padding: 30px;
@@ -162,7 +316,7 @@
         <h1>🎮 100 Games Arcade</h1>
         <p class="subtitle">Browser games, pure JavaScript, zero dependencies</p>
         <div class="progress-bar">
-            <div class="progress-fill">31 / 100</div>
+            <div class="progress-fill" style="width: 45%;">45 / 100</div>
         </div>
     </header>
     
@@ -181,10 +335,31 @@
         <!-- Games populated by JS -->
     </div>
     
+    <div class="stats-section" id="statsSection">
+        <div class="stats-header">
+            <h2>📊 Your Stats</h2>
+            <button class="stats-toggle" id="statsToggle" onclick="toggleStats()">Hide</button>
+        </div>
+        <div id="statsContent">
+            <div class="stats-summary" id="statsSummary"></div>
+            <div class="stats-columns">
+                <div class="stats-list-section">
+                    <h3>🏆 Most Played</h3>
+                    <ul class="stats-list" id="mostPlayed"></ul>
+                </div>
+                <div class="stats-list-section">
+                    <h3>🕐 Recently Played</h3>
+                    <ul class="stats-list" id="recentlyPlayed"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer>
-        Made with ❤️ and Claude • <span id="gameCount">27</span> games and counting!
+        Made with ❤️ and Claude • <span id="gameCount">45</span> games and counting!
     </footer>
 
+    <script src="analytics.js"></script>
     <script>
         const games = [
             { num: "001", name: "Click Counter", emoji: "👆", category: "clicker", folder: "001-click-counter" },
@@ -218,31 +393,175 @@
             { num: "029", name: "Tetris", emoji: "🧱", category: "puzzle", folder: "029-tetris" },
             { num: "030", name: "Memory Match", emoji: "🧠", category: "puzzle", folder: "030-memory-match" },
             { num: "031", name: "2048", emoji: "🔢", category: "puzzle", folder: "031-2048" },
+            { num: "032", name: "Minesweeper", emoji: "💣", category: "puzzle", folder: "032-minesweeper" },
+            { num: "033", name: "Solitaire", emoji: "🃏", category: "board", folder: "033-solitaire" },
+            { num: "034", name: "Fruit Ninja", emoji: "🍉", category: "arcade", folder: "034-fruit-ninja" },
+            { num: "035", name: "Geometry Dash", emoji: "▲", category: "arcade", folder: "035-geometry-dash" },
+            { num: "036", name: "Crossy Road", emoji: "🐔", category: "arcade", folder: "036-crossy-road" },
+            { num: "037", name: "Brick Buster", emoji: "🧱", category: "physics", folder: "037-brick-buster" },
+            { num: "038", name: "Word Scramble", emoji: "🔤", category: "word", folder: "038-word-scramble" },
+            { num: "039", name: "Bubble Shooter", emoji: "🫧", category: "puzzle", folder: "039-bubble-shooter" },
+            { num: "060", name: "Wordle", emoji: "📖", category: "word", folder: "060-wordle" },
+            { num: "061", name: "Hangman", emoji: "🪢", category: "word", folder: "061-hangman" },
+            { num: "062", name: "Color Flood", emoji: "🌊", category: "puzzle", folder: "062-color-flood" },
+            { num: "063", name: "Rock Paper Scissors", emoji: "✊", category: "arcade", folder: "063-rock-paper-scissors" },
+            { num: "064", name: "Guess the Number", emoji: "🔮", category: "puzzle", folder: "064-guess-the-number" },
+            { num: "065", name: "Connect Four", emoji: "🔴", category: "board", folder: "065-connect-four" },
         ];
 
-        function renderGames(filter = 'all') {
+        // Build a lookup for game metadata
+        const gameLookup = {};
+        games.forEach(g => { gameLookup[g.folder] = g; });
+
+        let currentFilter = 'all';
+        let currentSearch = '';
+
+        function renderGames() {
             const grid = document.getElementById('gamesGrid');
-            const filtered = filter === 'all' ? games : games.filter(g => g.category === filter);
+            let filtered = currentFilter === 'all' ? games : games.filter(g => g.category === currentFilter);
+            if (currentSearch) {
+                const q = currentSearch.toLowerCase();
+                filtered = filtered.filter(g => g.name.toLowerCase().includes(q) || g.category.toLowerCase().includes(q));
+            }
+
+            const stats = GameAnalytics.getStats();
             
-            grid.innerHTML = filtered.map(game => `
-                <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}">
-                    <span class="game-number">GAME ${game.num}</span>
+            grid.innerHTML = filtered.map(game => {
+                const gs = stats[game.folder];
+                const playBadge = gs && gs.plays > 0
+                    ? `<span class="play-badge" title="${gs.plays} plays, high score: ${gs.highScore || 0}">${gs.plays}×</span>`
+                    : '';
+                const highBadge = gs && gs.highScore > 0
+                    ? `<span class="high-score-badge" title="High score">🏅 ${gs.highScore}</span>`
+                    : '';
+                return `
+                <a href="${game.folder}/index.html" class="game-card" data-category="${game.category}" data-folder="${game.folder}">
+                    <span class="game-number">GAME ${game.num} ${playBadge}</span>
                     <span class="game-emoji">${game.emoji}</span>
                     <h3 class="game-title">${game.name}</h3>
                     <span class="game-category">${game.category}</span>
+                    ${highBadge}
                 </a>
-            `).join('');
+            `}).join('');
+
+            // Track clicks
+            grid.querySelectorAll('.game-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const folder = card.dataset.folder;
+                    if (folder) GameAnalytics.trackPlay(folder);
+                });
+            });
+            
+            document.getElementById('gameCount').textContent = games.length;
         }
 
-        document.querySelectorAll('.filter-btn').forEach(btn => {
+        // Stats Dashboard
+        function renderStats() {
+            const summary = GameAnalytics.getSummary();
+            const leaderboard = GameAnalytics.getLeaderboard(5);
+            const recent = GameAnalytics.getRecent(5);
+
+            // Summary cards
+            const summaryEl = document.getElementById('statsSummary');
+            if (summary.totalPlays === 0) {
+                document.getElementById('statsSection').style.display = 'none';
+                return;
+            }
+            document.getElementById('statsSection').style.display = 'block';
+
+            const completionRate = summary.gamesPlayed > 0
+                ? Math.round((summary.gamesPlayed / games.length) * 100)
+                : 0;
+
+            summaryEl.innerHTML = `
+                <div class="stat-card">
+                    <span class="stat-value">${summary.totalPlays}</span>
+                    <span class="stat-label">Total Plays</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">${summary.gamesPlayed}</span>
+                    <span class="stat-label">Games Tried</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">${GameAnalytics.formatTime(summary.totalTime)}</span>
+                    <span class="stat-label">Time Played</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value">${completionRate}%</span>
+                    <span class="stat-label">Catalog Explored</span>
+                </div>
+            `;
+
+            // Most played
+            const mpEl = document.getElementById('mostPlayed');
+            if (leaderboard.length === 0) {
+                mpEl.innerHTML = '<li class="stats-empty">Play some games to see your stats!</li>';
+            } else {
+                mpEl.innerHTML = leaderboard.map((g, i) => {
+                    const meta = gameLookup[g.id] || { emoji: '🎮', name: g.id };
+                    const medals = ['🥇', '🥈', '🥉'];
+                    const rank = i < 3 ? medals[i] : `${i + 1}.`;
+                    return `<li>
+                        <span class="game-info">
+                            <span class="rank">${rank}</span>
+                            <span>${meta.emoji} ${meta.name}</span>
+                        </span>
+                        <span class="game-meta">
+                            <span class="play-count">${g.plays}×</span>
+                            ${g.highScore > 0 ? ` · 🏅${g.highScore}` : ''}
+                            ${g.totalTime > 0 ? ` · ${GameAnalytics.formatTime(g.totalTime)}` : ''}
+                        </span>
+                    </li>`;
+                }).join('');
+            }
+
+            // Recently played
+            const rpEl = document.getElementById('recentlyPlayed');
+            if (recent.length === 0) {
+                rpEl.innerHTML = '<li class="stats-empty">No games played yet</li>';
+            } else {
+                rpEl.innerHTML = recent.map(g => {
+                    const meta = gameLookup[g.id] || { emoji: '🎮', name: g.id };
+                    return `<li>
+                        <span class="game-info">
+                            <span>${meta.emoji} ${meta.name}</span>
+                        </span>
+                        <span class="game-meta">${GameAnalytics.formatRelative(g.lastPlayed)}</span>
+                    </li>`;
+                }).join('');
+            }
+        }
+
+        function toggleStats() {
+            const content = document.getElementById('statsContent');
+            const btn = document.getElementById('statsToggle');
+            const hidden = content.classList.toggle('stats-hidden');
+            btn.textContent = hidden ? 'Show' : 'Hide';
+            localStorage.setItem('100games_stats_hidden', hidden);
+        }
+
+        // Restore stats visibility preference
+        if (localStorage.getItem('100games_stats_hidden') === 'true') {
+            document.getElementById('statsContent').classList.add('stats-hidden');
+            document.getElementById('statsToggle').textContent = 'Show';
+        }
+
+        document.querySelectorAll('.filter-btn[data-category]').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                renderGames(btn.dataset.category);
+                currentFilter = btn.dataset.category;
+                renderGames();
             });
         });
 
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            currentSearch = e.target.value;
+            renderGames();
+        });
+
         renderGames();
+        renderStats();
     </script>
 </body>
 </html>

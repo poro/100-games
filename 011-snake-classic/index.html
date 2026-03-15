@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <script src="../analytics.js"></script>
     <title>Snake Classic</title>
     <style>
         * {
@@ -448,6 +449,10 @@
         function gameOver() {
             isPlaying = false;
             clearInterval(gameLoop);
+            if (typeof GameAnalytics !== 'undefined') {
+                GameAnalytics.trackScore(score);
+                GameAnalytics.endSession();
+            }
             
             finalScoreEl.textContent = score;
             
@@ -470,6 +475,7 @@
             initGame();
             draw();
             isPlaying = true;
+            if (typeof GameAnalytics !== 'undefined') GameAnalytics.startSession();
             gameLoop = setInterval(update, gameSpeed);
         }
 
