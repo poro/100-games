@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>091 - Rhythm Tap</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .info { display: flex; gap: 20px; margin-bottom: 12px; font-size: 1.1em; align-items: center; }
+        .info span { color: #ff6b9d; }
+        .game-area {
+            width: min(400px, 95vw);
+            height: 500px;
+            border-radius: 16px;
+            border: 2px solid rgba(255,107,157,0.2);
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
+        }
+        .lane {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            border-right: 1px solid rgba(255,255,255,0.05);
+        }
+        .hit-zone {
+            position: absolute;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: rgba(255,107,157,0.6);
+            z-index: 5;
+        }
+        .hit-glow {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            height: 50px;
+            background: linear-gradient(transparent, rgba(255,107,157,0.1), transparent);
+            z-index: 4;
+        }
+        .lane-btn {
+            position: absolute;
+            bottom: 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            background: rgba(255,255,255,0.05);
+            border: none;
+            color: #888;
+            transition: background 0.1s;
+        }
+        .lane-btn:active, .lane-btn.pressed {
+            background: rgba(255,107,157,0.3);
+            color: #ff6b9d;
+        }
+        .note {
+            position: absolute;
+            width: calc(25% - 4px);
+            height: 30px;
+            border-radius: 6px;
+            margin: 0 2px;
+        }
+        .feedback {
+            position: absolute;
+            bottom: 90px;
+            left: 0; right: 0;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.3em;
+            pointer-events: none;
+            z-index: 20;
+            transition: opacity 0.3s;
+        }
+        .combo-display {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 2em;
+            font-weight: bold;
+            color: #ff6b9d;
+            text-shadow: 0 0 15px rgba(255,107,157,0.5);
+            z-index: 20;
+        }
+        .stats-panel {
+            width: min(400px, 95vw);
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 10px 6px;
+            text-align: center;
+        }
+        .stat-label { font-size: 0.7em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 1.2em; font-weight: bold; color: #ff6b9d; margin-top: 2px; }
+        .controls { margin-top: 12px; display: flex; gap: 10px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        .overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50;
+        }
+        .overlay h2 { color: #ff6b9d; font-size: 2em; margin-bottom: 10px; }
+        .overlay p { color: #ccc; margin-bottom: 5px; font-size: 1.1em; }
+        .back-link { margin-top: 16px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Rhythm Tap</h1>
+    <div class="info">
+        <div>Score: <span id="score">0</span></div>
+        <div>Best: <span id="best">0</span></div>
+    </div>
+    <div class="game-area" id="gameArea">
+        <div class="lane" style="left:0;width:25%"></div>
+        <div class="lane" style="left:25%;width:25%"></div>
+        <div class="lane" style="left:50%;width:25%"></div>
+        <div class="lane" style="left:75%;width:25%"></div>
+        <div class="hit-glow"></div>
+        <div class="hit-zone"></div>
+        <button class="lane-btn" style="left:0;width:25%" data-lane="0">D</button>
+        <button class="lane-btn" style="left:25%;width:25%" data-lane="1">F</button>
+        <button class="lane-btn" style="left:50%;width:25%" data-lane="2">J</button>
+        <button class="lane-btn" style="left:75%;width:25%" data-lane="3">K</button>
+        <div class="feedback" id="feedback"></div>
+        <div class="combo-display" id="combo"></div>
+        <div class="overlay" id="startOverlay">
+            <h2>🎵 Rhythm Tap</h2>
+            <p>Hit notes as they reach the line!</p>
+            <p style="color:#888;font-size:0.9em">Keys: D F J K | Tap lanes on mobile</p>
+            <button class="action-btn" onclick="startGame()" style="margin-top:15px">▶ Play</button>
+        </div>
+    </div>
+    <div class="stats-panel">
+        <div class="stat-box"><div class="stat-label">Perfect</div><div class="stat-value" id="perfects">0</div></div>
+        <div class="stat-box"><div class="stat-label">Good</div><div class="stat-value" id="goods">0</div></div>
+        <div class="stat-box"><div class="stat-label">Miss</div><div class="stat-value" id="misses">0</div></div>
+        <div class="stat-box"><div class="stat-label">Max Combo</div><div class="stat-value" id="maxCombo">0</div></div>
+    </div>
+    <div class="controls">
+        <button class="action-btn" onclick="startGame()">🔄 Restart</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+    <script>
+    const gameArea = document.getElementById('gameArea');
+    const areaH = 500;
+    const hitY = areaH - 60;
+    const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12'];
+    const KEYS = ['d', 'f', 'j', 'k'];
+
+    let notes = [], score = 0, combo = 0, maxCombo = 0;
+    let perfects = 0, goods = 0, missCount = 0;
+    let running = false, animId = null, spawnTimer = null;
+    let bestScore = parseInt(localStorage.getItem('rhythm_best') || '0');
+    let noteSpeed = 3;
+    let songTime = 0;
+    let bpm = 120;
+
+    document.getElementById('best').textContent = bestScore;
+
+    function startGame() {
+        document.getElementById('startOverlay').style.display = 'none';
+        // Clear old notes
+        document.querySelectorAll('.note').forEach(n => n.remove());
+        notes = [];
+        score = 0; combo = 0; maxCombo = 0;
+        perfects = 0; goods = 0; missCount = 0;
+        songTime = 0;
+        noteSpeed = 3;
+        updateUI();
+        running = true;
+        generateSong();
+        if (animId) cancelAnimationFrame(animId);
+        animId = requestAnimationFrame(loop);
+    }
+
+    function generateSong() {
+        // Generate a procedural "song" - notes spawn on beat
+        const beatInterval = 60000 / bpm;
+        let t = 1000; // start delay
+        const songLength = 60; // 60 seconds of song
+        const totalBeats = Math.floor(songLength * 1000 / beatInterval);
+
+        for (let i = 0; i < totalBeats; i++) {
+            // Decide which lanes get notes (1-3 simultaneous)
+            const count = Math.random() < 0.3 ? 2 : 1;
+            const usedLanes = [];
+            for (let j = 0; j < count; j++) {
+                let lane;
+                do { lane = Math.floor(Math.random() * 4); } while (usedLanes.includes(lane));
+                usedLanes.push(lane);
+                spawnNote(lane, t);
+            }
+            // Some rhythmic variation
+            if (Math.random() < 0.2) {
+                t += beatInterval / 2; // eighth note
+            } else {
+                t += beatInterval;
+            }
+        }
+    }
+
+    function spawnNote(lane, delay) {
+        setTimeout(() => {
+            if (!running) return;
+            const el = document.createElement('div');
+            el.className = 'note';
+            el.style.background = COLORS[lane];
+            el.style.left = (lane * 25 + 1) + '%';
+            el.style.top = '-30px';
+            el.style.boxShadow = `0 0 10px ${COLORS[lane]}55`;
+            gameArea.appendChild(el);
+            notes.push({ el, lane, y: -30, hit: false });
+        }, delay);
+    }
+
+    function loop() {
+        if (!running) return;
+        
+        for (let i = notes.length - 1; i >= 0; i--) {
+            const note = notes[i];
+            if (note.hit) continue;
+            note.y += noteSpeed;
+            note.el.style.top = note.y + 'px';
+
+            // Missed note
+            if (note.y > hitY + 60) {
+                note.el.style.opacity = '0.2';
+                note.hit = true;
+                combo = 0;
+                missCount++;
+                showFeedback('Miss', '#ff4466');
+                updateUI();
+                setTimeout(() => note.el.remove(), 300);
+                notes.splice(i, 1);
+            }
+        }
+
+        // Speed increases over time
+        noteSpeed = 3 + songTime * 0.00003;
+        songTime += 16;
+
+        // Check if song is done
+        if (notes.length === 0 && songTime > 5000) {
+            endGame();
+            return;
+        }
+
+        animId = requestAnimationFrame(loop);
+    }
+
+    function hitLane(lane) {
+        if (!running) return;
+        
+        // Find closest note in this lane near hit zone
+        let closest = null, closestDist = Infinity;
+        for (const note of notes) {
+            if (note.lane !== lane || note.hit) continue;
+            const dist = Math.abs(note.y - hitY);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closest = note;
+            }
+        }
+
+        if (!closest || closestDist > 60) return; // No note near enough
+
+        closest.hit = true;
+        
+        if (closestDist < 15) {
+            // Perfect
+            score += 100 * (1 + combo * 0.1);
+            perfects++;
+            combo++;
+            showFeedback('Perfect!', '#2ecc71');
+            closest.el.style.transform = 'scale(1.3)';
+        } else if (closestDist < 40) {
+            // Good
+            score += 50 * (1 + combo * 0.05);
+            goods++;
+            combo++;
+            showFeedback('Good', '#f39c12');
+        } else {
+            // OK
+            score += 25;
+            combo = 0;
+            showFeedback('OK', '#888');
+        }
+
+        if (combo > maxCombo) maxCombo = combo;
+        
+        closest.el.style.opacity = '0';
+        setTimeout(() => closest.el.remove(), 200);
+        notes = notes.filter(n => n !== closest);
+        
+        updateUI();
+    }
+
+    function showFeedback(text, color) {
+        const fb = document.getElementById('feedback');
+        fb.textContent = text;
+        fb.style.color = color;
+        fb.style.opacity = '1';
+        setTimeout(() => fb.style.opacity = '0', 400);
+    }
+
+    function updateUI() {
+        document.getElementById('score').textContent = Math.floor(score);
+        document.getElementById('combo').textContent = combo > 1 ? `${combo}x` : '';
+        document.getElementById('perfects').textContent = perfects;
+        document.getElementById('goods').textContent = goods;
+        document.getElementById('misses').textContent = missCount;
+        document.getElementById('maxCombo').textContent = maxCombo;
+    }
+
+    function endGame() {
+        running = false;
+        if (score > bestScore) {
+            bestScore = Math.floor(score);
+            localStorage.setItem('rhythm_best', bestScore);
+            document.getElementById('best').textContent = bestScore;
+        }
+        const overlay = document.getElementById('startOverlay');
+        overlay.innerHTML = `
+            <h2>🎵 Song Complete!</h2>
+            <p>Score: ${Math.floor(score)}</p>
+            <p>Perfect: ${perfects} | Good: ${goods} | Miss: ${missCount}</p>
+            <p>Max Combo: ${maxCombo}x</p>
+            <p style="color:#888;margin-top:5px">Best: ${bestScore}</p>
+            <button class="action-btn" onclick="startGame()" style="margin-top:15px">▶ Play Again</button>
+        `;
+        overlay.style.display = 'flex';
+    }
+
+    // Keyboard
+    document.addEventListener('keydown', e => {
+        const idx = KEYS.indexOf(e.key.toLowerCase());
+        if (idx >= 0) {
+            hitLane(idx);
+            const btn = document.querySelector(`.lane-btn[data-lane="${idx}"]`);
+            btn.classList.add('pressed');
+            setTimeout(() => btn.classList.remove('pressed'), 100);
+        }
+    });
+
+    // Touch
+    document.querySelectorAll('.lane-btn').forEach(btn => {
+        btn.addEventListener('touchstart', e => {
+            e.preventDefault();
+            hitLane(parseInt(btn.dataset.lane));
+            btn.classList.add('pressed');
+        });
+        btn.addEventListener('touchend', () => btn.classList.remove('pressed'));
+        btn.addEventListener('mousedown', e => {
+            hitLane(parseInt(btn.dataset.lane));
+        });
+    });
+    </script>
+</body>
+</html>
