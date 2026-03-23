@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>085 - Cookie Clicker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .stats {
+            text-align: center; margin-bottom: 12px; font-size: 1.1em;
+        }
+        .stats .count { font-size: 2.2em; color: #ffd700; font-weight: bold; text-shadow: 0 0 15px rgba(255,215,0,0.5); }
+        .stats .cps { color: #ff6b9d; font-size: 0.95em; }
+        .cookie-area {
+            position: relative;
+            width: 200px; height: 200px;
+            margin: 10px 0 20px;
+        }
+        .cookie {
+            width: 200px; height: 200px;
+            font-size: 140px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: transform 0.1s;
+            filter: drop-shadow(0 0 20px rgba(255,107,157,0.3));
+        }
+        .cookie:active { transform: scale(0.9); }
+        .cookie:hover { transform: scale(1.05); }
+        .float-num {
+            position: absolute;
+            font-size: 1.4em; font-weight: bold; color: #ffd700;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            text-shadow: 0 0 10px rgba(255,215,0,0.8);
+        }
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+        }
+        .shop {
+            width: 100%; max-width: 380px;
+        }
+        .shop h2 { color: #ff6b9d; font-size: 1.2em; margin-bottom: 8px; text-align: center; }
+        .upgrade {
+            display: flex; align-items: center; gap: 12px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,107,157,0.2);
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upgrade:hover { background: rgba(255,107,157,0.1); transform: translateX(4px); }
+        .upgrade.locked { opacity: 0.4; cursor: not-allowed; }
+        .upgrade .icon { font-size: 2em; }
+        .upgrade .details { flex: 1; }
+        .upgrade .name { font-weight: bold; font-size: 1em; }
+        .upgrade .desc { font-size: 0.8em; color: #aaa; }
+        .upgrade .cost { color: #ffd700; font-weight: bold; font-size: 0.95em; white-space: nowrap; }
+        .upgrade .owned { color: #ff6b9d; font-size: 0.85em; }
+        .achievements {
+            margin-top: 16px; max-width: 380px; width: 100%;
+        }
+        .achievements h2 { color: #ff6b9d; font-size: 1.1em; margin-bottom: 6px; text-align: center; }
+        .ach-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .ach {
+            width: 40px; height: 40px; border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,107,157,0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4em; opacity: 0.3;
+            transition: all 0.3s;
+        }
+        .ach.unlocked { opacity: 1; border-color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+        .ach-toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,215,0,0.15); border: 1px solid #ffd700;
+            padding: 10px 20px; border-radius: 12px;
+            color: #ffd700; font-weight: bold;
+            animation: slideDown 0.3s ease-out, fadeOut 0.5s ease-in 2s forwards;
+            z-index: 100;
+        }
+        @keyframes slideDown { from { top: -50px; } to { top: 20px; } }
+        @keyframes fadeOut { to { opacity: 0; } }
+        .controls { margin-top: 12px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        .back-link { margin-top: 16px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>🍪 Cookie Clicker</h1>
+    <div class="stats">
+        <div class="count" id="count">0</div>
+        <div>cookies</div>
+        <div class="cps">per second: <span id="cps">0</span></div>
+    </div>
+    <div class="cookie-area" id="cookieArea">
+        <div class="cookie" id="cookie">🍪</div>
+    </div>
+    <div class="shop" id="shop"></div>
+    <div class="achievements" id="achSection">
+        <h2>🏆 Achievements</h2>
+        <div class="ach-grid" id="achGrid"></div>
+    </div>
+    <div class="controls">
+        <button class="action-btn" onclick="resetGame()">🔄 Reset</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+    <script>
+    let cookies = 0;
+    let totalCookies = 0;
+    let clickPower = 1;
+    let cps = 0;
+
+    const upgrades = [
+        { id: 'cursor',   name: 'Auto Cursor',    icon: '👆', desc: '+1 cookie/sec',     baseCost: 15,    cpsAdd: 1,    owned: 0 },
+        { id: 'grandma',  name: 'Grandma',         icon: '👵', desc: '+5 cookies/sec',    baseCost: 100,   cpsAdd: 5,    owned: 0 },
+        { id: 'farm',     name: 'Cookie Farm',     icon: '🌾', desc: '+20 cookies/sec',   baseCost: 500,   cpsAdd: 20,   owned: 0 },
+        { id: 'factory',  name: 'Cookie Factory',  icon: '🏭', desc: '+100 cookies/sec',  baseCost: 3000,  cpsAdd: 100,  owned: 0 },
+        { id: 'mine',     name: 'Cookie Mine',     icon: '⛏️', desc: '+500 cookies/sec',  baseCost: 15000, cpsAdd: 500,  owned: 0 },
+        { id: 'portal',   name: 'Cookie Portal',   icon: '🌀', desc: '+2500 cookies/sec', baseCost: 80000, cpsAdd: 2500, owned: 0 },
+        { id: 'click2x',  name: 'Double Click',    icon: '✌️', desc: 'x2 click power',    baseCost: 200,   clickMul: 2,  owned: 0, max: 1 },
+        { id: 'click5x',  name: 'Mega Click',      icon: '🖐️', desc: 'x5 click power',    baseCost: 5000,  clickMul: 5,  owned: 0, max: 1 },
+    ];
+
+    const achievements = [
+        { id: 'first',    icon: '🌟', name: 'First Cookie',   check: () => totalCookies >= 1 },
+        { id: 'hundred',  icon: '💯', name: '100 Cookies',    check: () => totalCookies >= 100 },
+        { id: 'thousand', icon: '🏅', name: '1K Cookies',     check: () => totalCookies >= 1000 },
+        { id: 'tenk',    icon: '🥇', name: '10K Cookies',    check: () => totalCookies >= 10000 },
+        { id: 'hundredk', icon: '👑', name: '100K Cookies',   check: () => totalCookies >= 100000 },
+        { id: 'million',  icon: '💎', name: '1M Cookies',     check: () => totalCookies >= 1000000 },
+        { id: 'clicker',  icon: '🖱️', name: 'Speed Clicker',  check: () => clickCount >= 100 },
+        { id: 'empire',   icon: '🏰', name: 'Cookie Empire',  check: () => cps >= 1000 },
+    ];
+
+    let unlockedAch = new Set();
+    let clickCount = 0;
+
+    function getCost(u) {
+        return Math.floor(u.baseCost * Math.pow(1.15, u.owned));
+    }
+
+    function formatNum(n) {
+        if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+        if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+        if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+        return Math.floor(n).toString();
+    }
+
+    function renderShop() {
+        const html = ['<h2>🏪 Shop</h2>'];
+        for (const u of upgrades) {
+            const cost = getCost(u);
+            const locked = cookies < cost || (u.max && u.owned >= u.max);
+            const maxed = u.max && u.owned >= u.max;
+            html.push(`
+                <div class="upgrade ${locked ? 'locked' : ''}" onclick="buyUpgrade('${u.id}')">
+                    <span class="icon">${u.icon}</span>
+                    <div class="details">
+                        <div class="name">${u.name}</div>
+                        <div class="desc">${u.desc}</div>
+                    </div>
+                    <div>
+                        <div class="cost">${maxed ? '✅ MAX' : '🍪 ' + formatNum(cost)}</div>
+                        <div class="owned">${u.owned > 0 ? 'x' + u.owned : ''}</div>
+                    </div>
+                </div>
+            `);
+        }
+        document.getElementById('shop').innerHTML = html.join('');
+    }
+
+    function buyUpgrade(id) {
+        const u = upgrades.find(u => u.id === id);
+        if (!u) return;
+        if (u.max && u.owned >= u.max) return;
+        const cost = getCost(u);
+        if (cookies < cost) return;
+        cookies -= cost;
+        u.owned++;
+        if (u.cpsAdd) {
+            cps += u.cpsAdd;
+        }
+        if (u.clickMul) {
+            clickPower *= u.clickMul;
+        }
+        updateDisplay();
+        renderShop();
+    }
+
+    function clickCookie(e) {
+        cookies += clickPower;
+        totalCookies += clickPower;
+        clickCount++;
+        
+        // Float number
+        const area = document.getElementById('cookieArea');
+        const num = document.createElement('div');
+        num.className = 'float-num';
+        num.textContent = '+' + formatNum(clickPower);
+        num.style.left = (Math.random() * 100 + 50) + 'px';
+        num.style.top = (Math.random() * 40 + 60) + 'px';
+        area.appendChild(num);
+        setTimeout(() => num.remove(), 1000);
+
+        updateDisplay();
+        checkAchievements();
+    }
+
+    function updateDisplay() {
+        document.getElementById('count').textContent = formatNum(cookies);
+        document.getElementById('cps').textContent = formatNum(cps);
+    }
+
+    function renderAchievements() {
+        const grid = document.getElementById('achGrid');
+        grid.innerHTML = achievements.map(a => 
+            `<div class="ach ${unlockedAch.has(a.id) ? 'unlocked' : ''}" title="${a.name}">${a.icon}</div>`
+        ).join('');
+    }
+
+    function checkAchievements() {
+        for (const a of achievements) {
+            if (!unlockedAch.has(a.id) && a.check()) {
+                unlockedAch.add(a.id);
+                renderAchievements();
+                showAchToast(a);
+            }
+        }
+    }
+
+    function showAchToast(a) {
+        const toast = document.createElement('div');
+        toast.className = 'ach-toast';
+        toast.textContent = `🏆 ${a.icon} ${a.name}!`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+    }
+
+    function resetGame() {
+        if (!confirm('Reset all progress?')) return;
+        cookies = 0; totalCookies = 0; clickPower = 1; cps = 0; clickCount = 0;
+        unlockedAch.clear();
+        for (const u of upgrades) u.owned = 0;
+        updateDisplay();
+        renderShop();
+        renderAchievements();
+    }
+
+    // Auto-generate cookies
+    setInterval(() => {
+        if (cps > 0) {
+            cookies += cps / 10;
+            totalCookies += cps / 10;
+            updateDisplay();
+            renderShop();
+            checkAchievements();
+        }
+    }, 100);
+
+    document.getElementById('cookie').addEventListener('click', clickCookie);
+    updateDisplay();
+    renderShop();
+    renderAchievements();
+    </script>
+</body>
+</html>
