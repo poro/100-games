@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>076 - Picross</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        h1 {
+            color: #00b894;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 184, 148, 0.5);
+        }
+
+        .info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            align-items: center;
+        }
+
+        .info span { color: #ffd93d; }
+
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .sz-btn {
+            background: transparent;
+            border: 2px solid #00b894;
+            color: #00b894;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sz-btn:hover, .sz-btn.active {
+            background: #00b894;
+            color: #1a1a2e;
+        }
+
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            background: transparent;
+            border: 2px solid #636e72;
+            color: #636e72;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            border-color: #00b894;
+            color: #00b894;
+            background: rgba(0, 184, 148, 0.15);
+        }
+
+        #board {
+            display: inline-block;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 3px solid #00b894;
+            box-shadow: 0 0 30px rgba(0, 184, 148, 0.2);
+        }
+
+        table {
+            border-collapse: collapse;
+            background: #1e1e36;
+        }
+
+        td {
+            width: 32px;
+            height: 32px;
+            text-align: center;
+            vertical-align: middle;
+            font-size: 11px;
+            font-weight: bold;
+            border: 1px solid #2d2d4a;
+        }
+
+        .clue-col {
+            color: #b2bec3;
+            background: #252545;
+            font-size: 10px;
+            line-height: 1.2;
+            padding: 2px;
+            vertical-align: bottom;
+        }
+
+        .clue-row {
+            color: #b2bec3;
+            background: #252545;
+            font-size: 10px;
+            line-height: 1.2;
+            padding: 2px;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .cell {
+            cursor: pointer;
+            transition: background 0.1s;
+        }
+
+        .cell:hover {
+            background: rgba(0, 184, 148, 0.1);
+        }
+
+        .cell.filled {
+            background: #00b894;
+        }
+
+        .cell.marked {
+            background: transparent;
+            color: #e17055;
+            font-size: 16px;
+        }
+
+        .cell.error {
+            background: #d63031;
+        }
+
+        .corner { background: #1a1a30; }
+
+        .clue-done { color: #444; }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button.action-btn {
+            background: #00b894;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        button.action-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 184, 148, 0.4);
+        }
+
+        .how-to {
+            max-width: 600px;
+            margin-top: 20px;
+            padding: 15px 20px;
+            background: rgba(0, 184, 148, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 184, 148, 0.2);
+            font-size: 0.95em;
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .how-to strong { color: #00b894; }
+
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #00b894;
+            text-decoration: none;
+            font-size: 1.4em;
+            z-index: 100;
+        }
+
+        .win-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 200;
+        }
+
+        .win-overlay.show { display: flex; }
+
+        .win-overlay h2 {
+            font-size: 3em;
+            color: #ffd93d;
+            margin-bottom: 10px;
+        }
+
+        .win-overlay p {
+            font-size: 1.3em;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 500px) {
+            td { width: 26px; height: 26px; font-size: 9px; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>🎨 Picross</h1>
+    <div class="info">
+        Errors: <span id="errors">0</span>/3 &nbsp;|&nbsp; Time: <span id="timer">0:00</span>
+    </div>
+    <div class="size-selector">
+        <button class="sz-btn active" onclick="initGame(5)">5×5</button>
+        <button class="sz-btn" onclick="initGame(10)">10×10</button>
+        <button class="sz-btn" onclick="initGame(15)">15×15</button>
+    </div>
+    <div class="mode-toggle">
+        <button class="mode-btn active" id="fillMode" onclick="setMode('fill')">🖊 Fill</button>
+        <button class="mode-btn" id="markMode" onclick="setMode('mark')">✕ Mark</button>
+    </div>
+    <div id="board"></div>
+    <div class="controls">
+        <button class="action-btn" onclick="initGame(gridSize)">New Puzzle</button>
+    </div>
+    <div class="how-to">
+        <strong>How to play:</strong> Fill in cells to reveal a hidden picture!
+        The numbers on each row/column tell you how many consecutive filled cells are in that line.
+        Multiple numbers mean multiple groups separated by at least one empty cell.
+        Use <strong>Fill</strong> mode to color cells or <strong>Mark</strong> mode (✕) to mark cells you know are empty. 3 wrong fills = game over!
+    </div>
+
+    <div class="win-overlay" id="winOverlay">
+        <h2>🎉 Solved!</h2>
+        <p id="winMsg"></p>
+        <button class="action-btn" onclick="initGame(gridSize)">New Puzzle</button>
+    </div>
+
+    <script>
+        let gridSize = 5;
+        let solution = [];
+        let playerGrid = [];
+        let mode = 'fill';
+        let errors = 0;
+        let maxErrors = 3;
+        let timerInterval;
+        let seconds = 0;
+        let gameOver = false;
+
+        function setMode(m) {
+            mode = m;
+            document.getElementById('fillMode').classList.toggle('active', m === 'fill');
+            document.getElementById('markMode').classList.toggle('active', m === 'mark');
+        }
+
+        function generatePuzzle(size) {
+            // Generate a random solution with ~40-60% fill rate
+            const grid = [];
+            const fillRate = 0.4 + Math.random() * 0.2;
+            for (let r = 0; r < size; r++) {
+                grid[r] = [];
+                for (let c = 0; c < size; c++) {
+                    grid[r][c] = Math.random() < fillRate ? 1 : 0;
+                }
+            }
+            // Ensure at least one cell per row/col
+            for (let r = 0; r < size; r++) {
+                if (!grid[r].includes(1)) grid[r][Math.floor(Math.random() * size)] = 1;
+            }
+            for (let c = 0; c < size; c++) {
+                let hasOne = false;
+                for (let r = 0; r < size; r++) if (grid[r][c]) hasOne = true;
+                if (!hasOne) grid[Math.floor(Math.random() * size)][c] = 1;
+            }
+            return grid;
+        }
+
+        function getClues(line) {
+            const clues = [];
+            let count = 0;
+            for (const v of line) {
+                if (v === 1) count++;
+                else if (count > 0) { clues.push(count); count = 0; }
+            }
+            if (count > 0) clues.push(count);
+            return clues.length ? clues : [0];
+        }
+
+        function getRowClues(grid, r) {
+            return getClues(grid[r]);
+        }
+
+        function getColClues(grid, c) {
+            return getClues(grid.map(row => row[c]));
+        }
+
+        function initGame(size) {
+            gridSize = size;
+            solution = generatePuzzle(size);
+            playerGrid = Array.from({length: size}, () => Array(size).fill(0)); // 0=empty, 1=filled, 2=marked
+            errors = 0;
+            gameOver = false;
+            seconds = 0;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!gameOver) {
+                    seconds++;
+                    document.getElementById('timer').textContent =
+                        Math.floor(seconds/60) + ':' + String(seconds%60).padStart(2,'0');
+                }
+            }, 1000);
+            document.getElementById('errors').textContent = '0';
+            document.getElementById('timer').textContent = '0:00';
+            document.getElementById('winOverlay').classList.remove('show');
+            document.querySelectorAll('.sz-btn').forEach(b => {
+                b.classList.toggle('active', parseInt(b.textContent) === size);
+            });
+            renderBoard();
+        }
+
+        function renderBoard() {
+            const colClues = [];
+            let maxColClueLen = 0;
+            for (let c = 0; c < gridSize; c++) {
+                const cl = getColClues(solution, c);
+                colClues.push(cl);
+                maxColClueLen = Math.max(maxColClueLen, cl.length);
+            }
+
+            const rowClues = [];
+            let maxRowClueLen = 0;
+            for (let r = 0; r < gridSize; r++) {
+                const cl = getRowClues(solution, r);
+                rowClues.push(cl);
+                maxRowClueLen = Math.max(maxRowClueLen, cl.length);
+            }
+
+            let html = '<table>';
+
+            // Column clues
+            for (let ci = 0; ci < maxColClueLen; ci++) {
+                html += '<tr>';
+                for (let x = 0; x < maxRowClueLen; x++) html += '<td class="corner"></td>';
+                for (let c = 0; c < gridSize; c++) {
+                    const idx = ci - (maxColClueLen - colClues[c].length);
+                    html += `<td class="clue-col">${idx >= 0 ? colClues[c][idx] : ''}</td>`;
+                }
+                html += '</tr>';
+            }
+
+            // Rows
+            for (let r = 0; r < gridSize; r++) {
+                html += '<tr>';
+                const rc = rowClues[r];
+                for (let x = 0; x < maxRowClueLen; x++) {
+                    const idx = x - (maxRowClueLen - rc.length);
+                    html += `<td class="clue-row">${idx >= 0 ? rc[idx] : ''}</td>`;
+                }
+                for (let c = 0; c < gridSize; c++) {
+                    const state = playerGrid[r][c];
+                    let cls = 'cell';
+                    let content = '';
+                    if (state === 1) cls += ' filled';
+                    else if (state === 2) { cls += ' marked'; content = '✕'; }
+                    html += `<td class="${cls}" data-r="${r}" data-c="${c}">${content}</td>`;
+                }
+                html += '</tr>';
+            }
+
+            html += '</table>';
+            document.getElementById('board').innerHTML = html;
+
+            // Attach events
+            document.querySelectorAll('.cell').forEach(td => {
+                td.addEventListener('click', handleCellClick);
+                td.addEventListener('contextmenu', e => {
+                    e.preventDefault();
+                    setMode(mode === 'fill' ? 'mark' : 'fill');
+                    handleCellClick.call(td, e);
+                    setMode(mode === 'fill' ? 'mark' : 'fill');
+                });
+            });
+        }
+
+        function handleCellClick() {
+            if (gameOver) return;
+            const r = parseInt(this.dataset.r);
+            const c = parseInt(this.dataset.c);
+
+            if (mode === 'fill') {
+                if (playerGrid[r][c] === 1) return; // already filled
+                if (playerGrid[r][c] === 2) { playerGrid[r][c] = 0; renderBoard(); return; }
+                if (solution[r][c] === 1) {
+                    playerGrid[r][c] = 1;
+                } else {
+                    errors++;
+                    document.getElementById('errors').textContent = errors;
+                    this.classList.add('error');
+                    playerGrid[r][c] = 2; // auto-mark wrong
+                    if (errors >= maxErrors) {
+                        gameOver = true;
+                        clearInterval(timerInterval);
+                        document.getElementById('winMsg').textContent = 'Too many errors! Try again.';
+                        document.getElementById('winOverlay').querySelector('h2').textContent = '💥 Game Over';
+                        document.getElementById('winOverlay').classList.add('show');
+                        return;
+                    }
+                    setTimeout(() => renderBoard(), 400);
+                    return;
+                }
+            } else {
+                if (playerGrid[r][c] === 1) return;
+                playerGrid[r][c] = playerGrid[r][c] === 2 ? 0 : 2;
+            }
+
+            renderBoard();
+            checkWin();
+        }
+
+        function checkWin() {
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    if (solution[r][c] === 1 && playerGrid[r][c] !== 1) return;
+                }
+            }
+            gameOver = true;
+            clearInterval(timerInterval);
+            const m = Math.floor(seconds/60);
+            const s = String(seconds%60).padStart(2,'0');
+            document.getElementById('winOverlay').querySelector('h2').textContent = '🎉 Solved!';
+            document.getElementById('winMsg').textContent = `Completed in ${m}:${s} with ${errors} error${errors!==1?'s':''}!`;
+            document.getElementById('winOverlay').classList.add('show');
+        }
+
+        initGame(5);
+    </script>
+</body>
+</html>

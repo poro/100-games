@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>075 - Tower of Hanoi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        h1 {
+            color: #e17055;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(225, 112, 85, 0.5);
+        }
+
+        .info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            align-items: center;
+        }
+
+        .info span { color: #ffd93d; }
+
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .sz-btn {
+            background: transparent;
+            border: 2px solid #e17055;
+            color: #e17055;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sz-btn:hover, .sz-btn.active {
+            background: #e17055;
+            color: #1a1a2e;
+        }
+
+        canvas {
+            border-radius: 12px;
+            border: 3px solid #e17055;
+            box-shadow: 0 0 30px rgba(225, 112, 85, 0.2);
+            cursor: pointer;
+            background: #1e1e36;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button.action-btn {
+            background: #e17055;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        button.action-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(225, 112, 85, 0.4);
+        }
+
+        .how-to {
+            max-width: 600px;
+            margin-top: 20px;
+            padding: 15px 20px;
+            background: rgba(225, 112, 85, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(225, 112, 85, 0.2);
+            font-size: 0.95em;
+            color: #ccc;
+            line-height: 1.6;
+        }
+
+        .how-to strong { color: #e17055; }
+
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #e17055;
+            text-decoration: none;
+            font-size: 1.4em;
+            z-index: 100;
+        }
+
+        .win-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 200;
+        }
+
+        .win-overlay.show { display: flex; }
+
+        .win-overlay h2 {
+            font-size: 3em;
+            color: #ffd93d;
+            margin-bottom: 10px;
+        }
+
+        .win-overlay p {
+            font-size: 1.3em;
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>🗼 Tower of Hanoi</h1>
+    <div class="info">
+        Moves: <span id="moves">0</span> &nbsp;|&nbsp; Optimal: <span id="optimal">7</span>
+    </div>
+    <div class="size-selector">
+        <button class="sz-btn" onclick="initGame(3)">3 Disks</button>
+        <button class="sz-btn active" onclick="initGame(4)">4 Disks</button>
+        <button class="sz-btn" onclick="initGame(5)">5 Disks</button>
+        <button class="sz-btn" onclick="initGame(6)">6 Disks</button>
+        <button class="sz-btn" onclick="initGame(7)">7 Disks</button>
+    </div>
+    <canvas id="game"></canvas>
+    <div class="controls">
+        <button class="action-btn" onclick="initGame(numDisks)">Reset</button>
+    </div>
+    <div class="how-to">
+        <strong>How to play:</strong> Move all disks from the left peg to the right peg.
+        You can only move one disk at a time, and a larger disk cannot be placed on top of a smaller one.
+        Click a peg to pick up the top disk, then click another peg to place it. Try to solve it in the minimum number of moves!
+    </div>
+
+    <div class="win-overlay" id="winOverlay">
+        <h2>🎉 Solved!</h2>
+        <p id="winMsg"></p>
+        <button class="action-btn" onclick="initGame(numDisks)">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        let numDisks = 4;
+        let pegs = [[], [], []];
+        let moves = 0;
+        let selectedPeg = -1;
+        let liftedDisk = null;
+        const diskColors = ['#e17055','#fdcb6e','#00b894','#0984e3','#6c5ce7','#e84393','#00cec9'];
+
+        function resize() {
+            const w = Math.min(window.innerWidth - 40, 700);
+            canvas.width = w;
+            canvas.height = Math.round(w * 0.55);
+        }
+
+        function initGame(n) {
+            numDisks = n;
+            pegs = [[], [], []];
+            for (let i = n; i >= 1; i--) pegs[0].push(i);
+            moves = 0;
+            selectedPeg = -1;
+            liftedDisk = null;
+            document.getElementById('moves').textContent = 0;
+            document.getElementById('optimal').textContent = Math.pow(2, n) - 1;
+            document.getElementById('winOverlay').classList.remove('show');
+            document.querySelectorAll('.sz-btn').forEach(b => {
+                b.classList.toggle('active', parseInt(b.textContent) === n);
+            });
+            resize();
+            draw();
+        }
+
+        function draw() {
+            const W = canvas.width, H = canvas.height;
+            ctx.clearRect(0, 0, W, H);
+
+            // Base
+            ctx.fillStyle = '#3d3d5c';
+            ctx.fillRect(W * 0.05, H * 0.85, W * 0.9, H * 0.06);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(W * 0.05, H * 0.85, W * 0.9, H * 0.06);
+
+            const pegX = [W * 0.2, W * 0.5, W * 0.8];
+            const pegW = 6;
+            const pegTop = H * 0.15;
+            const pegBot = H * 0.85;
+
+            // Pegs
+            for (let i = 0; i < 3; i++) {
+                ctx.fillStyle = '#555';
+                ctx.fillRect(pegX[i] - pegW/2, pegTop, pegW, pegBot - pegTop);
+
+                // Highlight selected
+                if (selectedPeg === i) {
+                    ctx.fillStyle = 'rgba(225, 112, 85, 0.15)';
+                    ctx.fillRect(pegX[i] - W * 0.13, pegTop, W * 0.26, pegBot - pegTop);
+                }
+            }
+
+            // Disks
+            const maxDiskW = W * 0.22;
+            const minDiskW = W * 0.06;
+            const diskH = Math.min(30, (pegBot - pegTop - 20) / numDisks);
+
+            for (let p = 0; p < 3; p++) {
+                for (let d = 0; d < pegs[p].length; d++) {
+                    const diskSize = pegs[p][d];
+                    if (selectedPeg === p && d === pegs[p].length - 1 && liftedDisk !== null) continue;
+                    const dw = minDiskW + (maxDiskW - minDiskW) * (diskSize / numDisks);
+                    const dx = pegX[p] - dw / 2;
+                    const dy = pegBot - (d + 1) * diskH;
+                    drawDisk(dx, dy, dw, diskH - 2, diskColors[(diskSize - 1) % diskColors.length], diskSize);
+                }
+            }
+
+            // Lifted disk
+            if (liftedDisk !== null && selectedPeg >= 0) {
+                const dw = minDiskW + (maxDiskW - minDiskW) * (liftedDisk / numDisks);
+                const dx = pegX[selectedPeg] - dw / 2;
+                const dy = pegTop - diskH + 5;
+                drawDisk(dx, dy, dw, diskH - 2, diskColors[(liftedDisk - 1) % diskColors.length], liftedDisk);
+            }
+        }
+
+        function drawDisk(x, y, w, h, color, num) {
+            ctx.fillStyle = color;
+            const r = h / 2;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, r);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${Math.max(12, h * 0.6)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(num, x + w/2, y + h/2);
+        }
+
+        canvas.addEventListener('click', e => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const W = canvas.width;
+
+            let clickedPeg = -1;
+            if (x < W * 0.35) clickedPeg = 0;
+            else if (x < W * 0.65) clickedPeg = 1;
+            else clickedPeg = 2;
+
+            if (selectedPeg === -1) {
+                // Pick up
+                if (pegs[clickedPeg].length > 0) {
+                    selectedPeg = clickedPeg;
+                    liftedDisk = pegs[clickedPeg][pegs[clickedPeg].length - 1];
+                    draw();
+                }
+            } else if (selectedPeg === clickedPeg) {
+                // Deselect
+                selectedPeg = -1;
+                liftedDisk = null;
+                draw();
+            } else {
+                // Try to place
+                const top = pegs[clickedPeg].length > 0 ? pegs[clickedPeg][pegs[clickedPeg].length - 1] : Infinity;
+                if (liftedDisk < top) {
+                    pegs[selectedPeg].pop();
+                    pegs[clickedPeg].push(liftedDisk);
+                    moves++;
+                    document.getElementById('moves').textContent = moves;
+                    selectedPeg = -1;
+                    liftedDisk = null;
+                    draw();
+                    checkWin();
+                } else {
+                    // Invalid - flash
+                    selectedPeg = -1;
+                    liftedDisk = null;
+                    draw();
+                }
+            }
+        });
+
+        function checkWin() {
+            if (pegs[2].length === numDisks) {
+                const opt = Math.pow(2, numDisks) - 1;
+                const msg = moves === opt
+                    ? `Perfect! Solved in ${moves} moves (optimal)!`
+                    : `Solved in ${moves} moves (optimal: ${opt})`;
+                document.getElementById('winMsg').textContent = msg;
+                document.getElementById('winOverlay').classList.add('show');
+            }
+        }
+
+        window.addEventListener('resize', () => { resize(); draw(); });
+        initGame(4);
+    </script>
+</body>
+</html>
