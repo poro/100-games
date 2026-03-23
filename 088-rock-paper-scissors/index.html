@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>088 - Rock Paper Scissors</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .info { display: flex; gap: 20px; margin-bottom: 12px; font-size: 1.1em; align-items: center; }
+        .info span { color: #ff6b9d; }
+        .arena {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            border: 2px solid rgba(255,107,157,0.2);
+            padding: 30px;
+            width: min(420px, 95vw);
+            text-align: center;
+        }
+        .battle {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .fighter {
+            text-align: center;
+        }
+        .fighter-label {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        .fighter-emoji {
+            font-size: 4em;
+            display: block;
+            height: 80px;
+            line-height: 80px;
+            transition: transform 0.3s;
+        }
+        .fighter-emoji.shake {
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: rotate(0); }
+            25% { transform: rotate(-15deg) scale(1.1); }
+            75% { transform: rotate(15deg) scale(1.1); }
+        }
+        .vs {
+            font-size: 1.5em;
+            color: #ff6b9d;
+            font-weight: bold;
+        }
+        .result {
+            font-size: 1.4em;
+            font-weight: bold;
+            min-height: 1.8em;
+            margin: 15px 0;
+            transition: opacity 0.3s;
+        }
+        .result.win { color: #44ff88; }
+        .result.lose { color: #ff4466; }
+        .result.draw { color: #ffaa44; }
+        .choices {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .choice-btn {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: rgba(255,107,157,0.15);
+            border: 3px solid rgba(255,107,157,0.3);
+            cursor: pointer;
+            font-size: 2.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .choice-btn:hover {
+            transform: scale(1.1);
+            border-color: #ff6b9d;
+            background: rgba(255,107,157,0.3);
+            box-shadow: 0 0 25px rgba(255,107,157,0.3);
+        }
+        .choice-btn:active { transform: scale(0.95); }
+        .choice-btn.selected {
+            border-color: #ff6b9d;
+            background: rgba(255,107,157,0.4);
+            box-shadow: 0 0 30px rgba(255,107,157,0.5);
+        }
+        .streak-bar {
+            margin-top: 15px;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        .streak-bar .streak-num { color: #ffaa44; font-weight: bold; }
+        .mode-toggle {
+            margin: 12px 0;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        .mode-btn {
+            padding: 6px 14px;
+            border-radius: 15px;
+            border: 1px solid rgba(255,107,157,0.3);
+            background: transparent;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .mode-btn.active {
+            background: rgba(255,107,157,0.3);
+            border-color: #ff6b9d;
+            color: white;
+        }
+        .controls { margin-top: 12px; display: flex; gap: 10px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        .back-link { margin-top: 16px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+        .history {
+            margin-top: 12px;
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .history-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        .history-dot.w { background: #44ff88; }
+        .history-dot.l { background: #ff4466; }
+        .history-dot.d { background: #ffaa44; }
+    </style>
+</head>
+<body>
+    <h1>✊ Rock Paper Scissors</h1>
+    <div class="info">
+        <div>Wins: <span id="wins">0</span></div>
+        <div>Losses: <span id="losses">0</span></div>
+        <div>Draws: <span id="draws">0</span></div>
+    </div>
+    <div class="arena">
+        <div class="mode-toggle">
+            <button class="mode-btn active" onclick="setMode('rps')">Classic</button>
+            <button class="mode-btn" onclick="setMode('rpsls')">+ Lizard Spock</button>
+        </div>
+        <div class="battle">
+            <div class="fighter">
+                <div class="fighter-label">You</div>
+                <div class="fighter-emoji" id="playerEmoji">❓</div>
+            </div>
+            <div class="vs">VS</div>
+            <div class="fighter">
+                <div class="fighter-label">CPU</div>
+                <div class="fighter-emoji" id="cpuEmoji">❓</div>
+            </div>
+        </div>
+        <div class="result" id="result">Choose your weapon!</div>
+        <div class="choices" id="choices"></div>
+        <div class="history" id="history"></div>
+        <div class="streak-bar">
+            🔥 Streak: <span class="streak-num" id="streak">0</span> |
+            Best: <span class="streak-num" id="bestStreak">0</span>
+        </div>
+    </div>
+    <div class="controls">
+        <button class="action-btn" onclick="resetGame()">🔄 Reset</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+    <script>
+    const MOVES = {
+        rps: [
+            { name: 'Rock', emoji: '🪨', beats: ['Scissors'] },
+            { name: 'Paper', emoji: '📄', beats: ['Rock'] },
+            { name: 'Scissors', emoji: '✂️', beats: ['Paper'] }
+        ],
+        rpsls: [
+            { name: 'Rock', emoji: '🪨', beats: ['Scissors', 'Lizard'] },
+            { name: 'Paper', emoji: '📄', beats: ['Rock', 'Spock'] },
+            { name: 'Scissors', emoji: '✂️', beats: ['Paper', 'Lizard'] },
+            { name: 'Lizard', emoji: '🦎', beats: ['Paper', 'Spock'] },
+            { name: 'Spock', emoji: '🖖', beats: ['Rock', 'Scissors'] }
+        ]
+    };
+
+    let mode = 'rps';
+    let wins = 0, losses = 0, draws = 0, streak = 0, bestStreakVal = 0;
+    let history = [];
+    let playing = false;
+
+    bestStreakVal = parseInt(localStorage.getItem('rps_best_streak') || '0');
+    document.getElementById('bestStreak').textContent = bestStreakVal;
+
+    function setMode(m) {
+        mode = m;
+        document.querySelectorAll('.mode-btn').forEach((b, i) => {
+            b.classList.toggle('active', (i === 0 && m === 'rps') || (i === 1 && m === 'rpsls'));
+        });
+        renderChoices();
+    }
+
+    function renderChoices() {
+        const el = document.getElementById('choices');
+        el.innerHTML = MOVES[mode].map((m, i) => 
+            `<div class="choice-btn" onclick="play(${i})" title="${m.name}">${m.emoji}</div>`
+        ).join('');
+    }
+
+    function play(idx) {
+        if (playing) return;
+        playing = true;
+
+        const moves = MOVES[mode];
+        const player = moves[idx];
+        const cpu = moves[Math.floor(Math.random() * moves.length)];
+
+        // Animate
+        const pEl = document.getElementById('playerEmoji');
+        const cEl = document.getElementById('cpuEmoji');
+        pEl.textContent = '❓';
+        cEl.textContent = '❓';
+        pEl.classList.add('shake');
+        cEl.classList.add('shake');
+
+        // Highlight selected
+        document.querySelectorAll('.choice-btn').forEach((b, i) => {
+            b.classList.toggle('selected', i === idx);
+        });
+
+        setTimeout(() => {
+            pEl.classList.remove('shake');
+            cEl.classList.remove('shake');
+            pEl.textContent = player.emoji;
+            cEl.textContent = cpu.emoji;
+
+            const result = document.getElementById('result');
+            let outcome;
+
+            if (player.name === cpu.name) {
+                result.textContent = "🤝 It's a draw!";
+                result.className = 'result draw';
+                draws++;
+                streak = 0;
+                outcome = 'd';
+            } else if (player.beats.includes(cpu.name)) {
+                result.textContent = `✨ ${player.name} beats ${cpu.name}!`;
+                result.className = 'result win';
+                wins++;
+                streak++;
+                outcome = 'w';
+            } else {
+                result.textContent = `💀 ${cpu.name} beats ${player.name}!`;
+                result.className = 'result lose';
+                losses++;
+                streak = 0;
+                outcome = 'l';
+            }
+
+            if (streak > bestStreakVal) {
+                bestStreakVal = streak;
+                localStorage.setItem('rps_best_streak', bestStreakVal);
+            }
+
+            history.push(outcome);
+            if (history.length > 20) history.shift();
+
+            document.getElementById('wins').textContent = wins;
+            document.getElementById('losses').textContent = losses;
+            document.getElementById('draws').textContent = draws;
+            document.getElementById('streak').textContent = streak;
+            document.getElementById('bestStreak').textContent = bestStreakVal;
+
+            renderHistory();
+            playing = false;
+        }, 500);
+    }
+
+    function renderHistory() {
+        document.getElementById('history').innerHTML = history.map(h => 
+            `<div class="history-dot ${h}"></div>`
+        ).join('');
+    }
+
+    function resetGame() {
+        wins = 0; losses = 0; draws = 0; streak = 0;
+        history = [];
+        document.getElementById('wins').textContent = '0';
+        document.getElementById('losses').textContent = '0';
+        document.getElementById('draws').textContent = '0';
+        document.getElementById('streak').textContent = '0';
+        document.getElementById('playerEmoji').textContent = '❓';
+        document.getElementById('cpuEmoji').textContent = '❓';
+        document.getElementById('result').textContent = 'Choose your weapon!';
+        document.getElementById('result').className = 'result';
+        document.getElementById('history').innerHTML = '';
+        document.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+    }
+
+    renderChoices();
+    </script>
+</body>
+</html>
