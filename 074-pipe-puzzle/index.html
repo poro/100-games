@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>074 - Pipe Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #6c5ce7;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(108, 92, 231, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            align-items: center;
+        }
+        
+        .info span { color: #ffd93d; }
+        
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .sz-btn {
+            background: transparent;
+            border: 2px solid #6c5ce7;
+            color: #6c5ce7;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .sz-btn:hover, .sz-btn.active {
+            background: #6c5ce7;
+            color: #1a1a2e;
+        }
+        
+        canvas {
+            border-radius: 12px;
+            border: 3px solid #6c5ce7;
+            box-shadow: 0 0 30px rgba(108, 92, 231, 0.2);
+            cursor: pointer;
+            background: #1e1e36;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button.action-btn {
+            background: #6c5ce7;
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button.action-btn:hover {
+            background: #5a4bd1;
+            transform: scale(1.05);
+        }
+        
+        .win-message {
+            display: none;
+            margin-top: 15px;
+            padding: 15px 30px;
+            background: linear-gradient(145deg, #2d6a4f, #1b4332);
+            border-radius: 12px;
+            font-size: 1.3em;
+            text-align: center;
+            animation: pop 0.3s ease;
+        }
+        
+        .win-message.show { display: block; }
+        
+        .hint {
+            color: #888;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+        
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #aaa;
+            text-decoration: none;
+            font-size: 1.5em;
+        }
+        
+        @media (max-width: 500px) {
+            h1 { font-size: 1.5em; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>🔧 Pipe Puzzle</h1>
+    
+    <div class="size-selector">
+        <button class="sz-btn" data-size="5">5×5</button>
+        <button class="sz-btn active" data-size="7">7×7</button>
+        <button class="sz-btn" data-size="9">9×9</button>
+    </div>
+    
+    <div class="info">
+        <div>Moves: <span id="moves">0</span></div>
+        <div>Level: <span id="level">1</span></div>
+    </div>
+    
+    <canvas id="canvas"></canvas>
+    
+    <div class="hint">Click a pipe to rotate it. Connect source 💧 to drain 🏁</div>
+    
+    <div class="controls">
+        <button class="action-btn" id="newBtn">🔄 New Puzzle</button>
+    </div>
+    
+    <div class="win-message" id="winMsg">
+        🎉 Connected! <span id="winMoves"></span> moves
+    </div>
+
+    <script>
+        // Pipe types: each pipe has openings in directions [top, right, bottom, left]
+        // 0=straight(vert), 1=straight(horiz), 2=elbow, 3=tee, 4=cross
+        // We store as bitmask: top=1, right=2, bottom=4, left=8
+        
+        const DIRS = { TOP: 1, RIGHT: 2, BOTTOM: 4, LEFT: 8 };
+        const OPPOSITE = { 1: 4, 2: 8, 4: 1, 8: 2 };
+        const DIR_OFFSETS = {
+            1: { dr: -1, dc: 0 },  // top
+            2: { dr: 0, dc: 1 },   // right
+            4: { dr: 1, dc: 0 },   // bottom
+            8: { dr: 0, dc: -1 }   // left
+        };
+
+        let gridSize = 7;
+        let cellSize = 60;
+        let grid = [];
+        let moves = 0;
+        let level = 1;
+        let sourceR, sourceC, drainR, drainC;
+        let connected = new Set();
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const movesEl = document.getElementById('moves');
+        const levelEl = document.getElementById('level');
+        const winMsg = document.getElementById('winMsg');
+
+        function rotateCW(pipe) {
+            // Rotate bitmask clockwise: top->right, right->bottom, bottom->left, left->top
+            let result = 0;
+            if (pipe & DIRS.TOP) result |= DIRS.RIGHT;
+            if (pipe & DIRS.RIGHT) result |= DIRS.BOTTOM;
+            if (pipe & DIRS.BOTTOM) result |= DIRS.LEFT;
+            if (pipe & DIRS.LEFT) result |= DIRS.TOP;
+            return result;
+        }
+
+        function generatePuzzle() {
+            // Build a spanning tree using randomized DFS, then scramble rotations
+            grid = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+            const visited = Array.from({ length: gridSize }, () => Array(gridSize).fill(false));
+            
+            // Source top-left area, drain bottom-right area
+            sourceR = 0; sourceC = 0;
+            drainR = gridSize - 1; drainC = gridSize - 1;
+            
+            // DFS to build connected tree
+            const stack = [[sourceR, sourceC]];
+            visited[sourceR][sourceC] = true;
+            
+            while (stack.length > 0) {
+                const [r, c] = stack[stack.length - 1];
+                const neighbors = [];
+                
+                for (const [dir, { dr, dc }] of Object.entries(DIR_OFFSETS)) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize && !visited[nr][nc]) {
+                        neighbors.push({ dir: parseInt(dir), nr, nc });
+                    }
+                }
+                
+                if (neighbors.length === 0) {
+                    stack.pop();
+                    continue;
+                }
+                
+                // Pick random neighbor
+                const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+                grid[r][c] |= pick.dir;
+                grid[pick.nr][pick.nc] |= OPPOSITE[pick.dir];
+                visited[pick.nr][pick.nc] = true;
+                stack.push([pick.nr, pick.nc]);
+            }
+            
+            // Now scramble each pipe by random rotations
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    const rotations = Math.floor(Math.random() * 4);
+                    for (let i = 0; i < rotations; i++) {
+                        grid[r][c] = rotateCW(grid[r][c]);
+                    }
+                }
+            }
+            
+            moves = 0;
+            movesEl.textContent = '0';
+            winMsg.classList.remove('show');
+            updateConnected();
+            draw();
+        }
+
+        function updateConnected() {
+            connected = new Set();
+            // BFS from source
+            const queue = [[sourceR, sourceC]];
+            const visited = new Set();
+            visited.add(`${sourceR},${sourceC}`);
+            
+            // Check if source has correct connections
+            // Actually we do BFS following pipe connections
+            const bfsVisited = new Set();
+            bfsVisited.add(`${sourceR},${sourceC}`);
+            const bfsQueue = [[sourceR, sourceC]];
+            
+            while (bfsQueue.length > 0) {
+                const [r, c] = bfsQueue.shift();
+                connected.add(`${r},${c}`);
+                
+                for (const [dir, { dr, dc }] of Object.entries(DIR_OFFSETS)) {
+                    const d = parseInt(dir);
+                    if (!(grid[r][c] & d)) continue; // This pipe doesn't open in this direction
+                    
+                    const nr = r + dr, nc = c + dc;
+                    if (nr < 0 || nr >= gridSize || nc < 0 || nc >= gridSize) continue;
+                    if (bfsVisited.has(`${nr},${nc}`)) continue;
+                    
+                    // Check if neighbor pipe opens back toward us
+                    if (grid[nr][nc] & OPPOSITE[d]) {
+                        bfsVisited.add(`${nr},${nc}`);
+                        bfsQueue.push([nr, nc]);
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            const w = gridSize * cellSize;
+            canvas.width = w;
+            canvas.height = w;
+            
+            // Adjust for mobile
+            const maxW = window.innerWidth - 40;
+            if (w > maxW) {
+                canvas.style.width = maxW + 'px';
+                canvas.style.height = maxW + 'px';
+            } else {
+                canvas.style.width = '';
+                canvas.style.height = '';
+            }
+            
+            ctx.fillStyle = '#1e1e36';
+            ctx.fillRect(0, 0, w, w);
+            
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    drawCell(r, c);
+                }
+            }
+        }
+
+        function drawCell(r, c) {
+            const x = c * cellSize;
+            const y = r * cellSize;
+            const pipe = grid[r][c];
+            const isConnected = connected.has(`${r},${c}`);
+            const isSource = r === sourceR && c === sourceC;
+            const isDrain = r === drainR && c === drainC;
+            
+            // Cell background
+            ctx.fillStyle = '#2d2d44';
+            ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+            
+            // Draw pipe segments
+            const cx = x + cellSize / 2;
+            const cy = y + cellSize / 2;
+            const pipeWidth = cellSize * 0.25;
+            
+            ctx.strokeStyle = isConnected ? '#55efc4' : '#666';
+            ctx.lineWidth = pipeWidth;
+            ctx.lineCap = 'round';
+            
+            // Draw connections
+            ctx.beginPath();
+            if (pipe & DIRS.TOP) {
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx, y + 2);
+            }
+            if (pipe & DIRS.BOTTOM) {
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx, y + cellSize - 2);
+            }
+            if (pipe & DIRS.LEFT) {
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(x + 2, cy);
+            }
+            if (pipe & DIRS.RIGHT) {
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(x + cellSize - 2, cy);
+            }
+            ctx.stroke();
+            
+            // Draw center joint
+            ctx.fillStyle = isConnected ? '#55efc4' : '#666';
+            ctx.beginPath();
+            ctx.arc(cx, cy, pipeWidth / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Source/Drain indicators
+            if (isSource) {
+                ctx.fillStyle = '#0984e3';
+                ctx.beginPath();
+                ctx.arc(cx, cy, pipeWidth * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${cellSize * 0.3}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💧', cx, cy);
+            }
+            
+            if (isDrain) {
+                ctx.fillStyle = isConnected ? '#00b894' : '#d63031';
+                ctx.beginPath();
+                ctx.arc(cx, cy, pipeWidth * 0.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${cellSize * 0.3}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🏁', cx, cy);
+            }
+        }
+
+        function handleClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const mx = (e.clientX - rect.left) * scaleX;
+            const my = (e.clientY - rect.top) * scaleY;
+            
+            const c = Math.floor(mx / cellSize);
+            const r = Math.floor(my / cellSize);
+            
+            if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) return;
+            
+            grid[r][c] = rotateCW(grid[r][c]);
+            moves++;
+            movesEl.textContent = moves;
+            
+            updateConnected();
+            draw();
+            checkWin();
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            handleClick(touch);
+        }
+
+        function checkWin() {
+            if (connected.has(`${drainR},${drainC}`)) {
+                document.getElementById('winMoves').textContent = moves;
+                winMsg.classList.add('show');
+                level++;
+                levelEl.textContent = level;
+            }
+        }
+
+        // Size buttons
+        document.querySelectorAll('.sz-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sz-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                gridSize = parseInt(btn.dataset.size);
+                cellSize = gridSize <= 5 ? 70 : gridSize <= 7 ? 60 : 50;
+                generatePuzzle();
+            });
+        });
+
+        canvas.addEventListener('click', handleClick);
+        canvas.addEventListener('touchstart', handleTouch);
+        document.getElementById('newBtn').addEventListener('click', generatePuzzle);
+
+        generatePuzzle();
+    </script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>072 - Sliding Puzzle</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            align-items: center;
+        }
+        
+        .info span { color: #ffd93d; }
+        
+        .size-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .size-btn {
+            background: transparent;
+            border: 2px solid #ff6b6b;
+            color: #ff6b6b;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .size-btn:hover, .size-btn.active {
+            background: #ff6b6b;
+            color: #1a1a2e;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 4px;
+            background: #2d2d44;
+            padding: 8px;
+            border-radius: 12px;
+            border: 3px solid #ff6b6b;
+            box-shadow: 0 0 30px rgba(255, 107, 107, 0.2);
+        }
+        
+        .tile {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s;
+            background: linear-gradient(145deg, #4a4a6a, #3a3a5a);
+            color: #ffd93d;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .tile:hover:not(.empty) {
+            transform: scale(1.05);
+            background: linear-gradient(145deg, #5a5a7a, #4a4a6a);
+        }
+        
+        .tile.empty {
+            background: transparent;
+            cursor: default;
+        }
+        
+        .tile.correct {
+            background: linear-gradient(145deg, #2d6a4f, #1b4332);
+            color: #95d5b2;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button.action-btn {
+            background: #ff6b6b;
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button.action-btn:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+        
+        .win-message {
+            display: none;
+            margin-top: 15px;
+            padding: 15px 30px;
+            background: linear-gradient(145deg, #2d6a4f, #1b4332);
+            border-radius: 12px;
+            font-size: 1.3em;
+            text-align: center;
+            animation: pop 0.3s ease;
+        }
+        
+        .win-message.show { display: block; }
+        
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #aaa;
+            text-decoration: none;
+            font-size: 1.5em;
+        }
+        
+        @media (max-width: 500px) {
+            h1 { font-size: 1.5em; }
+            .tile { font-size: 1.3em; }
+        }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>🧩 Sliding Puzzle</h1>
+    
+    <div class="size-selector">
+        <button class="size-btn active" data-size="3">3×3</button>
+        <button class="size-btn" data-size="4">4×4</button>
+        <button class="size-btn" data-size="5">5×5</button>
+    </div>
+    
+    <div class="info">
+        <div>Moves: <span id="moves">0</span></div>
+        <div>Time: <span id="timer">0:00</span></div>
+    </div>
+    
+    <div class="grid" id="grid"></div>
+    
+    <div class="controls">
+        <button class="action-btn" id="shuffleBtn">🔀 Shuffle</button>
+    </div>
+    
+    <div class="win-message" id="winMsg">
+        🎉 Solved in <span id="winMoves"></span> moves!<br>
+        Time: <span id="winTime"></span>
+    </div>
+
+    <script>
+        let size = 3;
+        let tiles = [];
+        let moves = 0;
+        let timer = null;
+        let seconds = 0;
+        let gameActive = false;
+
+        const grid = document.getElementById('grid');
+        const movesEl = document.getElementById('moves');
+        const timerEl = document.getElementById('timer');
+        const winMsg = document.getElementById('winMsg');
+
+        function init() {
+            clearInterval(timer);
+            seconds = 0;
+            moves = 0;
+            gameActive = false;
+            movesEl.textContent = '0';
+            timerEl.textContent = '0:00';
+            winMsg.classList.remove('show');
+            
+            const tileSize = size <= 3 ? 100 : size === 4 ? 80 : 65;
+            grid.style.gridTemplateColumns = `repeat(${size}, ${tileSize}px)`;
+            grid.style.gridTemplateRows = `repeat(${size}, ${tileSize}px)`;
+            
+            tiles = [];
+            for (let i = 1; i < size * size; i++) tiles.push(i);
+            tiles.push(0); // empty
+            
+            render();
+        }
+
+        function shuffle() {
+            // Perform random valid moves to ensure solvability
+            let emptyIdx = tiles.indexOf(0);
+            const totalMoves = size * size * 50;
+            
+            for (let i = 0; i < totalMoves; i++) {
+                const neighbors = getNeighbors(emptyIdx);
+                const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+                [tiles[emptyIdx], tiles[pick]] = [tiles[pick], tiles[emptyIdx]];
+                emptyIdx = pick;
+            }
+            
+            moves = 0;
+            seconds = 0;
+            movesEl.textContent = '0';
+            timerEl.textContent = '0:00';
+            winMsg.classList.remove('show');
+            clearInterval(timer);
+            gameActive = true;
+            timer = setInterval(() => {
+                seconds++;
+                timerEl.textContent = formatTime(seconds);
+            }, 1000);
+            
+            render();
+        }
+
+        function getNeighbors(idx) {
+            const row = Math.floor(idx / size);
+            const col = idx % size;
+            const n = [];
+            if (row > 0) n.push(idx - size);
+            if (row < size - 1) n.push(idx + size);
+            if (col > 0) n.push(idx - 1);
+            if (col < size - 1) n.push(idx + 1);
+            return n;
+        }
+
+        function render() {
+            grid.innerHTML = '';
+            tiles.forEach((val, idx) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                if (val === 0) {
+                    tile.classList.add('empty');
+                } else {
+                    tile.textContent = val;
+                    // Check if tile is in correct position
+                    if (val === idx + 1) tile.classList.add('correct');
+                    tile.addEventListener('click', () => moveTile(idx));
+                }
+                grid.appendChild(tile);
+            });
+        }
+
+        function moveTile(idx) {
+            if (!gameActive) return;
+            const emptyIdx = tiles.indexOf(0);
+            const neighbors = getNeighbors(emptyIdx);
+            
+            if (neighbors.includes(idx)) {
+                [tiles[emptyIdx], tiles[idx]] = [tiles[idx], tiles[emptyIdx]];
+                moves++;
+                movesEl.textContent = moves;
+                render();
+                checkWin();
+            }
+        }
+
+        function checkWin() {
+            for (let i = 0; i < tiles.length - 1; i++) {
+                if (tiles[i] !== i + 1) return;
+            }
+            // Won!
+            clearInterval(timer);
+            gameActive = false;
+            document.getElementById('winMoves').textContent = moves;
+            document.getElementById('winTime').textContent = formatTime(seconds);
+            winMsg.classList.add('show');
+        }
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return `${m}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        // Size buttons
+        document.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                size = parseInt(btn.dataset.size);
+                init();
+                shuffle();
+            });
+        });
+
+        document.getElementById('shuffleBtn').addEventListener('click', shuffle);
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            const emptyIdx = tiles.indexOf(0);
+            const row = Math.floor(emptyIdx / size);
+            const col = emptyIdx % size;
+            let targetIdx = -1;
+            
+            switch(e.key) {
+                case 'ArrowUp': if (row < size - 1) targetIdx = emptyIdx + size; break;
+                case 'ArrowDown': if (row > 0) targetIdx = emptyIdx - size; break;
+                case 'ArrowLeft': if (col < size - 1) targetIdx = emptyIdx + 1; break;
+                case 'ArrowRight': if (col > 0) targetIdx = emptyIdx - 1; break;
+            }
+            
+            if (targetIdx >= 0) {
+                e.preventDefault();
+                [tiles[emptyIdx], tiles[targetIdx]] = [tiles[targetIdx], tiles[emptyIdx]];
+                moves++;
+                movesEl.textContent = moves;
+                render();
+                checkWin();
+            }
+        });
+
+        init();
+        shuffle();
+    </script>
+</body>
+</html>
