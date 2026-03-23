@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>083 - Match-3</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .info { display: flex; gap: 20px; margin-bottom: 12px; font-size: 1.1em; align-items: center; }
+        .info span { color: #ff6b9d; }
+        .board {
+            display: inline-grid;
+            gap: 3px;
+            padding: 12px;
+            background: rgba(255,107,157,0.08);
+            border-radius: 14px;
+            border: 2px solid rgba(255,107,157,0.2);
+        }
+        .gem {
+            width: 50px; height: 50px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2em;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .gem:hover { transform: scale(1.1); background: rgba(255,255,255,0.1); }
+        .gem.selected { 
+            box-shadow: 0 0 15px rgba(255,107,157,0.8), inset 0 0 15px rgba(255,107,157,0.3); 
+            transform: scale(1.15);
+            background: rgba(255,107,157,0.2);
+        }
+        .gem.matched {
+            animation: pop 0.3s ease-out forwards;
+        }
+        .gem.dropping {
+            animation: dropIn 0.3s ease-out;
+        }
+        @keyframes pop {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+        @keyframes dropIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .combo {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            font-size: 3em; font-weight: bold; color: #ffd700;
+            text-shadow: 0 0 30px rgba(255,215,0,0.8);
+            animation: comboPop 0.8s ease-out forwards;
+            pointer-events: none; z-index: 300;
+        }
+        @keyframes comboPop {
+            0% { opacity: 1; transform: translate(-50%,-50%) scale(0.5); }
+            50% { transform: translate(-50%,-50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%,-80%) scale(1); }
+        }
+        .controls { margin-top: 12px; display: flex; gap: 10px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 15px rgba(255,107,157,0.4); }
+        .how-to {
+            max-width: 600px; margin-top: 15px; padding: 15px 20px;
+            background: rgba(255,107,157,0.08); border-radius: 12px;
+            border: 1px solid rgba(255,107,157,0.2); font-size: 0.9em; color: #ccc; line-height: 1.6;
+        }
+        .how-to strong { color: #ff6b9d; }
+        .back-link { position: fixed; top: 15px; left: 15px; color: #ff6b9d; text-decoration: none; font-size: 1.4em; z-index: 100; }
+        .bar-container {
+            width: 200px; height: 14px; background: rgba(255,255,255,0.1);
+            border-radius: 10px; overflow: hidden; margin-left: 10px;
+        }
+        .bar-fill {
+            height: 100%; background: linear-gradient(90deg, #ff6b9d, #ffd700);
+            border-radius: 10px; transition: width 0.3s;
+        }
+        .level-up {
+            position: fixed; top: 30%; left: 50%; transform: translateX(-50%);
+            font-size: 2.5em; color: #ffd700; font-weight: bold;
+            text-shadow: 0 0 40px rgba(255,215,0,0.8);
+            animation: comboPop 1.2s ease-out forwards;
+            pointer-events: none; z-index: 300;
+        }
+        @media (max-width: 450px) { .gem { width: 40px; height: 40px; font-size: 1.5em; } }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>💎 Match-3</h1>
+    <div class="info">
+        Score: <span id="score">0</span> &nbsp;|&nbsp;
+        Level: <span id="level">1</span> &nbsp;|&nbsp;
+        Moves: <span id="moves">0</span>
+        <div class="bar-container"><div class="bar-fill" id="bar" style="width:0%"></div></div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="controls">
+        <button class="action-btn" onclick="newGame()">New Game</button>
+        <button class="action-btn" onclick="hintMove()">💡 Hint</button>
+    </div>
+
+    <div class="how-to">
+        <strong>How to Play:</strong> Swap adjacent gems to create lines of 3 or more matching gems.
+        Matched gems disappear and new ones fall from above. Chain combos for bonus points!
+        <br><strong>Level up</strong> by reaching the target score. Each level adds new gem types.
+        <br><strong>Hint:</strong> Click 💡 if you're stuck — it'll highlight a valid move.
+    </div>
+
+    <script>
+    const ROWS = 8, COLS = 8;
+    const BASE_GEMS = ['🔴','🔵','🟢','🟡','🟣','🟠'];
+    const EXTRA_GEMS = ['⚪','🟤'];
+
+    let board, selected, score, level, moves, targetScore, animating, gemTypes;
+
+    function newGame() {
+        score = 0; level = 1; moves = 0; animating = false; selected = null;
+        targetScore = 500;
+        gemTypes = BASE_GEMS.slice(0, 5);
+        initBoard();
+        updateInfo();
+    }
+
+    function initBoard() {
+        board = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                do {
+                    board[r][c] = randomGem();
+                } while (hasMatchAt(r, c));
+            }
+        }
+        render();
+    }
+
+    function randomGem() {
+        return gemTypes[Math.random() * gemTypes.length | 0];
+    }
+
+    function hasMatchAt(r, c) {
+        let g = board[r][c];
+        // Horizontal
+        if (c >= 2 && board[r][c-1] === g && board[r][c-2] === g) return true;
+        // Vertical
+        if (r >= 2 && board[r-1][c] === g && board[r-2][c] === g) return true;
+        return false;
+    }
+
+    function updateInfo() {
+        document.getElementById('score').textContent = score;
+        document.getElementById('level').textContent = level;
+        document.getElementById('moves').textContent = moves;
+        let pct = Math.min(100, (score / targetScore) * 100);
+        document.getElementById('bar').style.width = pct + '%';
+    }
+
+    function render() {
+        const el = document.getElementById('board');
+        el.style.gridTemplateColumns = `repeat(${COLS}, 1fr)`;
+        el.innerHTML = '';
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let gem = document.createElement('div');
+                gem.className = 'gem';
+                gem.textContent = board[r][c] || '';
+                gem.dataset.r = r; gem.dataset.c = c;
+                if (selected && selected.r === r && selected.c === c) gem.classList.add('selected');
+                gem.addEventListener('click', () => onGemClick(r, c));
+                el.appendChild(gem);
+            }
+        }
+    }
+
+    function onGemClick(r, c) {
+        if (animating) return;
+        if (!selected) {
+            selected = {r, c};
+            render();
+            return;
+        }
+        let dr = Math.abs(selected.r - r), dc = Math.abs(selected.c - c);
+        if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
+            trySwap(selected.r, selected.c, r, c);
+        } else {
+            selected = {r, c};
+            render();
+        }
+    }
+
+    function trySwap(r1, c1, r2, c2) {
+        // Swap
+        [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+        let matches = findMatches();
+        if (matches.length === 0) {
+            // Swap back
+            [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+            selected = null;
+            render();
+            return;
+        }
+        selected = null;
+        moves++;
+        animating = true;
+        processMatches(matches, 1);
+    }
+
+    function findMatches() {
+        let matched = new Set();
+        // Horizontal
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c <= COLS - 3; c++) {
+                if (board[r][c] && board[r][c] === board[r][c+1] && board[r][c] === board[r][c+2]) {
+                    let len = 3;
+                    while (c+len < COLS && board[r][c+len] === board[r][c]) len++;
+                    for (let i = 0; i < len; i++) matched.add(`${r},${c+i}`);
+                }
+            }
+        }
+        // Vertical
+        for (let c = 0; c < COLS; c++) {
+            for (let r = 0; r <= ROWS - 3; r++) {
+                if (board[r][c] && board[r][c] === board[r+1][c] && board[r][c] === board[r+2][c]) {
+                    let len = 3;
+                    while (r+len < ROWS && board[r+len][c] === board[r][c]) len++;
+                    for (let i = 0; i < len; i++) matched.add(`${r+i},${c}`);
+                }
+            }
+        }
+        return [...matched].map(s => { let [r,c] = s.split(',').map(Number); return {r,c}; });
+    }
+
+    function processMatches(matches, combo) {
+        // Score
+        let pts = matches.length * 10 * combo;
+        score += pts;
+
+        if (combo > 1) showCombo(combo);
+
+        // Remove matched
+        let cells = document.querySelectorAll('.gem');
+        for (let {r,c} of matches) {
+            let idx = r * COLS + c;
+            if (cells[idx]) cells[idx].classList.add('matched');
+        }
+
+        setTimeout(() => {
+            for (let {r,c} of matches) board[r][c] = null;
+            // Drop
+            for (let c = 0; c < COLS; c++) {
+                let write = ROWS - 1;
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (board[r][c] !== null) {
+                        board[write][c] = board[r][c];
+                        if (write !== r) board[r][c] = null;
+                        write--;
+                    }
+                }
+                while (write >= 0) {
+                    board[write][c] = randomGem();
+                    write--;
+                }
+            }
+            render();
+            // Add drop animation
+            document.querySelectorAll('.gem').forEach(g => g.classList.add('dropping'));
+
+            setTimeout(() => {
+                let newMatches = findMatches();
+                if (newMatches.length > 0) {
+                    processMatches(newMatches, combo + 1);
+                } else {
+                    animating = false;
+                    checkLevel();
+                    updateInfo();
+                    // Check for deadlock
+                    if (!hasValidMoves()) {
+                        setTimeout(() => { shuffleBoard(); }, 500);
+                    }
+                }
+            }, 300);
+        }, 300);
+
+        updateInfo();
+    }
+
+    function showCombo(n) {
+        let el = document.createElement('div');
+        el.className = 'combo';
+        el.textContent = `${n}x Combo!`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 800);
+    }
+
+    function checkLevel() {
+        if (score >= targetScore) {
+            level++;
+            targetScore = level * 500;
+            // Add gem type
+            let allGems = [...BASE_GEMS, ...EXTRA_GEMS];
+            gemTypes = allGems.slice(0, Math.min(5 + level - 1, allGems.length));
+            let el = document.createElement('div');
+            el.className = 'level-up';
+            el.textContent = `⭐ Level ${level}!`;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+    }
+
+    function hasValidMoves() {
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                // Try swap right
+                if (c < COLS-1) {
+                    [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]];
+                    if (findMatches().length > 0) { [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]]; return true; }
+                    [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]];
+                }
+                // Try swap down
+                if (r < ROWS-1) {
+                    [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]];
+                    if (findMatches().length > 0) { [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]]; return true; }
+                    [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]];
+                }
+            }
+        }
+        return false;
+    }
+
+    function shuffleBoard() {
+        let gems = [];
+        for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) gems.push(board[r][c]);
+        do {
+            for (let i = gems.length-1; i > 0; i--) { let j = Math.random()*i+1|0; [gems[i],gems[j]]=[gems[j],gems[i]]; }
+            let idx = 0;
+            for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) board[r][c] = gems[idx++];
+        } while (findMatches().length > 0 || !hasValidMoves());
+        render();
+    }
+
+    function hintMove() {
+        if (animating) return;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (c < COLS-1) {
+                    [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]];
+                    if (findMatches().length > 0) {
+                        [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]];
+                        let cells = document.querySelectorAll('.gem');
+                        cells[r*COLS+c].classList.add('selected');
+                        cells[r*COLS+c+1].classList.add('selected');
+                        setTimeout(() => { cells[r*COLS+c].classList.remove('selected'); cells[r*COLS+c+1].classList.remove('selected'); }, 1500);
+                        return;
+                    }
+                    [board[r][c], board[r][c+1]] = [board[r][c+1], board[r][c]];
+                }
+                if (r < ROWS-1) {
+                    [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]];
+                    if (findMatches().length > 0) {
+                        [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]];
+                        let cells = document.querySelectorAll('.gem');
+                        cells[r*COLS+c].classList.add('selected');
+                        cells[(r+1)*COLS+c].classList.add('selected');
+                        setTimeout(() => { cells[r*COLS+c].classList.remove('selected'); cells[(r+1)*COLS+c].classList.remove('selected'); }, 1500);
+                        return;
+                    }
+                    [board[r][c], board[r+1][c]] = [board[r+1][c], board[r][c]];
+                }
+            }
+        }
+    }
+
+    newGame();
+    </script>
+</body>
+</html>
