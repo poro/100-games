@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>068 - Sokoban</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #ff9f43;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 159, 67, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .info span {
+            color: #ffd93d;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .level-select {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .level-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid #ff9f43;
+            border-radius: 8px;
+            background: transparent;
+            color: #ff9f43;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .level-btn:hover, .level-btn.active {
+            background: #ff9f43;
+            color: #1a1a2e;
+        }
+        
+        .level-btn.completed {
+            border-color: #64ffda;
+            color: #64ffda;
+        }
+        
+        .level-btn.completed.active {
+            background: #64ffda;
+            color: #1a1a2e;
+        }
+        
+        .board {
+            display: grid;
+            gap: 1px;
+            padding: 8px;
+            background: #16213e;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(255, 159, 67, 0.15);
+        }
+        
+        .cell {
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4em;
+            border-radius: 4px;
+        }
+        
+        .cell.wall {
+            background: linear-gradient(135deg, #4a3728, #3a2a1a);
+            box-shadow: inset 0 -2px 4px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.05);
+        }
+        
+        .cell.floor {
+            background: #1e2d3d;
+        }
+        
+        .cell.target {
+            background: radial-gradient(circle, rgba(255,100,100,0.3), #1e2d3d);
+        }
+        
+        .cell.box-on-target {
+            background: radial-gradient(circle, rgba(100,255,218,0.3), #1e2d3d);
+        }
+        
+        .cell.empty {
+            background: transparent;
+        }
+        
+        .d-pad {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 5px;
+        }
+        
+        .d-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #ff9f43;
+            border-radius: 10px;
+            background: rgba(255, 159, 67, 0.1);
+            color: #ff9f43;
+            font-size: 1.3em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        
+        .d-btn:hover {
+            background: rgba(255, 159, 67, 0.3);
+        }
+        
+        .d-btn:active {
+            background: #ff9f43;
+            color: #1a1a2e;
+            transform: scale(0.9);
+        }
+        
+        .d-btn.up { grid-area: up; }
+        .d-btn.left { grid-area: left; }
+        .d-btn.right { grid-area: right; }
+        .d-btn.down { grid-area: down; }
+        
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .action-btn {
+            padding: 8px 20px;
+            border: 2px solid #ff9f43;
+            border-radius: 8px;
+            background: transparent;
+            color: #ff9f43;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .action-btn:hover {
+            background: rgba(255, 159, 67, 0.2);
+        }
+        
+        .message {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+        
+        .message.win { color: #64ffda; }
+        
+        .stats {
+            color: #888;
+            font-size: 1em;
+        }
+        
+        .stats span {
+            color: #ffd93d;
+        }
+        
+        .instructions {
+            color: #888;
+            font-size: 0.9em;
+            text-align: center;
+            max-width: 380px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 400px) {
+            .cell {
+                width: 34px;
+                height: 34px;
+                font-size: 1.1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>📦 Sokoban</h1>
+    
+    <div class="info">
+        Level: <span id="levelNum">1</span> | 
+        Moves: <span id="moves">0</span> | 
+        Pushes: <span id="pushes">0</span>
+    </div>
+    
+    <div class="game-container">
+        <div class="level-select" id="levelSelect"></div>
+        
+        <div class="board" id="board"></div>
+        
+        <div class="d-pad">
+            <button class="d-btn up" onclick="move(-1,0)">▲</button>
+            <button class="d-btn left" onclick="move(0,-1)">◄</button>
+            <button class="d-btn right" onclick="move(0,1)">►</button>
+            <button class="d-btn down" onclick="move(1,0)">▼</button>
+        </div>
+        
+        <div class="action-btns">
+            <button class="action-btn" onclick="undo()">↩ Undo</button>
+            <button class="action-btn" onclick="loadLevel(currentLevel)">🔄 Reset</button>
+        </div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="stats">
+            Completed: <span id="completed">0</span> / <span id="totalLevels">0</span>
+        </div>
+        
+        <p class="instructions">
+            Push all 📦 boxes onto ✦ targets. You can only push, not pull!
+            Use arrow keys, WASD, or the D-pad.
+        </p>
+    </div>
+    
+    <script>
+        // Classic Sokoban levels (# = wall, . = target, $ = box, @ = player, + = player on target, * = box on target, space = floor)
+        const LEVELS = [
+            // Level 1 - Tutorial
+            [
+                "  ###  ",
+                "  #.#  ",
+                "  # ###",
+                "###$ $.#",
+                "#. $@###",
+                "####$# ",
+                "   #.# ",
+                "   ### "
+            ],
+            // Level 2
+            [
+                "######",
+                "#    #",
+                "# #@ #",
+                "# $$ #",
+                "# .. #",
+                "######"
+            ],
+            // Level 3
+            [
+                "  ####",
+                "###  #",
+                "#    #",
+                "# #$.#",
+                "# @$.#",
+                "#  ###",
+                "####  "
+            ],
+            // Level 4
+            [
+                " #### ",
+                " #  # ",
+                "##  ##",
+                "# $. #",
+                "#.$  #",
+                "## @##",
+                " #### "
+            ],
+            // Level 5
+            [
+                "######",
+                "#  ..#",
+                "# ## #",
+                "#  $ #",
+                "##$  #",
+                " #@ ##",
+                " ####"
+            ],
+            // Level 6
+            [
+                " #####",
+                "##   #",
+                "#  $ #",
+                "# $$.#",
+                "##.@.#",
+                " #####"
+            ],
+            // Level 7
+            [
+                "#######",
+                "#     #",
+                "# .$. #",
+                "# $.$ #",
+                "# .$. #",
+                "#  @  #",
+                "#######"
+            ],
+            // Level 8
+            [
+                "  ####  ",
+                "  #  #  ",
+                "  #  #  ",
+                "###  ###",
+                "#  ..  #",
+                "# $$$@ #",
+                "###  ###",
+                "  #  #  ",
+                "  ####  "
+            ],
+            // Level 9
+            [
+                "########",
+                "#      #",
+                "# #### #",
+                "# #..# #",
+                "# $  $ #",
+                "##$ $@ #",
+                " #  ####",
+                " ####   "
+            ],
+            // Level 10
+            [
+                "  ######",
+                "  #    #",
+                "###$.$ #",
+                "# $.$.##",
+                "# # @# ",
+                "#   ## ",
+                "######  "
+            ]
+        ];
+        
+        let currentLevel = 0;
+        let grid = [];
+        let playerR, playerC;
+        let moveCount = 0;
+        let pushCount = 0;
+        let targets = [];
+        let history = [];
+        let solved = false;
+        
+        let completedLevels = JSON.parse(localStorage.getItem('sokoban-completed') || '[]');
+        
+        const boardEl = document.getElementById('board');
+        const messageEl = document.getElementById('message');
+        
+        function parseLevelChar(ch) {
+            switch(ch) {
+                case '#': return { floor: false, wall: true, box: false, target: false };
+                case '.': return { floor: true, wall: false, box: false, target: true };
+                case '$': return { floor: true, wall: false, box: true, target: false };
+                case '@': return { floor: true, wall: false, box: false, target: false, player: true };
+                case '+': return { floor: true, wall: false, box: false, target: true, player: true };
+                case '*': return { floor: true, wall: false, box: true, target: true };
+                case ' ': return { floor: true, wall: false, box: false, target: false };
+                default: return { floor: false, wall: false, box: false, target: false, empty: true };
+            }
+        }
+        
+        function loadLevel(idx) {
+            currentLevel = idx;
+            const level = LEVELS[idx];
+            const maxCols = Math.max(...level.map(r => r.length));
+            
+            grid = [];
+            targets = [];
+            history = [];
+            moveCount = 0;
+            pushCount = 0;
+            solved = false;
+            
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            
+            for (let r = 0; r < level.length; r++) {
+                const row = [];
+                for (let c = 0; c < maxCols; c++) {
+                    const ch = c < level[r].length ? level[r][c] : ' ';
+                    const cell = parseLevelChar(ch);
+                    
+                    if (cell.player) {
+                        playerR = r;
+                        playerC = c;
+                    }
+                    if (cell.target) {
+                        targets.push([r, c]);
+                    }
+                    
+                    row.push({
+                        wall: cell.wall,
+                        box: cell.box,
+                        target: cell.target,
+                        empty: cell.empty || false,
+                        floor: cell.floor || false
+                    });
+                }
+                grid.push(row);
+            }
+            
+            // Detect truly empty cells (outside the walls)
+            markOutside();
+            
+            renderBoard();
+            updateUI();
+            updateLevelBtns();
+        }
+        
+        function markOutside() {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+            
+            // BFS from edges to mark outside
+            const queue = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if ((r === 0 || r === rows-1 || c === 0 || c === cols-1) && !grid[r][c].wall) {
+                        if (!grid[r][c].target && !grid[r][c].box) {
+                            queue.push([r, c]);
+                            visited[r][c] = true;
+                        }
+                    }
+                }
+            }
+            
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                if (!(r === playerR && c === playerC)) {
+                    grid[r][c].empty = true;
+                    grid[r][c].floor = false;
+                }
+                [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr, nc]) => {
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && !visited[nr][nc] && !grid[nr][nc].wall) {
+                        if (!grid[nr][nc].target && !grid[nr][nc].box && !(nr === playerR && nc === playerC)) {
+                            visited[nr][nc] = true;
+                            queue.push([nr, nc]);
+                        }
+                    }
+                });
+            }
+        }
+        
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const cols = grid[0].length;
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+            
+            for (let r = 0; r < grid.length; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    const g = grid[r][c];
+                    
+                    if (g.wall) {
+                        cell.className = 'cell wall';
+                    } else if (g.empty) {
+                        cell.className = 'cell empty';
+                    } else if (r === playerR && c === playerC) {
+                        cell.className = g.target ? 'cell target' : 'cell floor';
+                        cell.textContent = '🧑';
+                    } else if (g.box && g.target) {
+                        cell.className = 'cell box-on-target';
+                        cell.textContent = '✅';
+                    } else if (g.box) {
+                        cell.className = 'cell floor';
+                        cell.textContent = '📦';
+                    } else if (g.target) {
+                        cell.className = 'cell target';
+                        cell.textContent = '✦';
+                    } else {
+                        cell.className = 'cell floor';
+                    }
+                    
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+        
+        function move(dr, dc) {
+            if (solved) return;
+            
+            const nr = playerR + dr;
+            const nc = playerC + dc;
+            
+            if (nr < 0 || nr >= grid.length || nc < 0 || nc >= grid[0].length) return;
+            if (grid[nr][nc].wall) return;
+            
+            if (grid[nr][nc].box) {
+                const br = nr + dr;
+                const bc = nc + dc;
+                
+                if (br < 0 || br >= grid.length || bc < 0 || bc >= grid[0].length) return;
+                if (grid[br][bc].wall || grid[br][bc].box) return;
+                
+                // Save state for undo
+                history.push({
+                    pr: playerR, pc: playerC,
+                    boxFrom: [nr, nc], boxTo: [br, bc],
+                    pushed: true
+                });
+                
+                grid[nr][nc].box = false;
+                grid[br][bc].box = true;
+                pushCount++;
+            } else {
+                history.push({
+                    pr: playerR, pc: playerC,
+                    pushed: false
+                });
+            }
+            
+            playerR = nr;
+            playerC = nc;
+            moveCount++;
+            
+            renderBoard();
+            updateUI();
+            checkWin();
+        }
+        
+        function undo() {
+            if (history.length === 0 || solved) return;
+            
+            const state = history.pop();
+            playerR = state.pr;
+            playerC = state.pc;
+            moveCount--;
+            
+            if (state.pushed) {
+                const [fr, fc] = state.boxFrom;
+                const [tr, tc] = state.boxTo;
+                grid[tr][tc].box = false;
+                grid[fr][fc].box = true;
+                pushCount--;
+            }
+            
+            renderBoard();
+            updateUI();
+        }
+        
+        function checkWin() {
+            const allOnTarget = targets.every(([r, c]) => grid[r][c].box);
+            
+            if (allOnTarget) {
+                solved = true;
+                if (!completedLevels.includes(currentLevel)) {
+                    completedLevels.push(currentLevel);
+                    localStorage.setItem('sokoban-completed', JSON.stringify(completedLevels));
+                }
+                messageEl.textContent = `🎉 Level ${currentLevel + 1} complete! ${moveCount} moves, ${pushCount} pushes`;
+                messageEl.className = 'message win';
+                updateLevelBtns();
+                updateUI();
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('levelNum').textContent = currentLevel + 1;
+            document.getElementById('moves').textContent = moveCount;
+            document.getElementById('pushes').textContent = pushCount;
+            document.getElementById('completed').textContent = completedLevels.length;
+            document.getElementById('totalLevels').textContent = LEVELS.length;
+        }
+        
+        function updateLevelBtns() {
+            const el = document.getElementById('levelSelect');
+            el.innerHTML = '';
+            
+            for (let i = 0; i < LEVELS.length; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn';
+                if (i === currentLevel) btn.classList.add('active');
+                if (completedLevels.includes(i)) btn.classList.add('completed');
+                btn.textContent = i + 1;
+                btn.addEventListener('click', () => loadLevel(i));
+                el.appendChild(btn);
+            }
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W': e.preventDefault(); move(-1, 0); break;
+                case 'ArrowDown': case 's': case 'S': e.preventDefault(); move(1, 0); break;
+                case 'ArrowLeft': case 'a': case 'A': e.preventDefault(); move(0, -1); break;
+                case 'ArrowRight': case 'd': case 'D': e.preventDefault(); move(0, 1); break;
+                case 'z': case 'Z': if (e.ctrlKey) { e.preventDefault(); undo(); } break;
+                case 'u': case 'U': undo(); break;
+                case 'r': case 'R': loadLevel(currentLevel); break;
+            }
+        });
+        
+        // Touch swipe controls
+        let touchStartX, touchStartY;
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        
+        document.addEventListener('touchend', (e) => {
+            if (!touchStartX) return;
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+            const minSwipe = 30;
+            
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minSwipe) {
+                move(0, dx > 0 ? 1 : -1);
+            } else if (Math.abs(dy) > minSwipe) {
+                move(dy > 0 ? 1 : -1, 0);
+            }
+            
+            touchStartX = touchStartY = null;
+        }, { passive: true });
+        
+        loadLevel(0);
+    </script>
+</body>
+</html>

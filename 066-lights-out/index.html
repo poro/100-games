@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>066 - Lights Out</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #ffd93d;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 217, 61, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .info span {
+            color: #ffd93d;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .size-btn {
+            padding: 8px 16px;
+            border: 2px solid #ffd93d;
+            border-radius: 8px;
+            background: transparent;
+            color: #ffd93d;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .size-btn:hover, .size-btn.active {
+            background: #ffd93d;
+            color: #1a1a2e;
+        }
+        
+        .board {
+            display: grid;
+            gap: 6px;
+            padding: 12px;
+            background: #16213e;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(255, 217, 61, 0.15);
+        }
+        
+        .cell {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        
+        .cell.on {
+            background: radial-gradient(circle at 40% 40%, #fff5a0, #ffd93d);
+            box-shadow: 0 0 15px rgba(255, 217, 61, 0.6), inset 0 -3px 6px rgba(0,0,0,0.15);
+            border-color: #ffe066;
+        }
+        
+        .cell.off {
+            background: linear-gradient(135deg, #2c3e50, #1a2530);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);
+            border-color: #3a506b;
+        }
+        
+        .cell:hover {
+            transform: scale(1.05);
+        }
+        
+        .cell:active {
+            transform: scale(0.95);
+        }
+        
+        .message {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+        
+        .message.win { color: #64ffda; }
+        
+        .stats {
+            color: #888;
+            font-size: 1em;
+        }
+        
+        .stats span {
+            color: #ffd93d;
+        }
+        
+        .new-game {
+            padding: 12px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #ffd93d, #f0c420);
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .new-game:hover {
+            transform: scale(1.05);
+        }
+        
+        .instructions {
+            color: #888;
+            font-size: 0.9em;
+            text-align: center;
+            max-width: 380px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 400px) {
+            .cell {
+                width: 48px;
+                height: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>💡 Lights Out</h1>
+    
+    <div class="info">
+        Moves: <span id="moves">0</span> | 
+        Lights: <span id="lightsLeft">0</span>
+    </div>
+    
+    <div class="game-container">
+        <div class="controls">
+            <button class="size-btn active" data-size="5">5×5</button>
+            <button class="size-btn" data-size="4">4×4</button>
+            <button class="size-btn" data-size="3">3×3</button>
+        </div>
+        
+        <div class="board" id="board"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="stats">
+            Best: <span id="best">-</span> moves | 
+            Wins: <span id="wins">0</span>
+        </div>
+        
+        <button class="new-game" id="newGame">New Puzzle</button>
+        
+        <p class="instructions">
+            Click a light to toggle it and its neighbors (up, down, left, right).
+            Turn all lights OFF to win!
+        </p>
+    </div>
+    
+    <script>
+        let size = 5;
+        let grid = [];
+        let moves = 0;
+        let gameOver = false;
+        
+        let bestMoves = JSON.parse(localStorage.getItem('lightsout-best') || '{}');
+        let totalWins = parseInt(localStorage.getItem('lightsout-wins') || '0');
+        
+        const boardEl = document.getElementById('board');
+        const messageEl = document.getElementById('message');
+        
+        function init() {
+            moves = 0;
+            gameOver = false;
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            
+            // Start with all off, then do random clicks to guarantee solvability
+            grid = Array.from({ length: size }, () => Array(size).fill(false));
+            
+            const numClicks = Math.floor(Math.random() * (size * size - 3)) + 3;
+            for (let i = 0; i < numClicks; i++) {
+                const r = Math.floor(Math.random() * size);
+                const c = Math.floor(Math.random() * size);
+                toggleAt(r, c);
+            }
+            
+            // Make sure at least some lights are on
+            let onCount = countLights();
+            if (onCount === 0) {
+                toggleAt(0, 0);
+            }
+            
+            moves = 0; // Reset after setup
+            renderBoard();
+            updateUI();
+        }
+        
+        function toggleAt(r, c) {
+            const neighbors = [[r, c], [r-1, c], [r+1, c], [r, c-1], [r, c+1]];
+            neighbors.forEach(([nr, nc]) => {
+                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                    grid[nr][nc] = !grid[nr][nc];
+                }
+            });
+        }
+        
+        function countLights() {
+            let count = 0;
+            for (let r = 0; r < size; r++)
+                for (let c = 0; c < size; c++)
+                    if (grid[r][c]) count++;
+            return count;
+        }
+        
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            boardEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${grid[r][c] ? 'on' : 'off'}`;
+                    cell.addEventListener('click', () => handleClick(r, c));
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+        
+        function handleClick(r, c) {
+            if (gameOver) return;
+            
+            toggleAt(r, c);
+            moves++;
+            renderBoard();
+            updateUI();
+            
+            if (countLights() === 0) {
+                gameOver = true;
+                totalWins++;
+                const key = `${size}x${size}`;
+                if (!bestMoves[key] || moves < bestMoves[key]) {
+                    bestMoves[key] = moves;
+                }
+                localStorage.setItem('lightsout-best', JSON.stringify(bestMoves));
+                localStorage.setItem('lightsout-wins', totalWins);
+                messageEl.textContent = `🎉 Lights out in ${moves} moves!`;
+                messageEl.className = 'message win';
+                updateUI();
+            }
+        }
+        
+        function updateUI() {
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('lightsLeft').textContent = countLights();
+            const key = `${size}x${size}`;
+            document.getElementById('best').textContent = bestMoves[key] || '-';
+            document.getElementById('wins').textContent = totalWins;
+        }
+        
+        document.querySelectorAll('.size-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                size = parseInt(btn.dataset.size);
+                init();
+            });
+        });
+        
+        document.getElementById('newGame').addEventListener('click', init);
+        
+        init();
+    </script>
+</body>
+</html>
