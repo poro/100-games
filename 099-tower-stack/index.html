@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>099 - Tower Stack</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .info { display: flex; gap: 20px; margin-bottom: 12px; font-size: 1.1em; align-items: center; }
+        .info span { color: #ff6b9d; }
+        canvas { border-radius: 16px; border: 2px solid rgba(255,107,157,0.2); touch-action: none; }
+        .controls { margin-top: 12px; display: flex; gap: 10px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        .message { margin-top: 8px; font-size: 1.2em; min-height: 30px; color: #ccc; text-align: center; }
+        .back-link { margin-top: 16px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>🏗️ Tower Stack</h1>
+    <div class="info">
+        <div>Height: <span id="height">0</span></div>
+        <div>Streak: <span id="streak">0</span></div>
+        <div>Best: <span id="best">0</span></div>
+    </div>
+    <canvas id="game" width="440" height="560"></canvas>
+    <div class="message" id="message">Click/tap/space to drop the block. Stack them perfectly!</div>
+    <div class="controls">
+        <button class="action-btn" onclick="startGame()">🔄 New Tower</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let best = parseInt(localStorage.getItem('towerBest') || '0');
+document.getElementById('best').textContent = best;
+
+const BLOCK_HEIGHT = 28;
+const BASE_Y = H - 40;
+const COLORS = [
+    '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c',
+    '#3498db', '#9b59b6', '#e91e63', '#00bcd4', '#ff5722',
+    '#8bc34a', '#ffc107', '#673ab7', '#009688', '#ff9800'
+];
+
+let blocks, movingBlock, fallingPieces, particles, height, streak, perfectStreak;
+let speed, direction, gameOver, gameStarted, cameraY, targetCameraY;
+
+function startGame() {
+    blocks = [];
+    fallingPieces = [];
+    particles = [];
+    height = 0;
+    streak = 0;
+    perfectStreak = 0;
+    speed = 2;
+    direction = 1;
+    gameOver = false;
+    gameStarted = true;
+    cameraY = 0;
+    targetCameraY = 0;
+    
+    // Base block
+    const baseW = 140;
+    blocks.push({ x: W / 2 - baseW / 2, y: BASE_Y - BLOCK_HEIGHT, w: baseW, color: COLORS[0] });
+    
+    // First moving block
+    spawnMovingBlock();
+    
+    document.getElementById('message').textContent = 'Click/tap/space to drop!';
+    document.getElementById('message').style.color = '#ccc';
+}
+
+function spawnMovingBlock() {
+    const lastBlock = blocks[blocks.length - 1];
+    const colorIdx = blocks.length % COLORS.length;
+    movingBlock = {
+        x: direction > 0 ? -lastBlock.w : W,
+        y: lastBlock.y - BLOCK_HEIGHT,
+        w: lastBlock.w,
+        color: COLORS[colorIdx],
+        moving: true
+    };
+}
+
+function dropBlock() {
+    if (!gameStarted || gameOver || !movingBlock || !movingBlock.moving) return;
+    
+    movingBlock.moving = false;
+    const last = blocks[blocks.length - 1];
+    
+    // Calculate overlap
+    const overlapLeft = Math.max(movingBlock.x, last.x);
+    const overlapRight = Math.min(movingBlock.x + movingBlock.w, last.x + last.w);
+    const overlapW = overlapRight - overlapLeft;
+    
+    if (overlapW <= 0) {
+        // Missed entirely!
+        gameOver = true;
+        fallingPieces.push({ x: movingBlock.x, y: movingBlock.y, w: movingBlock.w, vy: 0, color: movingBlock.color });
+        
+        if (height > best) {
+            best = height;
+            localStorage.setItem('towerBest', best);
+            document.getElementById('best').textContent = best;
+        }
+        document.getElementById('message').textContent = `💀 Tower collapsed! Height: ${height}`;
+        document.getElementById('message').style.color = '#f87171';
+        return;
+    }
+    
+    // Perfect placement?
+    const perfect = Math.abs(movingBlock.x - last.x) < 3;
+    
+    if (perfect) {
+        // Perfect - keep full width, snap to position
+        blocks.push({ x: last.x, y: movingBlock.y, w: last.w, color: movingBlock.color });
+        perfectStreak++;
+        streak++;
+        
+        // Sparkle particles
+        for (let i = 0; i < 15; i++) {
+            particles.push({
+                x: last.x + Math.random() * last.w,
+                y: movingBlock.y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: -2 - Math.random() * 3,
+                life: 30 + Math.random() * 20,
+                maxLife: 50,
+                color: '#ffd700'
+            });
+        }
+        
+        if (perfectStreak >= 3) {
+            document.getElementById('message').textContent = `🔥 PERFECT x${perfectStreak}!`;
+            document.getElementById('message').style.color = '#ffd700';
+        } else {
+            document.getElementById('message').textContent = '✨ Perfect!';
+            document.getElementById('message').style.color = '#4ade80';
+        }
+    } else {
+        perfectStreak = 0;
+        streak++;
+        
+        // Trimmed block
+        blocks.push({ x: overlapLeft, y: movingBlock.y, w: overlapW, color: movingBlock.color });
+        
+        // Falling trimmed piece
+        if (movingBlock.x < last.x) {
+            fallingPieces.push({ x: movingBlock.x, y: movingBlock.y, w: last.x - movingBlock.x, vy: 0, color: movingBlock.color });
+        } else if (movingBlock.x + movingBlock.w > last.x + last.w) {
+            fallingPieces.push({ x: last.x + last.w, y: movingBlock.y, w: movingBlock.x + movingBlock.w - last.x - last.w, vy: 0, color: movingBlock.color });
+        }
+        
+        document.getElementById('message').textContent = overlapW < 20 ? '😬 Close call!' : 'Good!';
+        document.getElementById('message').style.color = '#ccc';
+    }
+    
+    height++;
+    
+    // Speed up
+    speed = 2 + height * 0.15;
+    direction *= -1;
+    
+    // Camera
+    targetCameraY = Math.max(0, (height - 12) * BLOCK_HEIGHT);
+    
+    document.getElementById('height').textContent = height;
+    document.getElementById('streak').textContent = streak;
+    
+    // Spawn next
+    spawnMovingBlock();
+}
+
+function update() {
+    if (!gameStarted) return;
+    
+    // Moving block
+    if (movingBlock && movingBlock.moving) {
+        movingBlock.x += speed * direction;
+        if (movingBlock.x + movingBlock.w > W + 20) direction = -1;
+        if (movingBlock.x < -20) direction = 1;
+    }
+    
+    // Falling pieces
+    fallingPieces = fallingPieces.filter(p => {
+        p.vy += 0.3;
+        p.y += p.vy;
+        return p.y < H + 100;
+    });
+    
+    // Particles
+    particles = particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.1;
+        p.life--;
+        return p.life > 0;
+    });
+    
+    // Smooth camera
+    cameraY += (targetCameraY - cameraY) * 0.08;
+}
+
+function draw() {
+    // Background gradient based on height
+    const hue = (height * 8) % 360;
+    ctx.fillStyle = `hsl(${hue}, 30%, 10%)`;
+    ctx.fillRect(0, 0, W, H);
+    
+    // Stars/dots
+    for (let i = 0; i < 30; i++) {
+        const sx = (i * 97 + 13) % W;
+        const sy = ((i * 73 + 37) % H - cameraY * 0.1 + H) % H;
+        ctx.fillStyle = `rgba(255,255,255,${0.2 + (i % 5) * 0.1})`;
+        ctx.fillRect(sx, sy, 2, 2);
+    }
+    
+    ctx.save();
+    ctx.translate(0, cameraY);
+    
+    // Ground
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, BASE_Y, W, H);
+    
+    // Blocks
+    blocks.forEach((b, i) => {
+        const darken = i % 2 === 0 ? '' : '';
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x, b.y, b.w, BLOCK_HEIGHT - 1);
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(b.x, b.y, b.w, 4);
+        
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.2)';
+        ctx.fillRect(b.x, b.y + BLOCK_HEIGHT - 4, b.w, 3);
+    });
+    
+    // Moving block
+    if (movingBlock) {
+        ctx.fillStyle = movingBlock.color;
+        ctx.fillRect(movingBlock.x, movingBlock.y, movingBlock.w, BLOCK_HEIGHT - 1);
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(movingBlock.x, movingBlock.y, movingBlock.w, 4);
+        
+        // Guide lines
+        if (movingBlock.moving && blocks.length > 0) {
+            const last = blocks[blocks.length - 1];
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(last.x, movingBlock.y - 20);
+            ctx.lineTo(last.x, movingBlock.y + BLOCK_HEIGHT + 5);
+            ctx.moveTo(last.x + last.w, movingBlock.y - 20);
+            ctx.lineTo(last.x + last.w, movingBlock.y + BLOCK_HEIGHT + 5);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    // Falling pieces
+    fallingPieces.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = 0.7;
+        ctx.fillRect(p.x, p.y, p.w, BLOCK_HEIGHT - 1);
+        ctx.globalAlpha = 1;
+    });
+    
+    // Particles
+    particles.forEach(p => {
+        const alpha = p.life / p.maxLife;
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+    });
+    
+    ctx.restore();
+    
+    // Height marker
+    if (height > 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${height} blocks`, W - 10, 30);
+    }
+    
+    if (!gameStarted) {
+        ctx.fillStyle = '#ccc';
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press New Tower to start!', W / 2, H / 2);
+    }
+}
+
+// Input
+document.addEventListener('keydown', e => {
+    if (e.key === ' ' || e.key === 'ArrowDown') { dropBlock(); e.preventDefault(); }
+});
+canvas.addEventListener('click', dropBlock);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); dropBlock(); });
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+startGame();
+gameLoop();
+</script>
+</body>
+</html>

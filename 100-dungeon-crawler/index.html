@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>100 - Dungeon Crawler 🏆</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 {
+            color: #ffd700; font-size: 1.8em; margin-bottom: 4px;
+            text-shadow: 0 0 20px rgba(255,215,0,0.6), 0 0 40px rgba(255,107,157,0.3);
+        }
+        .subtitle { color: #ff6b9d; font-size: 0.85em; margin-bottom: 8px; letter-spacing: 2px; }
+        .info { display: flex; gap: 12px; margin-bottom: 8px; font-size: 0.95em; align-items: center; flex-wrap: wrap; justify-content: center; }
+        .info span { color: #ff6b9d; }
+        .info .hp { color: #4ade80; }
+        .info .gold { color: #ffd700; }
+        canvas { border-radius: 16px; border: 2px solid rgba(255,215,0,0.3); touch-action: none; }
+        .controls { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        button.action-btn.gold-btn { background: #ffd700; color: #1a0a2e; }
+        .message { margin-top: 6px; font-size: 1em; min-height: 24px; color: #ccc; text-align: center; max-width: 440px; }
+        .log { font-size: 0.8em; color: #888; max-height: 60px; overflow: hidden; text-align: center; max-width: 440px; }
+        .back-link { margin-top: 12px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+        .touch-controls { display: none; margin-top: 8px; }
+        .touch-grid { display: grid; grid-template-columns: 60px 60px 60px; gap: 4px; }
+        .touch-btn {
+            width: 60px; height: 60px; border-radius: 12px; border: 2px solid rgba(255,215,0,0.3);
+            background: rgba(255,215,0,0.1); color: white; font-size: 1.3em;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .touch-btn:active { background: rgba(255,215,0,0.3); }
+        .touch-btn.empty { border: none; background: none; }
+        @media (pointer: coarse) { .touch-controls { display: block; } }
+    </style>
+</head>
+<body>
+    <h1>🏆 Dungeon Crawler</h1>
+    <div class="subtitle">⚔️ GAME 100 — THE FINALE ⚔️</div>
+    <div class="info">
+        <div>❤️ <span class="hp" id="hp">20/20</span></div>
+        <div>⚔️ <span id="atk">3</span></div>
+        <div>🛡️ <span id="def">1</span></div>
+        <div>💰 <span class="gold" id="gold">0</span></div>
+        <div>🏛️ Floor <span id="floor">1</span></div>
+        <div>🎒 <span id="items">-</span></div>
+    </div>
+    <canvas id="game" width="440" height="440"></canvas>
+    <div class="message" id="message">Arrow keys or WASD to move. Explore the dungeon! ⚔️</div>
+    <div class="log" id="log"></div>
+    <div class="touch-controls">
+        <div class="touch-grid">
+            <div class="touch-btn empty"></div>
+            <div class="touch-btn" onclick="move(0,-1)">↑</div>
+            <div class="touch-btn empty"></div>
+            <div class="touch-btn" onclick="move(-1,0)">←</div>
+            <div class="touch-btn" onclick="move(0,0)">⏳</div>
+            <div class="touch-btn" onclick="move(1,0)">→</div>
+            <div class="touch-btn empty"></div>
+            <div class="touch-btn" onclick="move(0,1)">↓</div>
+            <div class="touch-btn empty"></div>
+        </div>
+    </div>
+    <div class="controls">
+        <button class="action-btn gold-btn" onclick="startGame()">⚔️ New Adventure</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const TILE = 22;
+const MAP_W = 20, MAP_H = 20;
+const VIEW_W = Math.floor(W / TILE), VIEW_H = Math.floor(H / TILE);
+
+const MONSTERS = [
+    { name: 'Rat', emoji: '🐀', hp: 4, atk: 1, def: 0, xp: 2, gold: [1, 3] },
+    { name: 'Bat', emoji: '🦇', hp: 3, atk: 2, def: 0, xp: 2, gold: [0, 2] },
+    { name: 'Slime', emoji: '🟢', hp: 6, atk: 2, def: 1, xp: 3, gold: [2, 5] },
+    { name: 'Skeleton', emoji: '💀', hp: 8, atk: 3, def: 1, xp: 5, gold: [3, 8] },
+    { name: 'Goblin', emoji: '👺', hp: 10, atk: 4, def: 2, xp: 6, gold: [5, 12] },
+    { name: 'Ghost', emoji: '👻', hp: 7, atk: 5, def: 0, xp: 7, gold: [2, 6] },
+    { name: 'Orc', emoji: '🧌', hp: 15, atk: 5, def: 3, xp: 10, gold: [8, 20] },
+    { name: 'Vampire', emoji: '🧛', hp: 18, atk: 6, def: 2, xp: 12, gold: [10, 25] },
+    { name: 'Dragon', emoji: '🐉', hp: 30, atk: 8, def: 5, xp: 25, gold: [20, 50] },
+    { name: 'Demon', emoji: '👿', hp: 40, atk: 10, def: 6, xp: 35, gold: [30, 60] },
+];
+
+const ITEMS = [
+    { name: 'Health Potion', emoji: '🧪', type: 'heal', value: 10 },
+    { name: 'Sword', emoji: '🗡️', type: 'atk', value: 2 },
+    { name: 'Shield', emoji: '🛡️', type: 'def', value: 2 },
+    { name: 'Ring of Power', emoji: '💍', type: 'atk', value: 3 },
+    { name: 'Armor', emoji: '🦺', type: 'def', value: 3 },
+    { name: 'Elixir', emoji: '✨', type: 'maxhp', value: 5 },
+    { name: 'War Hammer', emoji: '🔨', type: 'atk', value: 4 },
+    { name: 'Crown', emoji: '👑', type: 'all', value: 2 },
+];
+
+let player, map, explored, entities, floor, logs, gameOver, gameStarted, animations, turnCount;
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function generateDungeon() {
+    map = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(1)); // 1 = wall
+    
+    // BSP-style room generation
+    const rooms = [];
+    const numRooms = 5 + Math.floor(floor * 0.5);
+    
+    for (let i = 0; i < numRooms * 3; i++) {
+        const rw = rand(3, 7), rh = rand(3, 6);
+        const rx = rand(1, MAP_W - rw - 1), ry = rand(1, MAP_H - rh - 1);
+        
+        // Check overlap
+        let overlaps = false;
+        for (const r of rooms) {
+            if (rx < r.x + r.w + 1 && rx + rw > r.x - 1 && ry < r.y + r.h + 1 && ry + rh > r.y - 1) {
+                overlaps = true; break;
+            }
+        }
+        if (overlaps && rooms.length > 0) continue;
+        
+        // Carve room
+        for (let y = ry; y < ry + rh; y++)
+            for (let x = rx; x < rx + rw; x++)
+                map[y][x] = 0;
+        
+        rooms.push({ x: rx, y: ry, w: rw, h: rh, cx: Math.floor(rx + rw / 2), cy: Math.floor(ry + rh / 2) });
+        if (rooms.length >= numRooms) break;
+    }
+    
+    // Connect rooms with corridors
+    for (let i = 1; i < rooms.length; i++) {
+        const a = rooms[i - 1], b = rooms[i];
+        let cx = a.cx, cy = a.cy;
+        
+        while (cx !== b.cx) {
+            if (cx >= 0 && cx < MAP_W && cy >= 0 && cy < MAP_H) map[cy][cx] = 0;
+            cx += cx < b.cx ? 1 : -1;
+        }
+        while (cy !== b.cy) {
+            if (cx >= 0 && cx < MAP_W && cy >= 0 && cy < MAP_H) map[cy][cx] = 0;
+            cy += cy < b.cy ? 1 : -1;
+        }
+    }
+    
+    // Place player in first room
+    player.x = rooms[0].cx;
+    player.y = rooms[0].cy;
+    
+    // Place stairs in last room
+    const lastRoom = rooms[rooms.length - 1];
+    map[lastRoom.cy][lastRoom.cx] = 2; // stairs down
+    
+    // Place entities
+    entities = [];
+    
+    // Monsters
+    const monsterCount = 3 + floor * 2;
+    for (let i = 0; i < monsterCount; i++) {
+        const room = rooms[rand(1, rooms.length - 1)];
+        const mx = rand(room.x, room.x + room.w - 1);
+        const my = rand(room.y, room.y + room.h - 1);
+        if (mx === player.x && my === player.y) continue;
+        
+        // Scale monster difficulty with floor
+        const maxIdx = Math.min(MONSTERS.length - 1, Math.floor(floor / 2) + 2);
+        const monIdx = rand(0, maxIdx);
+        const template = MONSTERS[monIdx];
+        const scaling = 1 + (floor - 1) * 0.15;
+        
+        entities.push({
+            type: 'monster',
+            ...template,
+            hp: Math.ceil(template.hp * scaling),
+            maxHp: Math.ceil(template.hp * scaling),
+            atk: Math.ceil(template.atk * scaling),
+            def: Math.ceil(template.def * scaling),
+            x: mx, y: my
+        });
+    }
+    
+    // Items
+    const itemCount = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < itemCount; i++) {
+        const room = rooms[rand(0, rooms.length - 1)];
+        const ix = rand(room.x, room.x + room.w - 1);
+        const iy = rand(room.y, room.y + room.h - 1);
+        if (ix === player.x && iy === player.y) continue;
+        
+        const template = ITEMS[rand(0, ITEMS.length - 1)];
+        entities.push({ type: 'item', ...template, x: ix, y: iy });
+    }
+    
+    // Gold piles
+    for (let i = 0; i < 3; i++) {
+        const room = rooms[rand(0, rooms.length - 1)];
+        entities.push({
+            type: 'gold', emoji: '💰', name: 'Gold',
+            x: rand(room.x, room.x + room.w - 1),
+            y: rand(room.y, room.y + room.h - 1),
+            value: rand(3 + floor * 2, 10 + floor * 5)
+        });
+    }
+    
+    // Reset explored
+    explored = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+    revealAround(player.x, player.y);
+}
+
+function revealAround(px, py) {
+    const radius = 4;
+    for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            const nx = px + dx, ny = py + dy;
+            if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H) {
+                if (dx * dx + dy * dy <= radius * radius) {
+                    // Simple line of sight
+                    let blocked = false;
+                    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+                    for (let s = 1; s < steps; s++) {
+                        const sx = Math.round(px + dx * s / steps);
+                        const sy = Math.round(py + dy * s / steps);
+                        if (sx >= 0 && sx < MAP_W && sy >= 0 && sy < MAP_H && map[sy][sx] === 1) {
+                            blocked = true; break;
+                        }
+                    }
+                    if (!blocked) explored[ny][nx] = true;
+                }
+            }
+        }
+    }
+}
+
+function addLog(msg) {
+    logs.unshift(msg);
+    if (logs.length > 5) logs.pop();
+    document.getElementById('log').textContent = logs.join(' | ');
+}
+
+function startGame() {
+    player = {
+        x: 0, y: 0, hp: 20, maxHp: 20, atk: 3, def: 1,
+        gold: 0, xp: 0, level: 1, items: [], emoji: '🧙'
+    };
+    floor = 1;
+    logs = [];
+    gameOver = false;
+    gameStarted = true;
+    animations = [];
+    turnCount = 0;
+    
+    generateDungeon();
+    updateHUD();
+    addLog('You enter the dungeon...');
+    document.getElementById('message').textContent = 'Arrow keys/WASD to move. Find the stairs! ⬇️';
+    document.getElementById('message').style.color = '#ccc';
+}
+
+function move(dx, dy) {
+    if (!gameStarted || gameOver) return;
+    if (dx === 0 && dy === 0) { turnCount++; moveMonsters(); return; } // wait
+    
+    const nx = player.x + dx, ny = player.y + dy;
+    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) return;
+    if (map[ny][nx] === 1) return; // wall
+    
+    // Check for monster
+    const monster = entities.find(e => e.type === 'monster' && e.x === nx && e.y === ny);
+    if (monster) {
+        // Combat!
+        const dmg = Math.max(1, player.atk - monster.def + rand(-1, 1));
+        monster.hp -= dmg;
+        animations.push({ x: nx, y: ny, text: `-${dmg}`, color: '#f87171', life: 20 });
+        addLog(`Hit ${monster.name} for ${dmg} dmg!`);
+        
+        if (monster.hp <= 0) {
+            const goldDrop = rand(monster.gold[0], monster.gold[1]);
+            player.gold += goldDrop;
+            player.xp += monster.xp;
+            entities = entities.filter(e => e !== monster);
+            addLog(`${monster.name} defeated! +${goldDrop}💰 +${monster.xp}xp`);
+            animations.push({ x: nx, y: ny, text: '💀', color: '#ffd700', life: 25 });
+            
+            // Level up check
+            const xpNeeded = player.level * 15;
+            if (player.xp >= xpNeeded) {
+                player.level++;
+                player.xp -= xpNeeded;
+                player.maxHp += 5;
+                player.hp = Math.min(player.hp + 10, player.maxHp);
+                player.atk += 1;
+                player.def += 1;
+                addLog(`LEVEL UP! Lv${player.level} 💪`);
+                document.getElementById('message').textContent = `⬆️ Level ${player.level}! ATK+1, DEF+1, HP+5`;
+                document.getElementById('message').style.color = '#ffd700';
+            }
+        } else {
+            // Monster attacks back
+            const mDmg = Math.max(1, monster.atk - player.def + rand(-1, 1));
+            player.hp -= mDmg;
+            animations.push({ x: player.x, y: player.y, text: `-${mDmg}`, color: '#ff6b9d', life: 20 });
+            addLog(`${monster.name} hits you for ${mDmg}!`);
+        }
+    } else {
+        // Move
+        player.x = nx;
+        player.y = ny;
+        revealAround(nx, ny);
+        
+        // Check items/gold on tile
+        const pickup = entities.find(e => (e.type === 'item' || e.type === 'gold') && e.x === nx && e.y === ny);
+        if (pickup) {
+            if (pickup.type === 'gold') {
+                player.gold += pickup.value;
+                addLog(`Found ${pickup.value} gold!`);
+                animations.push({ x: nx, y: ny, text: `+${pickup.value}💰`, color: '#ffd700', life: 20 });
+            } else {
+                // Apply item
+                if (pickup.type === 'heal') {
+                    player.hp = Math.min(player.maxHp, player.hp + pickup.value);
+                    addLog(`Used ${pickup.name}! +${pickup.value} HP`);
+                } else if (pickup.type === 'atk') {
+                    player.atk += pickup.value;
+                    addLog(`Found ${pickup.name}! ATK +${pickup.value}`);
+                } else if (pickup.type === 'def') {
+                    player.def += pickup.value;
+                    addLog(`Found ${pickup.name}! DEF +${pickup.value}`);
+                } else if (pickup.type === 'maxhp') {
+                    player.maxHp += pickup.value;
+                    player.hp += pickup.value;
+                    addLog(`Found ${pickup.name}! MaxHP +${pickup.value}`);
+                } else if (pickup.type === 'all') {
+                    player.atk += pickup.value;
+                    player.def += pickup.value;
+                    player.maxHp += pickup.value;
+                    player.hp += pickup.value;
+                    addLog(`Found ${pickup.name}! ALL stats +${pickup.value}`);
+                }
+                animations.push({ x: nx, y: ny, text: pickup.emoji, color: '#4ade80', life: 25 });
+            }
+            entities = entities.filter(e => e !== pickup);
+        }
+        
+        // Stairs
+        if (map[ny][nx] === 2) {
+            floor++;
+            addLog(`Descending to floor ${floor}...`);
+            document.getElementById('message').textContent = `🏛️ Floor ${floor}! Enemies grow stronger...`;
+            document.getElementById('message').style.color = '#ffd700';
+            player.hp = Math.min(player.maxHp, player.hp + 3); // small heal
+            generateDungeon();
+        }
+        
+        moveMonsters();
+    }
+    
+    // Death check
+    if (player.hp <= 0) {
+        gameOver = true;
+        player.hp = 0;
+        document.getElementById('message').textContent = `☠️ You died on floor ${floor}! Gold: ${player.gold}, Level: ${player.level}`;
+        document.getElementById('message').style.color = '#f87171';
+    }
+    
+    turnCount++;
+    updateHUD();
+}
+
+function moveMonsters() {
+    entities.forEach(e => {
+        if (e.type !== 'monster') return;
+        
+        const dist = Math.abs(e.x - player.x) + Math.abs(e.y - player.y);
+        if (dist > 6 || !explored[e.y]?.[e.x]) return; // only move if "visible"
+        
+        // Simple chase AI
+        let dx = 0, dy = 0;
+        if (dist <= 1) return; // adjacent, will attack on player's turn
+        
+        if (Math.abs(player.x - e.x) > Math.abs(player.y - e.y)) {
+            dx = player.x > e.x ? 1 : -1;
+        } else {
+            dy = player.y > e.y ? 1 : -1;
+        }
+        
+        const nx = e.x + dx, ny = e.y + dy;
+        if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && map[ny][nx] !== 1) {
+            // Don't move onto other monsters or player
+            if (!entities.some(o => o.type === 'monster' && o !== e && o.x === nx && o.y === ny) &&
+                !(nx === player.x && ny === player.y)) {
+                e.x = nx;
+                e.y = ny;
+            }
+        }
+    });
+}
+
+function updateHUD() {
+    document.getElementById('hp').textContent = `${player.hp}/${player.maxHp}`;
+    document.getElementById('atk').textContent = player.atk;
+    document.getElementById('def').textContent = player.def;
+    document.getElementById('gold').textContent = player.gold;
+    document.getElementById('floor').textContent = floor;
+    document.getElementById('items').textContent = `Lv${player.level} (${player.xp}xp)`;
+}
+
+function draw() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, W, H);
+    
+    if (!gameStarted) {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⚔️ Dungeon Crawler ⚔️', W / 2, H / 2 - 30);
+        ctx.fillStyle = '#ccc';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('Press New Adventure to begin!', W / 2, H / 2 + 10);
+        ctx.fillStyle = '#ff6b9d';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('🏆 Game #100 — The Grand Finale 🏆', W / 2, H / 2 + 40);
+        return;
+    }
+    
+    // Camera centered on player
+    const camX = player.x - Math.floor(VIEW_W / 2);
+    const camY = player.y - Math.floor(VIEW_H / 2);
+    
+    for (let vy = 0; vy < VIEW_H; vy++) {
+        for (let vx = 0; vx < VIEW_W; vx++) {
+            const mx = camX + vx, my = camY + vy;
+            const sx = vx * TILE, sy = vy * TILE;
+            
+            if (mx < 0 || mx >= MAP_W || my < 0 || my >= MAP_H) {
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(sx, sy, TILE, TILE);
+                continue;
+            }
+            
+            if (!explored[my][mx]) {
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(sx, sy, TILE, TILE);
+                continue;
+            }
+            
+            // Distance from player for lighting
+            const dist = Math.hypot(mx - player.x, my - player.y);
+            const light = Math.max(0.15, 1 - dist / 6);
+            
+            const tile = map[my][mx];
+            
+            if (tile === 1) {
+                // Wall
+                const c = Math.floor(40 * light);
+                ctx.fillStyle = `rgb(${c + 20}, ${c + 10}, ${c + 30})`;
+                ctx.fillRect(sx, sy, TILE, TILE);
+                ctx.strokeStyle = `rgba(100, 80, 120, ${light * 0.5})`;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(sx + 0.5, sy + 0.5, TILE - 1, TILE - 1);
+            } else if (tile === 0 || tile === 2) {
+                // Floor
+                const c = Math.floor(25 * light);
+                ctx.fillStyle = `rgb(${c + 10}, ${c + 8}, ${c + 12})`;
+                ctx.fillRect(sx, sy, TILE, TILE);
+                
+                // Floor detail
+                if ((mx + my) % 4 === 0) {
+                    ctx.fillStyle = `rgba(100, 80, 120, ${light * 0.1})`;
+                    ctx.fillRect(sx + 4, sy + 4, 2, 2);
+                }
+                
+                // Stairs
+                if (tile === 2) {
+                    ctx.fillStyle = `rgba(255, 215, 0, ${light})`;
+                    ctx.font = `${TILE - 4}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('⬇️', sx + TILE / 2, sy + TILE / 2);
+                }
+            }
+        }
+    }
+    
+    // Draw entities
+    entities.forEach(e => {
+        const vx = e.x - camX, vy = e.y - camY;
+        if (vx < 0 || vx >= VIEW_W || vy < 0 || vy >= VIEW_H) return;
+        if (!explored[e.y]?.[e.x]) return;
+        
+        const dist = Math.hypot(e.x - player.x, e.y - player.y);
+        const light = Math.max(0.2, 1 - dist / 6);
+        
+        const sx = vx * TILE, sy = vy * TILE;
+        ctx.globalAlpha = light;
+        ctx.font = `${TILE - 4}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(e.emoji, sx + TILE / 2, sy + TILE / 2);
+        
+        // Monster HP bar
+        if (e.type === 'monster' && e.hp < e.maxHp) {
+            const barW = TILE - 4;
+            const hpPct = e.hp / e.maxHp;
+            ctx.fillStyle = '#333';
+            ctx.fillRect(sx + 2, sy - 2, barW, 3);
+            ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : hpPct > 0.25 ? '#fbbf24' : '#f87171';
+            ctx.fillRect(sx + 2, sy - 2, barW * hpPct, 3);
+        }
+        ctx.globalAlpha = 1;
+    });
+    
+    // Draw player
+    {
+        const vx = player.x - camX, vy = player.y - camY;
+        const sx = vx * TILE, sy = vy * TILE;
+        
+        // Glow
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+        ctx.beginPath();
+        ctx.arc(sx + TILE / 2, sy + TILE / 2, TILE, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.font = `${TILE - 2}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(player.emoji, sx + TILE / 2, sy + TILE / 2);
+    }
+    
+    // Animations
+    animations = animations.filter(a => {
+        const vx = a.x - camX, vy = a.y - camY;
+        if (vx < 0 || vx >= VIEW_W || vy < 0 || vy >= VIEW_H) return false;
+        
+        const sx = vx * TILE + TILE / 2, sy = vy * TILE - (20 - a.life);
+        const alpha = a.life / 25;
+        ctx.fillStyle = a.color;
+        ctx.globalAlpha = alpha;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(a.text, sx, sy);
+        ctx.globalAlpha = 1;
+        
+        a.life--;
+        return a.life > 0;
+    });
+    
+    // HP bar overlay
+    const hpPct = player.hp / player.maxHp;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(10, H - 18, 104, 12);
+    ctx.fillStyle = hpPct > 0.5 ? '#4ade80' : hpPct > 0.25 ? '#fbbf24' : '#f87171';
+    ctx.fillRect(12, H - 16, 100 * hpPct, 8);
+    ctx.fillStyle = 'white';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`HP ${player.hp}/${player.maxHp}`, 14, H - 9);
+    
+    // Floor indicator
+    ctx.fillStyle = 'rgba(255,215,0,0.7)';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`Floor ${floor} | Lv${player.level}`, W - 10, H - 8);
+    
+    // Minimap
+    const mmSize = 3;
+    const mmX = W - MAP_W * mmSize - 8, mmY = 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(mmX - 2, mmY - 2, MAP_W * mmSize + 4, MAP_H * mmSize + 4);
+    for (let y = 0; y < MAP_H; y++) {
+        for (let x = 0; x < MAP_W; x++) {
+            if (!explored[y][x]) continue;
+            ctx.fillStyle = map[y][x] === 1 ? '#333' : map[y][x] === 2 ? '#ffd700' : '#1a1a2e';
+            ctx.fillRect(mmX + x * mmSize, mmY + y * mmSize, mmSize, mmSize);
+        }
+    }
+    // Player on minimap
+    ctx.fillStyle = '#4fc3f7';
+    ctx.fillRect(mmX + player.x * mmSize, mmY + player.y * mmSize, mmSize, mmSize);
+    // Monsters on minimap
+    entities.forEach(e => {
+        if (e.type === 'monster' && explored[e.y]?.[e.x]) {
+            ctx.fillStyle = '#f87171';
+            ctx.fillRect(mmX + e.x * mmSize, mmY + e.y * mmSize, mmSize, mmSize);
+        }
+    });
+}
+
+// Input
+document.addEventListener('keydown', e => {
+    const moves = {
+        'ArrowUp': [0, -1], 'ArrowDown': [0, 1], 'ArrowLeft': [-1, 0], 'ArrowRight': [1, 0],
+        'w': [0, -1], 's': [0, 1], 'a': [-1, 0], 'd': [1, 0],
+        '.': [0, 0], '5': [0, 0]
+    };
+    if (moves[e.key]) {
+        move(...moves[e.key]);
+        e.preventDefault();
+    }
+});
+
+function gameLoop() {
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+startGame();
+gameLoop();
+</script>
+</body>
+</html>
