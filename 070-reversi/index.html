@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>070 - Reversi (Othello)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #4ecdc4;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .score {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .disc-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .disc-black { background: radial-gradient(circle at 35% 35%, #555, #111); border: 1px solid #333; }
+        .disc-white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); border: 1px solid #aaa; }
+        
+        .status {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #64ffda;
+            min-height: 30px;
+        }
+        
+        canvas {
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(78, 205, 196, 0.3);
+            cursor: pointer;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            background: #4ecdc4;
+            border: none;
+            color: #1a1a2e;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #7fffe5;
+            transform: translateY(-2px);
+        }
+        
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #4ecdc4;
+            text-decoration: none;
+            font-size: 1.2em;
+        }
+        
+        .back-link:hover { color: #7fffe5; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>⚫ Reversi</h1>
+    <div class="info">
+        <div class="score"><span class="disc-icon disc-black"></span> Black: <span id="blackScore" style="color:#ffd93d">2</span></div>
+        <div class="score"><span class="disc-icon disc-white"></span> White: <span id="whiteScore" style="color:#ffd93d">2</span></div>
+    </div>
+    <div class="status" id="status">Your turn (Black)</div>
+    <canvas id="board" width="480" height="480"></canvas>
+    <div class="controls">
+        <button onclick="newGame()">New Game</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const SIZE = 480;
+        const CELL = SIZE / 8;
+        const DIRS = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+        
+        let board = [];
+        let currentPlayer = 'B'; // B = black (player), W = white (AI)
+        let gameOver = false;
+        let validMovesCache = [];
+        
+        function newGame() {
+            board = Array(8).fill(null).map(() => Array(8).fill(null));
+            board[3][3] = 'W'; board[3][4] = 'B';
+            board[4][3] = 'B'; board[4][4] = 'W';
+            currentPlayer = 'B';
+            gameOver = false;
+            validMovesCache = getValidMoves('B');
+            updateUI();
+            draw();
+        }
+        
+        function getFlips(r, c, player, brd) {
+            if (brd[r][c]) return [];
+            const opponent = player === 'B' ? 'W' : 'B';
+            let allFlips = [];
+            
+            for (const [dr, dc] of DIRS) {
+                let flips = [];
+                let nr = r + dr, nc = c + dc;
+                while (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && brd[nr][nc] === opponent) {
+                    flips.push([nr, nc]);
+                    nr += dr;
+                    nc += dc;
+                }
+                if (flips.length > 0 && nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && brd[nr][nc] === player) {
+                    allFlips.push(...flips);
+                }
+            }
+            return allFlips;
+        }
+        
+        function getValidMoves(player) {
+            const moves = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (getFlips(r, c, player, board).length > 0) {
+                        moves.push([r, c]);
+                    }
+                }
+            }
+            return moves;
+        }
+        
+        function placePiece(r, c, player) {
+            const flips = getFlips(r, c, player, board);
+            if (flips.length === 0) return false;
+            
+            board[r][c] = player;
+            for (const [fr, fc] of flips) {
+                board[fr][fc] = player;
+            }
+            return true;
+        }
+        
+        function countPieces() {
+            let b = 0, w = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] === 'B') b++;
+                    else if (board[r][c] === 'W') w++;
+                }
+            }
+            return {b, w};
+        }
+        
+        function updateUI() {
+            const {b, w} = countPieces();
+            document.getElementById('blackScore').textContent = b;
+            document.getElementById('whiteScore').textContent = w;
+            
+            const status = document.getElementById('status');
+            if (gameOver) {
+                if (b > w) { status.textContent = `🏆 You win! ${b}-${w}`; status.style.color = '#64ffda'; }
+                else if (w > b) { status.textContent = `💀 AI wins! ${w}-${b}`; status.style.color = '#ff6b6b'; }
+                else { status.textContent = `🤝 Draw! ${b}-${w}`; status.style.color = '#ffd93d'; }
+            } else if (currentPlayer === 'B') {
+                status.textContent = 'Your turn (Black)';
+                status.style.color = '#64ffda';
+            } else {
+                status.textContent = 'AI thinking...';
+                status.style.color = '#a0a0a0';
+            }
+        }
+        
+        function switchTurn() {
+            currentPlayer = currentPlayer === 'B' ? 'W' : 'B';
+            validMovesCache = getValidMoves(currentPlayer);
+            
+            if (validMovesCache.length === 0) {
+                // Pass - switch again
+                currentPlayer = currentPlayer === 'B' ? 'W' : 'B';
+                validMovesCache = getValidMoves(currentPlayer);
+                
+                if (validMovesCache.length === 0) {
+                    gameOver = true;
+                    updateUI();
+                    draw();
+                    return;
+                }
+            }
+            
+            updateUI();
+            draw();
+            
+            if (currentPlayer === 'W' && !gameOver) {
+                setTimeout(aiMove, 400);
+            }
+        }
+        
+        // AI: weighted square strategy
+        const WEIGHTS = [
+            [100, -20,  10,  5,  5,  10, -20, 100],
+            [-20, -50,  -2, -2, -2,  -2, -50, -20],
+            [ 10,  -2,   1,  1,  1,   1,  -2,  10],
+            [  5,  -2,   1,  0,  0,   1,  -2,   5],
+            [  5,  -2,   1,  0,  0,   1,  -2,   5],
+            [ 10,  -2,   1,  1,  1,   1,  -2,  10],
+            [-20, -50,  -2, -2, -2,  -2, -50, -20],
+            [100, -20,  10,  5,  5,  10, -20, 100],
+        ];
+        
+        function aiMove() {
+            const moves = getValidMoves('W');
+            if (moves.length === 0) { switchTurn(); return; }
+            
+            // Score each move
+            let bestScore = -Infinity;
+            let bestMoves = [];
+            
+            for (const [r, c] of moves) {
+                const flips = getFlips(r, c, 'W', board);
+                let score = WEIGHTS[r][c] + flips.length * 2;
+                
+                // Look ahead: check if move gives opponent a corner
+                const testBoard = board.map(row => [...row]);
+                testBoard[r][c] = 'W';
+                for (const [fr, fc] of flips) testBoard[fr][fc] = 'W';
+                
+                const oppMoves = [];
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 8; j++) {
+                        if (getFlips(i, j, 'B', testBoard).length > 0) oppMoves.push([i, j]);
+                    }
+                }
+                for (const [or, oc] of oppMoves) {
+                    if ((or === 0 || or === 7) && (oc === 0 || oc === 7)) score -= 50;
+                }
+                
+                if (score > bestScore) { bestScore = score; bestMoves = [[r, c]]; }
+                else if (score === bestScore) bestMoves.push([r, c]);
+            }
+            
+            const [r, c] = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+            placePiece(r, c, 'W');
+            switchTurn();
+        }
+        
+        function draw() {
+            // Green board
+            ctx.fillStyle = '#2d6b45';
+            ctx.fillRect(0, 0, SIZE, SIZE);
+            
+            // Grid lines
+            ctx.strokeStyle = '#1a5030';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 8; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, SIZE);
+                ctx.moveTo(0, i * CELL); ctx.lineTo(SIZE, i * CELL);
+                ctx.stroke();
+            }
+            
+            // Valid move hints
+            if (currentPlayer === 'B' && !gameOver) {
+                for (const [r, c] of validMovesCache) {
+                    ctx.beginPath();
+                    ctx.arc(c * CELL + CELL/2, r * CELL + CELL/2, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(100, 255, 218, 0.5)';
+                    ctx.fill();
+                }
+            }
+            
+            // Pieces
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (!board[r][c]) continue;
+                    
+                    const cx = c * CELL + CELL/2;
+                    const cy = r * CELL + CELL/2;
+                    const radius = CELL * 0.4;
+                    
+                    // Shadow
+                    ctx.beginPath();
+                    ctx.arc(cx + 2, cy + 3, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fill();
+                    
+                    // Disc
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    const grad = ctx.createRadialGradient(cx - 5, cy - 5, 2, cx, cy, radius);
+                    if (board[r][c] === 'B') {
+                        grad.addColorStop(0, '#555');
+                        grad.addColorStop(1, '#111');
+                    } else {
+                        grad.addColorStop(0, '#fff');
+                        grad.addColorStop(1, '#ccc');
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    ctx.strokeStyle = board[r][c] === 'B' ? '#333' : '#aaa';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                }
+            }
+            
+            // Center dots
+            ctx.fillStyle = '#1a5030';
+            for (const [r, c] of [[2,2],[2,6],[6,2],[6,6]]) {
+                ctx.beginPath();
+                ctx.arc(c * CELL, r * CELL, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (currentPlayer !== 'B' || gameOver) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scale = SIZE / rect.width;
+            const c = Math.floor((e.clientX - rect.left) * scale / CELL);
+            const r = Math.floor((e.clientY - rect.top) * scale / CELL);
+            
+            if (r < 0 || r > 7 || c < 0 || c > 7) return;
+            
+            if (placePiece(r, c, 'B')) {
+                switchTurn();
+            }
+        });
+        
+        function resize() {
+            const maxW = Math.min(window.innerWidth - 40, 480);
+            canvas.style.width = maxW + 'px';
+            canvas.style.height = maxW + 'px';
+        }
+        window.addEventListener('resize', resize);
+        resize();
+        
+        newGame();
+    </script>
+</body>
+</html>

@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>069 - Checkers</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #e94560;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+        
+        .info {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .info span {
+            color: #ffd93d;
+        }
+        
+        .status {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #64ffda;
+            min-height: 30px;
+        }
+        
+        canvas {
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(233, 69, 96, 0.3);
+            cursor: pointer;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            background: #e94560;
+            border: none;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #ff6b6b;
+            transform: translateY(-2px);
+        }
+        
+        .back-link {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            color: #e94560;
+            text-decoration: none;
+            font-size: 1.2em;
+        }
+        
+        .back-link:hover { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <a href="../index.html" class="back-link">← Back</a>
+    <h1>♟️ Checkers</h1>
+    <div class="info">
+        <div>Red: <span id="redCount">12</span></div>
+        <div>Black: <span id="blackCount">12</span></div>
+    </div>
+    <div class="status" id="status">Your turn (Red)</div>
+    <canvas id="board" width="480" height="480"></canvas>
+    <div class="controls">
+        <button onclick="newGame()">New Game</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('board');
+        const ctx = canvas.getContext('2d');
+        const SIZE = 480;
+        const CELL = SIZE / 8;
+        
+        let board = [];
+        let selected = null;
+        let validMoves = [];
+        let turn = 'red';
+        let aiThinking = false;
+        
+        // Piece types: 'r' = red, 'b' = black, 'R' = red king, 'B' = black king, null = empty
+        
+        function newGame() {
+            board = Array(8).fill(null).map(() => Array(8).fill(null));
+            // Place black pieces (top)
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if ((r + c) % 2 === 1) board[r][c] = 'b';
+                }
+            }
+            // Place red pieces (bottom)
+            for (let r = 5; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if ((r + c) % 2 === 1) board[r][c] = 'r';
+                }
+            }
+            selected = null;
+            validMoves = [];
+            turn = 'red';
+            aiThinking = false;
+            updateStatus();
+            draw();
+        }
+        
+        function isOwn(piece) {
+            if (turn === 'red') return piece === 'r' || piece === 'R';
+            return piece === 'b' || piece === 'B';
+        }
+        
+        function isEnemy(piece) {
+            if (turn === 'red') return piece === 'b' || piece === 'B';
+            return piece === 'r' || piece === 'R';
+        }
+        
+        function isKing(piece) {
+            return piece === 'R' || piece === 'B';
+        }
+        
+        function getDirections(piece) {
+            if (piece === 'R' || piece === 'B') return [[-1,-1],[-1,1],[1,-1],[1,1]];
+            if (piece === 'r') return [[-1,-1],[-1,1]]; // red moves up
+            return [[1,-1],[1,1]]; // black moves down
+        }
+        
+        function getJumps(r, c, boardState) {
+            const piece = boardState[r][c];
+            if (!piece) return [];
+            const dirs = getDirections(piece);
+            const jumps = [];
+            for (const [dr, dc] of dirs) {
+                const mr = r + dr, mc = c + dc;
+                const lr = r + 2*dr, lc = c + 2*dc;
+                if (lr >= 0 && lr < 8 && lc >= 0 && lc < 8 &&
+                    boardState[mr][mc] && isEnemyPiece(piece, boardState[mr][mc]) &&
+                    !boardState[lr][lc]) {
+                    jumps.push({r: lr, c: lc, captured: {r: mr, c: mc}});
+                }
+            }
+            return jumps;
+        }
+        
+        function isEnemyPiece(myPiece, otherPiece) {
+            if (!otherPiece) return false;
+            const myColor = (myPiece === 'r' || myPiece === 'R') ? 'red' : 'black';
+            const otherColor = (otherPiece === 'r' || otherPiece === 'R') ? 'red' : 'black';
+            return myColor !== otherColor;
+        }
+        
+        function getMoves(r, c) {
+            const piece = board[r][c];
+            if (!piece || !isOwn(piece)) return [];
+            
+            // Check if any piece has jumps (mandatory jumping)
+            let anyJumps = false;
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    if (board[i][j] && isOwn(board[i][j])) {
+                        if (getJumps(i, j, board).length > 0) {
+                            anyJumps = true;
+                            break;
+                        }
+                    }
+                }
+                if (anyJumps) break;
+            }
+            
+            const jumps = getJumps(r, c, board);
+            if (anyJumps) return jumps; // Must jump
+            
+            // Simple moves
+            const dirs = getDirections(piece);
+            const moves = [];
+            for (const [dr, dc] of dirs) {
+                const nr = r + dr, nc = c + dc;
+                if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8 && !board[nr][nc]) {
+                    moves.push({r: nr, c: nc});
+                }
+            }
+            return moves;
+        }
+        
+        function makeMove(fromR, fromC, toR, toC, captured) {
+            let piece = board[fromR][fromC];
+            board[fromR][fromC] = null;
+            
+            // King promotion
+            if (piece === 'r' && toR === 0) piece = 'R';
+            if (piece === 'b' && toR === 7) piece = 'B';
+            
+            board[toR][toC] = piece;
+            
+            if (captured) {
+                board[captured.r][captured.c] = null;
+                
+                // Check for multi-jump
+                const moreJumps = getJumps(toR, toC, board);
+                if (moreJumps.length > 0) {
+                    selected = {r: toR, c: toC};
+                    validMoves = moreJumps;
+                    draw();
+                    updateCounts();
+                    if (turn === 'black') {
+                        setTimeout(() => aiMultiJump(toR, toC), 400);
+                    }
+                    return;
+                }
+            }
+            
+            // Switch turn
+            turn = turn === 'red' ? 'black' : 'red';
+            selected = null;
+            validMoves = [];
+            updateCounts();
+            updateStatus();
+            draw();
+            
+            if (checkWin()) return;
+            
+            if (turn === 'black') {
+                aiThinking = true;
+                setTimeout(aiMove, 500);
+            }
+        }
+        
+        function aiMultiJump(r, c) {
+            const jumps = getJumps(r, c, board);
+            if (jumps.length === 0) {
+                turn = turn === 'red' ? 'black' : 'red';
+                selected = null;
+                validMoves = [];
+                updateStatus();
+                draw();
+                if (checkWin()) return;
+                if (turn === 'black') {
+                    aiThinking = true;
+                    setTimeout(aiMove, 500);
+                }
+                return;
+            }
+            const move = jumps[Math.floor(Math.random() * jumps.length)];
+            makeMove(r, c, move.r, move.c, move.captured);
+        }
+        
+        function aiMove() {
+            // Collect all possible moves for black
+            let allMoves = [];
+            let hasJumps = false;
+            
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] && (board[r][c] === 'b' || board[r][c] === 'B')) {
+                        const moves = getMoves(r, c);
+                        for (const m of moves) {
+                            if (m.captured) hasJumps = true;
+                            allMoves.push({fromR: r, fromC: c, ...m});
+                        }
+                    }
+                }
+            }
+            
+            if (allMoves.length === 0) {
+                aiThinking = false;
+                return;
+            }
+            
+            // Prefer jumps, then kings moves, then random
+            const jumps = allMoves.filter(m => m.captured);
+            let move;
+            if (jumps.length > 0) {
+                move = jumps[Math.floor(Math.random() * jumps.length)];
+            } else {
+                // Slight preference for advancing and center
+                allMoves.sort((a, b) => {
+                    const scoreA = a.r + (a.fromR < a.r ? 2 : 0) + (Math.abs(a.c - 3.5) < 2 ? 1 : 0);
+                    const scoreB = b.r + (b.fromR < b.r ? 2 : 0) + (Math.abs(b.c - 3.5) < 2 ? 1 : 0);
+                    return scoreB - scoreA;
+                });
+                // Pick from top candidates with some randomness
+                const top = allMoves.slice(0, Math.min(3, allMoves.length));
+                move = top[Math.floor(Math.random() * top.length)];
+            }
+            
+            aiThinking = false;
+            makeMove(move.fromR, move.fromC, move.r, move.c, move.captured);
+        }
+        
+        function updateCounts() {
+            let red = 0, black = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] === 'r' || board[r][c] === 'R') red++;
+                    if (board[r][c] === 'b' || board[r][c] === 'B') black++;
+                }
+            }
+            document.getElementById('redCount').textContent = red;
+            document.getElementById('blackCount').textContent = black;
+        }
+        
+        function updateStatus() {
+            const el = document.getElementById('status');
+            if (turn === 'red') {
+                el.textContent = 'Your turn (Red)';
+                el.style.color = '#ff6b6b';
+            } else {
+                el.textContent = 'AI thinking...';
+                el.style.color = '#a0a0a0';
+            }
+        }
+        
+        function checkWin() {
+            let red = 0, black = 0, redMoves = false, blackMoves = false;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = board[r][c];
+                    if (p === 'r' || p === 'R') { red++; }
+                    if (p === 'b' || p === 'B') { black++; }
+                }
+            }
+            
+            // Check if current player has moves
+            const savedTurn = turn;
+            let hasMoves = false;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (board[r][c] && isOwn(board[r][c])) {
+                        if (getMoves(r, c).length > 0) { hasMoves = true; break; }
+                    }
+                }
+                if (hasMoves) break;
+            }
+            
+            const status = document.getElementById('status');
+            if (red === 0 || (turn === 'red' && !hasMoves)) {
+                status.textContent = '🏆 Black wins!';
+                status.style.color = '#ffd93d';
+                return true;
+            }
+            if (black === 0 || (turn === 'black' && !hasMoves)) {
+                status.textContent = '🏆 You win!';
+                status.style.color = '#64ffda';
+                return true;
+            }
+            return false;
+        }
+        
+        function draw() {
+            // Board
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    ctx.fillStyle = (r + c) % 2 === 0 ? '#f0d9b5' : '#b58863';
+                    ctx.fillRect(c * CELL, r * CELL, CELL, CELL);
+                }
+            }
+            
+            // Highlight valid moves
+            for (const m of validMoves) {
+                ctx.fillStyle = 'rgba(100, 255, 218, 0.4)';
+                ctx.fillRect(m.c * CELL, m.r * CELL, CELL, CELL);
+            }
+            
+            // Highlight selected
+            if (selected) {
+                ctx.fillStyle = 'rgba(255, 217, 61, 0.4)';
+                ctx.fillRect(selected.c * CELL, selected.r * CELL, CELL, CELL);
+            }
+            
+            // Pieces
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const piece = board[r][c];
+                    if (!piece) continue;
+                    
+                    const cx = c * CELL + CELL / 2;
+                    const cy = r * CELL + CELL / 2;
+                    const radius = CELL * 0.38;
+                    
+                    // Shadow
+                    ctx.beginPath();
+                    ctx.arc(cx + 2, cy + 3, radius, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fill();
+                    
+                    // Piece
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    const isRed = piece === 'r' || piece === 'R';
+                    const grad = ctx.createRadialGradient(cx - 5, cy - 5, 2, cx, cy, radius);
+                    if (isRed) {
+                        grad.addColorStop(0, '#ff6b6b');
+                        grad.addColorStop(1, '#c0392b');
+                    } else {
+                        grad.addColorStop(0, '#555');
+                        grad.addColorStop(1, '#222');
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                    ctx.strokeStyle = isRed ? '#e74c3c' : '#111';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // King crown
+                    if (isKing(piece)) {
+                        ctx.fillStyle = '#ffd93d';
+                        ctx.font = `${CELL * 0.35}px serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('♛', cx, cy);
+                    }
+                }
+            }
+        }
+        
+        canvas.addEventListener('click', (e) => {
+            if (turn !== 'red' || aiThinking) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const scale = SIZE / rect.width;
+            const c = Math.floor((e.clientX - rect.left) * scale / CELL);
+            const r = Math.floor((e.clientY - rect.top) * scale / CELL);
+            
+            if (r < 0 || r > 7 || c < 0 || c > 7) return;
+            
+            // Check if clicking a valid move destination
+            const moveTarget = validMoves.find(m => m.r === r && m.c === c);
+            if (moveTarget && selected) {
+                makeMove(selected.r, selected.c, r, c, moveTarget.captured);
+                return;
+            }
+            
+            // Select a piece
+            if (board[r][c] && isOwn(board[r][c])) {
+                const moves = getMoves(r, c);
+                if (moves.length > 0) {
+                    selected = {r, c};
+                    validMoves = moves;
+                } else {
+                    selected = null;
+                    validMoves = [];
+                }
+                draw();
+            }
+        });
+        
+        // Responsive canvas
+        function resize() {
+            const maxW = Math.min(window.innerWidth - 40, 480);
+            canvas.style.width = maxW + 'px';
+            canvas.style.height = maxW + 'px';
+        }
+        window.addEventListener('resize', resize);
+        resize();
+        
+        newGame();
+    </script>
+</body>
+</html>
