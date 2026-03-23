@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>065 - Connect Four</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f23 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #64ffda;
+            font-size: 2em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(100, 255, 218, 0.5);
+        }
+        
+        .info {
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        
+        .info .turn {
+            color: #ffd93d;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .mode-select {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .mode-btn {
+            padding: 8px 18px;
+            border: 2px solid #64ffda;
+            border-radius: 8px;
+            background: transparent;
+            color: #64ffda;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .mode-btn:hover, .mode-btn.active {
+            background: #64ffda;
+            color: #1a1a2e;
+        }
+        
+        .board-wrapper {
+            position: relative;
+        }
+        
+        .drop-indicators {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            padding: 0 10px;
+            margin-bottom: 5px;
+        }
+        
+        .drop-arrow {
+            text-align: center;
+            font-size: 1.5em;
+            opacity: 0;
+            transition: opacity 0.2s;
+            cursor: pointer;
+            height: 30px;
+        }
+        
+        .drop-arrow:hover {
+            opacity: 1 !important;
+        }
+        
+        .board {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            background: linear-gradient(135deg, #1a3a6a, #16308a);
+            padding: 12px;
+            border-radius: 15px;
+            box-shadow: 0 0 30px rgba(100, 255, 218, 0.2), inset 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .cell {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #0a0a1e;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.6);
+        }
+        
+        .cell:hover {
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.6), 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        
+        .cell.red {
+            background: radial-gradient(circle at 35% 35%, #ff8888, #ff4444, #cc0000);
+            box-shadow: 0 3px 10px rgba(255, 0, 0, 0.4);
+        }
+        
+        .cell.yellow {
+            background: radial-gradient(circle at 35% 35%, #ffee88, #ffd93d, #ccaa00);
+            box-shadow: 0 3px 10px rgba(255, 217, 61, 0.4);
+        }
+        
+        .cell.winning {
+            animation: pulse 0.6s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        @keyframes drop {
+            from { transform: translateY(-300px); }
+            to { transform: translateY(0); }
+        }
+        
+        .cell.dropping {
+            animation: drop 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        .message {
+            font-size: 1.5em;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+        
+        .message.win-red { color: #ff6b6b; }
+        .message.win-yellow { color: #ffd93d; }
+        .message.draw { color: #888; }
+        
+        .score-board {
+            display: flex;
+            gap: 30px;
+            font-size: 1.1em;
+        }
+        
+        .score-red { color: #ff6b6b; }
+        .score-yellow { color: #ffd93d; }
+        .score-draw { color: #888; }
+        
+        .new-game {
+            padding: 12px 30px;
+            font-size: 1em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #64ffda, #4fd1c5);
+            color: #1a1a2e;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        .new-game:hover {
+            transform: scale(1.05);
+        }
+        
+        .instructions {
+            color: #888;
+            font-size: 0.9em;
+            text-align: center;
+            max-width: 380px;
+            line-height: 1.5;
+        }
+        
+        .thinking {
+            color: #ffd93d;
+            font-size: 0.9em;
+            min-height: 20px;
+        }
+        
+        @media (max-width: 420px) {
+            .cell {
+                width: 40px;
+                height: 40px;
+            }
+            .board { gap: 4px; padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <h1>🔴🟡 Connect Four</h1>
+    
+    <div class="info">
+        Turn: <span class="turn" id="turnIndicator">🔴 Red</span>
+    </div>
+    
+    <div class="game-container">
+        <div class="mode-select">
+            <button class="mode-btn active" data-mode="ai">vs AI</button>
+            <button class="mode-btn" data-mode="local">2 Players</button>
+        </div>
+        
+        <div class="board-wrapper">
+            <div class="drop-indicators" id="dropIndicators"></div>
+            <div class="board" id="board"></div>
+        </div>
+        
+        <div class="thinking" id="thinking"></div>
+        
+        <div class="message" id="message"></div>
+        
+        <div class="score-board">
+            <span class="score-red">🔴 <span id="scoreRed">0</span></span>
+            <span class="score-draw">Draw: <span id="scoreDraw">0</span></span>
+            <span class="score-yellow">🟡 <span id="scoreYellow">0</span></span>
+        </div>
+        
+        <button class="new-game" id="newGame">New Game</button>
+        
+        <p class="instructions">
+            Drop your disc into a column. Connect 4 in a row — horizontally, 
+            vertically, or diagonally — to win!
+        </p>
+    </div>
+    
+    <script>
+        const ROWS = 6;
+        const COLS = 7;
+        const EMPTY = 0;
+        const RED = 1;
+        const YELLOW = 2;
+        
+        let board = [];
+        let currentPlayer = RED;
+        let gameOver = false;
+        let vsAI = true;
+        let scores = JSON.parse(localStorage.getItem('connect4-scores') || '{"red":0,"yellow":0,"draw":0}');
+        
+        const boardEl = document.getElementById('board');
+        const messageEl = document.getElementById('message');
+        const thinkingEl = document.getElementById('thinking');
+        
+        function init() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
+            currentPlayer = RED;
+            gameOver = false;
+            
+            messageEl.textContent = '';
+            messageEl.className = 'message';
+            thinkingEl.textContent = '';
+            
+            renderBoard();
+            updateUI();
+        }
+        
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            const indicators = document.getElementById('dropIndicators');
+            indicators.innerHTML = '';
+            
+            for (let c = 0; c < COLS; c++) {
+                const arrow = document.createElement('div');
+                arrow.className = 'drop-arrow';
+                arrow.textContent = currentPlayer === RED ? '🔴' : '🟡';
+                arrow.addEventListener('click', () => dropPiece(c));
+                arrow.addEventListener('mouseenter', () => arrow.style.opacity = '0.8');
+                arrow.addEventListener('mouseleave', () => arrow.style.opacity = '0');
+                indicators.appendChild(arrow);
+            }
+            
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${r}-${c}`;
+                    
+                    if (board[r][c] === RED) cell.classList.add('red');
+                    else if (board[r][c] === YELLOW) cell.classList.add('yellow');
+                    
+                    cell.addEventListener('click', () => dropPiece(c));
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+        
+        function dropPiece(col) {
+            if (gameOver) return;
+            if (vsAI && currentPlayer === YELLOW) return;
+            
+            const row = getLowestRow(col);
+            if (row === -1) return;
+            
+            placePiece(row, col, currentPlayer);
+            
+            const winCells = checkWin(row, col);
+            if (winCells) {
+                gameOver = true;
+                highlightWin(winCells);
+                const winner = currentPlayer === RED ? 'Red' : 'Yellow';
+                const emoji = currentPlayer === RED ? '🔴' : '🟡';
+                messageEl.textContent = `${emoji} ${winner} wins!`;
+                messageEl.className = `message win-${winner.toLowerCase()}`;
+                scores[winner.toLowerCase()]++;
+                localStorage.setItem('connect4-scores', JSON.stringify(scores));
+                updateScores();
+                return;
+            }
+            
+            if (isDraw()) {
+                gameOver = true;
+                messageEl.textContent = '🤝 Draw!';
+                messageEl.className = 'message draw';
+                scores.draw++;
+                localStorage.setItem('connect4-scores', JSON.stringify(scores));
+                updateScores();
+                return;
+            }
+            
+            currentPlayer = currentPlayer === RED ? YELLOW : RED;
+            updateUI();
+            
+            if (vsAI && currentPlayer === YELLOW) {
+                thinkingEl.textContent = '🤔 AI thinking...';
+                setTimeout(() => {
+                    aiMove();
+                    thinkingEl.textContent = '';
+                }, 300);
+            }
+        }
+        
+        function placePiece(row, col, player) {
+            board[row][col] = player;
+            const cell = document.getElementById(`cell-${row}-${col}`);
+            cell.classList.add(player === RED ? 'red' : 'yellow', 'dropping');
+            setTimeout(() => cell.classList.remove('dropping'), 400);
+        }
+        
+        function getLowestRow(col) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r][col] === EMPTY) return r;
+            }
+            return -1;
+        }
+        
+        function checkWin(row, col) {
+            const player = board[row][col];
+            const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            
+            for (const [dr, dc] of directions) {
+                let cells = [[row, col]];
+                
+                for (let i = 1; i <= 3; i++) {
+                    const r = row + dr * i, c = col + dc * i;
+                    if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+                        cells.push([r, c]);
+                    } else break;
+                }
+                
+                for (let i = 1; i <= 3; i++) {
+                    const r = row - dr * i, c = col - dc * i;
+                    if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] === player) {
+                        cells.push([r, c]);
+                    } else break;
+                }
+                
+                if (cells.length >= 4) return cells;
+            }
+            return null;
+        }
+        
+        function isDraw() {
+            return board[0].every(cell => cell !== EMPTY);
+        }
+        
+        function highlightWin(cells) {
+            cells.forEach(([r, c]) => {
+                document.getElementById(`cell-${r}-${c}`).classList.add('winning');
+            });
+        }
+        
+        // --- AI (minimax with alpha-beta) ---
+        
+        function aiMove() {
+            let bestScore = -Infinity;
+            let bestCol = 3; // default center
+            const depth = 5;
+            
+            // Try center first for better pruning
+            const order = [3, 2, 4, 1, 5, 0, 6];
+            
+            for (const col of order) {
+                const row = getLowestRow(col);
+                if (row === -1) continue;
+                
+                board[row][col] = YELLOW;
+                const score = minimax(depth - 1, -Infinity, Infinity, false);
+                board[row][col] = EMPTY;
+                
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestCol = col;
+                }
+            }
+            
+            const row = getLowestRow(bestCol);
+            if (row !== -1) {
+                placePiece(row, bestCol, YELLOW);
+                
+                const winCells = checkWin(row, bestCol);
+                if (winCells) {
+                    gameOver = true;
+                    highlightWin(winCells);
+                    messageEl.textContent = '🟡 Yellow (AI) wins!';
+                    messageEl.className = 'message win-yellow';
+                    scores.yellow++;
+                    localStorage.setItem('connect4-scores', JSON.stringify(scores));
+                    updateScores();
+                    return;
+                }
+                
+                if (isDraw()) {
+                    gameOver = true;
+                    messageEl.textContent = '🤝 Draw!';
+                    messageEl.className = 'message draw';
+                    scores.draw++;
+                    localStorage.setItem('connect4-scores', JSON.stringify(scores));
+                    updateScores();
+                    return;
+                }
+                
+                currentPlayer = RED;
+                updateUI();
+            }
+        }
+        
+        function minimax(depth, alpha, beta, isMaximizing) {
+            // Check terminal states
+            for (let c = 0; c < COLS; c++) {
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (board[r][c] !== EMPTY) {
+                        const win = checkWin(r, c);
+                        if (win) {
+                            return board[r][c] === YELLOW ? 1000 + depth : -1000 - depth;
+                        }
+                        break;
+                    }
+                }
+            }
+            
+            if (depth === 0 || isDraw()) return evaluateBoard();
+            
+            const order = [3, 2, 4, 1, 5, 0, 6];
+            
+            if (isMaximizing) {
+                let maxScore = -Infinity;
+                for (const col of order) {
+                    const row = getLowestRow(col);
+                    if (row === -1) continue;
+                    board[row][col] = YELLOW;
+                    const score = minimax(depth - 1, alpha, beta, false);
+                    board[row][col] = EMPTY;
+                    maxScore = Math.max(maxScore, score);
+                    alpha = Math.max(alpha, score);
+                    if (beta <= alpha) break;
+                }
+                return maxScore;
+            } else {
+                let minScore = Infinity;
+                for (const col of order) {
+                    const row = getLowestRow(col);
+                    if (row === -1) continue;
+                    board[row][col] = RED;
+                    const score = minimax(depth - 1, alpha, beta, true);
+                    board[row][col] = EMPTY;
+                    minScore = Math.min(minScore, score);
+                    beta = Math.min(beta, score);
+                    if (beta <= alpha) break;
+                }
+                return minScore;
+            }
+        }
+        
+        function evaluateBoard() {
+            let score = 0;
+            
+            // Center column preference
+            for (let r = 0; r < ROWS; r++) {
+                if (board[r][3] === YELLOW) score += 3;
+                if (board[r][3] === RED) score -= 3;
+            }
+            
+            // Evaluate all windows of 4
+            const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    for (const [dr, dc] of dirs) {
+                        const window = [];
+                        for (let i = 0; i < 4; i++) {
+                            const nr = r + dr * i, nc = c + dc * i;
+                            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+                                window.push(board[nr][nc]);
+                            }
+                        }
+                        if (window.length === 4) {
+                            score += scoreWindow(window, YELLOW);
+                            score -= scoreWindow(window, RED);
+                        }
+                    }
+                }
+            }
+            return score;
+        }
+        
+        function scoreWindow(window, player) {
+            const opp = player === RED ? YELLOW : RED;
+            const count = window.filter(x => x === player).length;
+            const empty = window.filter(x => x === EMPTY).length;
+            const oppCount = window.filter(x => x === opp).length;
+            
+            if (oppCount > 0 && count > 0) return 0; // Mixed window
+            if (count === 3 && empty === 1) return 5;
+            if (count === 2 && empty === 2) return 2;
+            return 0;
+        }
+        
+        function updateUI() {
+            const indicator = document.getElementById('turnIndicator');
+            indicator.textContent = currentPlayer === RED ? '🔴 Red' : '🟡 Yellow';
+            
+            // Update drop arrows
+            document.querySelectorAll('.drop-arrow').forEach(arrow => {
+                arrow.textContent = currentPlayer === RED ? '🔴' : '🟡';
+            });
+        }
+        
+        function updateScores() {
+            document.getElementById('scoreRed').textContent = scores.red;
+            document.getElementById('scoreYellow').textContent = scores.yellow;
+            document.getElementById('scoreDraw').textContent = scores.draw;
+        }
+        
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                vsAI = btn.dataset.mode === 'ai';
+                init();
+            });
+        });
+        
+        document.getElementById('newGame').addEventListener('click', init);
+        
+        updateScores();
+        init();
+    </script>
+</body>
+</html>
