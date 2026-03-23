@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>095 - Downhill Skiing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(180deg, #1a0a2e 0%, #2d1650 50%, #1a0a2e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            color: white;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        h1 { color: #ff6b9d; font-size: 1.8em; margin-bottom: 8px; text-shadow: 0 0 20px rgba(255,107,157,0.5); }
+        .info { display: flex; gap: 20px; margin-bottom: 12px; font-size: 1.1em; align-items: center; }
+        .info span { color: #ff6b9d; }
+        canvas {
+            border-radius: 16px;
+            border: 2px solid rgba(255,107,157,0.2);
+            touch-action: none;
+        }
+        .controls { margin-top: 12px; display: flex; gap: 10px; }
+        button.action-btn {
+            background: #ff6b9d; color: #1a0a2e; border: none; padding: 10px 24px;
+            border-radius: 25px; font-size: 1em; font-weight: bold; cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,107,157,0.4); }
+        .message { margin-top: 8px; font-size: 1.2em; min-height: 30px; color: #ccc; }
+        .back-link { margin-top: 16px; }
+        .back-link a { color: #ff6b9d; text-decoration: none; font-size: 0.95em; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>⛷️ Downhill Skiing</h1>
+    <div class="info">
+        <div>Distance: <span id="distance">0</span>m</div>
+        <div>Speed: <span id="speed">0</span></div>
+        <div>Best: <span id="best">0</span>m</div>
+    </div>
+    <canvas id="game" width="440" height="560"></canvas>
+    <div class="message" id="message">← → or swipe to steer. Dodge trees & rocks!</div>
+    <div class="controls">
+        <button class="action-btn" onclick="startGame()">🔄 New Run</button>
+    </div>
+    <div class="back-link"><a href="../index.html">← Back to Arcade</a></div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let best = parseInt(localStorage.getItem('skiingBest') || '0');
+document.getElementById('best').textContent = best;
+
+// Player
+let player = { x: W / 2, y: H * 0.75, width: 20, height: 24 };
+let speed = 0;
+let maxSpeed = 8;
+let distance = 0;
+let gameOver = false;
+let gameStarted = false;
+let steerX = 0; // -1 left, 1 right
+
+// Obstacles
+let obstacles = [];
+let gates = [];
+let snowTrails = [];
+let particles = [];
+let scrollY = 0;
+
+// Snowflakes for ambiance
+let snowflakes = [];
+for (let i = 0; i < 50; i++) {
+    snowflakes.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        size: 1 + Math.random() * 3,
+        speed: 0.5 + Math.random() * 1.5,
+        drift: (Math.random() - 0.5) * 0.5
+    });
+}
+
+const OBSTACLE_TYPES = [
+    { emoji: '🌲', width: 30, height: 40, name: 'tree' },
+    { emoji: '🪨', width: 28, height: 28, name: 'rock' },
+    { emoji: '🌲', width: 30, height: 40, name: 'tree' },
+    { emoji: '⛄', width: 26, height: 30, name: 'snowman' },
+];
+
+function spawnObstacle(y) {
+    const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+    obstacles.push({
+        x: 30 + Math.random() * (W - 60),
+        y: y || -50,
+        ...type
+    });
+}
+
+function spawnGate(y) {
+    const gateX = 60 + Math.random() * (W - 180);
+    const gateWidth = 80 + Math.random() * 40;
+    gates.push({
+        x: gateX,
+        y: y || -50,
+        width: gateWidth,
+        passed: false
+    });
+}
+
+function startGame() {
+    player.x = W / 2;
+    speed = 2;
+    distance = 0;
+    gameOver = false;
+    gameStarted = true;
+    steerX = 0;
+    obstacles = [];
+    gates = [];
+    snowTrails = [];
+    particles = [];
+    scrollY = 0;
+
+    // Pre-populate some obstacles
+    for (let y = -200; y < 0; y += 80 + Math.random() * 60) {
+        spawnObstacle(y);
+        if (Math.random() < 0.3) spawnGate(y - 30);
+    }
+
+    document.getElementById('message').textContent = '← → or swipe to steer. Dodge trees & rocks!';
+}
+
+// Input
+let keys = {};
+document.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (['ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => keys[e.key] = false);
+
+let touchStartX = null;
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    touchStartX = e.touches[0].clientX;
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (touchStartX !== null) {
+        const dx = e.touches[0].clientX - touchStartX;
+        steerX = Math.max(-1, Math.min(1, dx / 40));
+    }
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    steerX = 0;
+    touchStartX = null;
+});
+
+// Also support tap-to-steer on left/right halves
+canvas.addEventListener('mousedown', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (W / rect.width);
+    if (mx < W / 2) steerX = -1;
+    else steerX = 1;
+});
+canvas.addEventListener('mouseup', () => steerX = 0);
+
+function checkCollision(obj) {
+    const px = player.x, py = player.y;
+    const pw = player.width / 2, ph = player.height / 2;
+    const ox = obj.x, oy = obj.y;
+    const ow = obj.width / 2 - 4, oh = obj.height / 2 - 4;
+    return Math.abs(px - ox) < pw + ow && Math.abs(py - oy) < ph + oh;
+}
+
+function endGame() {
+    gameOver = true;
+    if (distance > best) {
+        best = distance;
+        localStorage.setItem('skiingBest', best);
+        document.getElementById('best').textContent = best;
+        document.getElementById('message').textContent = `🏆 New Record: ${best}m!`;
+    } else {
+        document.getElementById('message').textContent = `💥 Crashed at ${distance}m!`;
+    }
+
+    // Crash particles
+    for (let i = 0; i < 15; i++) {
+        particles.push({
+            x: player.x, y: player.y,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
+            life: 40, maxLife: 40,
+            char: ['❄️', '💫', '✨'][Math.floor(Math.random() * 3)]
+        });
+    }
+}
+
+function gameLoop() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Snow background
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#e8f0f8');
+    bg.addColorStop(0.5, '#d4e4f0');
+    bg.addColorStop(1, '#c0d8ea');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // Ski track marks on snow
+    ctx.strokeStyle = 'rgba(180, 200, 220, 0.4)';
+    ctx.lineWidth = 2;
+    for (let y = 0; y < H; y += 40) {
+        const wave = Math.sin((y + scrollY * 0.5) * 0.02) * 30;
+        ctx.beginPath();
+        ctx.moveTo(W * 0.3 + wave, y);
+        ctx.lineTo(W * 0.3 + wave, y + 20);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(W * 0.7 - wave, y);
+        ctx.lineTo(W * 0.7 - wave, y + 20);
+        ctx.stroke();
+    }
+
+    if (gameStarted && !gameOver) {
+        // Increase speed over time
+        speed = Math.min(maxSpeed, 2 + distance / 200);
+
+        // Steering
+        if (keys['ArrowLeft'] || keys['a']) steerX = -1;
+        else if (keys['ArrowRight'] || keys['d']) steerX = 1;
+        else if (!touchStartX) steerX *= 0.85; // decelerate
+
+        player.x += steerX * (3 + speed * 0.4);
+        player.x = Math.max(15, Math.min(W - 15, player.x));
+
+        distance += Math.round(speed * 0.5);
+        scrollY += speed;
+        document.getElementById('distance').textContent = distance;
+        document.getElementById('speed').textContent = Math.round(speed * 10);
+
+        // Snow trail behind player
+        if (Math.random() < 0.5) {
+            snowTrails.push({
+                x: player.x + (Math.random() - 0.5) * 8,
+                y: player.y + 10,
+                life: 40,
+                size: 2 + Math.random() * 2
+            });
+        }
+
+        // Spawn obstacles
+        if (Math.random() < 0.03 + distance / 20000) {
+            spawnObstacle();
+        }
+        if (Math.random() < 0.008) {
+            spawnGate();
+        }
+
+        // Move obstacles toward player (scroll effect)
+        obstacles.forEach(o => o.y += speed);
+        gates.forEach(g => g.y += speed);
+
+        // Check collisions
+        for (const o of obstacles) {
+            if (checkCollision(o)) {
+                endGame();
+                break;
+            }
+        }
+
+        // Check gates
+        for (const g of gates) {
+            if (!g.passed && Math.abs(player.y - g.y) < 15) {
+                if (player.x > g.x && player.x < g.x + g.width) {
+                    g.passed = true;
+                    distance += 50;
+                    particles.push({
+                        x: player.x, y: player.y - 20,
+                        vx: 0, vy: -2,
+                        life: 40, maxLife: 40,
+                        char: '+50!'
+                    });
+                }
+            }
+        }
+
+        // Cleanup offscreen
+        obstacles = obstacles.filter(o => o.y < H + 50);
+        gates = gates.filter(g => g.y < H + 50);
+    }
+
+    // Draw snow trails
+    snowTrails = snowTrails.filter(t => {
+        t.life--;
+        ctx.globalAlpha = t.life / 40;
+        ctx.fillStyle = '#b8d0e4';
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+        ctx.fill();
+        return t.life > 0;
+    });
+    ctx.globalAlpha = 1;
+
+    // Draw gates
+    gates.forEach(g => {
+        ctx.strokeStyle = g.passed ? '#2ecc71' : '#e74c3c';
+        ctx.lineWidth = 3;
+        // Left pole
+        ctx.fillStyle = g.passed ? '#2ecc71' : '#e74c3c';
+        ctx.fillRect(g.x - 3, g.y - 15, 6, 30);
+        // Right pole
+        ctx.fillRect(g.x + g.width - 3, g.y - 15, 6, 30);
+        // Flag line
+        ctx.beginPath();
+        ctx.moveTo(g.x, g.y - 12);
+        ctx.lineTo(g.x + g.width, g.y - 12);
+        ctx.stroke();
+        // Flags
+        for (let fx = g.x + 10; fx < g.x + g.width - 5; fx += 20) {
+            ctx.fillStyle = g.passed ? 'rgba(46,204,113,0.6)' : 'rgba(231,76,60,0.6)';
+            ctx.beginPath();
+            ctx.moveTo(fx, g.y - 12);
+            ctx.lineTo(fx + 8, g.y - 6);
+            ctx.lineTo(fx, g.y);
+            ctx.fill();
+        }
+    });
+
+    // Draw obstacles
+    obstacles.forEach(o => {
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.1)';
+        ctx.beginPath();
+        ctx.ellipse(o.x + 3, o.y + o.height / 2 + 2, o.width / 2, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Emoji
+        ctx.font = `${o.height}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(o.emoji, o.x, o.y);
+    });
+
+    // Draw player (skier)
+    if (!gameOver) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        // Lean based on steering
+        ctx.rotate(steerX * 0.2);
+        ctx.font = '28px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⛷️', 0, 0);
+        ctx.restore();
+    }
+
+    // Snowflakes
+    snowflakes.forEach(s => {
+        s.y += s.speed + (gameStarted && !gameOver ? speed * 0.3 : 0);
+        s.x += s.drift;
+        if (s.y > H) { s.y = -5; s.x = Math.random() * W; }
+        if (s.x < 0) s.x = W;
+        if (s.x > W) s.x = 0;
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Particles
+    particles = particles.filter(p => {
+        p.x += p.vx || 0;
+        p.y += p.vy || 0;
+        if (p.vy !== undefined) p.vy += 0.1;
+        p.life--;
+        ctx.globalAlpha = p.life / p.maxLife;
+        if (p.char.length > 3) {
+            ctx.fillStyle = '#2ecc71';
+            ctx.font = 'bold 18px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.char, p.x, p.y);
+        } else {
+            ctx.font = '20px serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(p.char, p.x, p.y);
+        }
+        return p.life > 0;
+    });
+    ctx.globalAlpha = 1;
+
+    // Game over overlay
+    if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#ff6b9d';
+        ctx.font = 'bold 42px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('CRASHED!', W/2, H/2 - 30);
+        ctx.fillStyle = '#fff';
+        ctx.font = '22px system-ui';
+        ctx.fillText(`Distance: ${distance}m`, W/2, H/2 + 15);
+        ctx.fillStyle = '#aaa';
+        ctx.font = '16px system-ui';
+        ctx.fillText('Press New Run to try again', W/2, H/2 + 50);
+    }
+
+    // Start screen
+    if (!gameStarted) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.font = '60px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('⛷️', W/2, H/2 - 40);
+        ctx.fillStyle = '#ff6b9d';
+        ctx.font = 'bold 28px system-ui';
+        ctx.fillText('Downhill Skiing', W/2, H/2 + 10);
+        ctx.fillStyle = '#ddd';
+        ctx.font = '15px system-ui';
+        ctx.fillText('Arrow keys / swipe / tap to steer', W/2, H/2 + 40);
+        ctx.fillText('Dodge obstacles, pass through gates!', W/2, H/2 + 60);
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+startGame();
+gameStarted = false; // show start screen first
+gameLoop();
+</script>
+</body>
+</html>
